@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, repScope, locationScope, adminLocFilter } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, Input, Select, Button } from "@/components/ui/primitives";
 import { NewCustomerButton } from "@/components/new-customer-button";
+import { isStorageConfigured } from "@/lib/storage";
 import {
   customerTypeLabels, customerStatusLabels, productLabels, temperatureClasses, temperatureLabels,
   customerTemperature, fmtDate,
@@ -73,7 +74,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         <h1 className="text-xl font-bold">{manager ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
         <div className="flex gap-2">
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
-          <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} />
+          <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />
         </div>
       </div>
 

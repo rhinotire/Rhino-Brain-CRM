@@ -20,7 +20,15 @@ type CustomerValues = Partial<{
   nextFollowUpAt: string; notes: string; assignedRepId: string;
 }>;
 
-export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone, locations, currentLocationId }: {
+const NEW_DOC_TYPES: [string, string][] = [
+  ["ACCOUNT_APPLICATION", "Account Application"],
+  ["RESALE_CERTIFICATE", "Resale Certificate"],
+  ["DRIVER_LICENSE", "Driver License Copy"],
+  ["CREDIT_CARD_AUTH", "Credit Card Authorization"],
+  ["W9_FORM", "W-9 Form"],
+];
+
+export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone, locations, currentLocationId, storageReady }: {
   customerId?: string;
   values?: CustomerValues;
   reps: RepOption[];
@@ -28,6 +36,7 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
   onDone?: () => void;
   locations?: { id: string; name: string; shortTag: string }[];
   currentLocationId?: string | null;
+  storageReady?: boolean;
 }) {
   const action = customerId ? updateCustomer.bind(null, customerId) : createCustomer;
   const [state, formAction] = useFormState(action, null);
@@ -104,6 +113,21 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
       <Field label="Notes" className="col-span-2">
         <Textarea name="notes" defaultValue={values.notes} />
       </Field>
+      {!customerId && storageReady && (
+        <div className="col-span-2 space-y-2 rounded-md border border-dashed border-slate-300 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">📄 Documents (optional — PDF/image, max 10 MB each)</div>
+          {NEW_DOC_TYPES.map(([type, label]) => (
+            <div key={type} className="flex items-center gap-3">
+              <span className="w-52 shrink-0 text-sm text-slate-600">{label}</span>
+              <input name={`doc_${type}`} type="file" accept="application/pdf,image/*"
+                className="flex-1 text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-200 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-300" />
+              {type === "RESALE_CERTIFICATE" && (
+                <Input name="doc_RESALE_CERTIFICATE_expiry" type="date" className="w-40" title="Certificate expiration date" />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {state?.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}
       <div className="col-span-2 flex justify-end">
         <SubmitButton>{customerId ? "Save changes" : "Create customer"}</SubmitButton>

@@ -6,3 +6,4 @@ node_modules
 .vercel
 .env*
 import-real-data.ts
+.claude/settings.local.json

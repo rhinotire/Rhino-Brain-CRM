@@ -5,11 +5,46 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, isManager, defaultLocationId } from "@/lib/auth";
 import { customerSchema } from "@/lib/validations";
+import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
-import type { CustomerType, CustomerSource, ProductCategory, CustomerStatus, Tier } from "@prisma/client";
+import type { CustomerType, CustomerSource, ProductCategory, CustomerStatus, Tier, DocumentType } from "@prisma/client";
 
 function parseForm(formData: FormData) {
-  return customerSchema.safeParse(Object.fromEntries(formData.entries()));
+  // Keep only string fields — file inputs (document uploads) are handled separately
+  const entries = Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string"));
+  return customerSchema.safeParse(entries);
+}
+
+const SENSITIVE_TYPES: DocumentType[] = ["DRIVER_LICENSE", "CREDIT_CARD_AUTH"];
+const DOC_MAX_SIZE = 10 * 1024 * 1024;
+const DOC_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"];
+
+/** Uploads any doc_<TYPE> files included in the new-customer form. Failures don't block creation. */
+async function uploadNewCustomerDocs(formData: FormData, customerId: string, userId: string) {
+  if (!isStorageConfigured()) return;
+  const types: DocumentType[] = ["ACCOUNT_APPLICATION", "RESALE_CERTIFICATE", "DRIVER_LICENSE", "CREDIT_CARD_AUTH", "W9_FORM"];
+  for (const type of types) {
+    const file = formData.get(`doc_${type}`);
+    if (!(file instanceof File) || file.size === 0) continue;
+    if (file.size > DOC_MAX_SIZE || !DOC_MIME.includes(file.type)) continue;
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-100);
+      const storagePath = `${customerId}/${type}/${Date.now()}-${safeName}`;
+      await uploadObject(storagePath, await file.arrayBuffer(), file.type);
+      const expiresRaw = type === "RESALE_CERTIFICATE" ? String(formData.get("doc_RESALE_CERTIFICATE_expiry") ?? "") : "";
+      await db.customerDocument.create({
+        data: {
+          customerId, type,
+          fileName: file.name, storagePath, fileSize: file.size, mimeType: file.type,
+          expiresAt: expiresRaw ? new Date(expiresRaw) : null,
+          sensitive: SENSITIVE_TYPES.includes(type),
+          uploadedById: userId,
+        },
+      });
+    } catch (e) {
+      console.error(`Document upload failed for ${type}:`, e);
+    }
+  }
 }
 
 export async function createCustomer(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -28,6 +63,7 @@ export async function createCustomer(_prev: ActionResult | null, formData: FormD
       locationId: defaultLocationId(session, requestedLoc),
     },
   });
+  await uploadNewCustomerDocs(formData, customer.id, session.userId);
   revalidatePath("/customers");
   redirect(`/customers/${customer.id}`);
 }
