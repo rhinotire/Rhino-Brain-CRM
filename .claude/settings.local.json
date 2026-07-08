@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx tsc --noEmit)",
+      "PowerShell(npm run build)",
+      "PowerShell(npx tsx -e \"import { PrismaClient } from '@prisma/client'; const p = new PrismaClient\\(\\); p.user.count\\(\\).then\\(c => { console.log\\('User rows:', c\\); return p.user.findFirst\\({ where: { email: 'owner@rhinobrain.com' }, select: { email: true, name: true } }\\); }\\).then\\(u => { console.log\\('Owner user:', JSON.stringify\\(u\\)\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\('DB ERROR:', e.message\\); process.exit\\(1\\); }\\);\")"
+    ]
+  }
+}

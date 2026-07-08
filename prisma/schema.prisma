@@ -1,0 +1,570 @@
+// TirePro CRM — Prisma schema
+// B2B inside sales management for tire / wheel / trailer parts wholesale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES_REP
+}
+
+enum CustomerType {
+  TIRE_SHOP
+  CAR_DEALER
+  TRAILER_MANUFACTURER
+  FLEET
+  REPAIR_SHOP
+  WHOLESALE_DEALER
+  ONLINE_BUYER
+  OTHER
+}
+
+enum CustomerStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  LOST
+  DO_NOT_CONTACT
+}
+
+enum CustomerSource {
+  GOOGLE
+  FACEBOOK
+  REFERRAL
+  WALK_IN
+  EXISTING
+  COLD_CALL
+  WEBSITE
+  MARKETPLACE
+  OTHER
+}
+
+enum ProductCategory {
+  PCR_TIRES
+  LT_TIRES
+  TBR_TIRES
+  TRAILER_TIRES
+  WHEELS
+  TRAILER_PARTS
+  OIL_LUBRICANTS
+  OTHER
+}
+
+enum Tier {
+  A
+  B
+  C
+  D
+}
+
+enum PipelineStage {
+  NEW_LEAD
+  CONTACTED
+  INTERESTED
+  QUOTED
+  NEGOTIATING
+  FIRST_ORDER
+  ACTIVE_CUSTOMER
+  LOST
+}
+
+enum LostReason {
+  PRICE_TOO_HIGH
+  NO_RESPONSE
+  BOUGHT_FROM_COMPETITOR
+  NO_CURRENT_DEMAND
+  BAD_CREDIT
+  WRONG_CUSTOMER_TYPE
+  OTHER
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  TEXT
+  WHATSAPP
+  QUOTE
+  ORDER
+  PAYMENT
+  VISIT
+  COMPLAINT
+  INTERNAL_NOTE
+  NO_ANSWER
+  VOICEMAIL
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  OPEN
+  COMPLETED
+  CANCELED
+}
+
+enum TaskType {
+  CALL
+  FOLLOW_UP
+  QUOTE
+  PAYMENT
+  REACTIVATION
+  COMPLAINT
+  OTHER
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  FOLLOW_UP_NEEDED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum Probability {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum NotificationType {
+  TASK_DUE
+  TASK_OVERDUE
+  QUOTE_FOLLOW_UP
+  CUSTOMER_NEEDS_CONTACT
+  LEAD_ASSIGNED
+}
+
+enum DocumentType {
+  ACCOUNT_APPLICATION
+  RESALE_CERTIFICATE
+  DRIVER_LICENSE
+  CREDIT_CARD_AUTH
+  W9_FORM
+  INSURANCE_CERT
+  OTHER
+}
+
+// ---------- Models ----------
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique // "Rhino Tire USA"
+  city      String? // "Orlando, FL"
+  shortTag  String // "FL" — used in UI badges
+  color     String   @default("#e8590c")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users         User[]
+  customers     Customer[]
+  leads         Lead[]
+  quotes        Quote[]
+  tasks         Task[]
+  activities    Activity[]
+  opportunities Opportunity[]
+  orders        Order[]
+  inventory     InventorySnapshot[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(SALES_REP)
+  active       Boolean  @default(true)
+  // null for ADMIN = all locations
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customers      Customer[]     @relation("AssignedCustomers")
+  leads          Lead[]         @relation("AssignedLeads")
+  activities     Activity[]
+  tasksAssigned  Task[]         @relation("TaskAssignee")
+  tasksCreated   Task[]         @relation("TaskCreator")
+  quotes         Quote[]
+  opportunities  Opportunity[]
+  notifications  Notification[]
+  importBatches  ImportBatch[]
+  documentsUploaded CustomerDocument[]
+}
+
+model Customer {
+  id             String          @id @default(cuid())
+  companyName    String
+  contactPerson  String?
+  phone          String? // company phone
+  contactCell    String?
+  email          String?
+  website        String?
+  facebookUrl    String?
+  instagramUrl   String?
+  whatsapp       String?
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  type           CustomerType    @default(TIRE_SHOP)
+  status         CustomerStatus  @default(LEAD)
+  source         CustomerSource  @default(OTHER)
+  // primary product interest + full interest list
+  mainInterest   ProductCategory @default(PCR_TIRES)
+  interests      ProductCategory[]
+  tier           Tier            @default(C)
+  creditLimit    Decimal?        @db.Decimal(12, 2)
+  paymentTerms   String?
+  lastContactAt  DateTime?
+  nextFollowUpAt DateTime?
+  notes          String?
+  score          Int             @default(0)
+
+  assignedRepId String?
+  assignedRep   User?   @relation("AssignedCustomers", fields: [assignedRepId], references: [id])
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
+  activities    Activity[]
+  tasks         Task[]
+  quotes        Quote[]
+  opportunities Opportunity[]
+  tags          CustomerTag[]
+  leads         Lead[]
+  documents     CustomerDocument[]
+  orders        Order[]
+
+  // Placeholder fields for future Tireguru POS integration
+  tireguruId     String? @unique
+  externalSource String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedRepId])
+  @@index([locationId])
+  @@index([status])
+  @@index([lastContactAt])
+  @@index([nextFollowUpAt])
+}
+
+model Lead {
+  id            String          @id @default(cuid())
+  companyName   String
+  contactPerson String?
+  phone         String?
+  email         String?
+  city          String?
+  state         String?
+  type          CustomerType    @default(TIRE_SHOP)
+  source        CustomerSource  @default(OTHER)
+  interest      ProductCategory @default(PCR_TIRES)
+  stage         PipelineStage   @default(NEW_LEAD)
+  lostReason    LostReason?
+  lostNote      String?
+  notes         String?
+  nextFollowUpAt DateTime?
+  lastActivityAt DateTime?
+
+  assignedRepId String?
+  assignedRep   User?   @relation("AssignedLeads", fields: [assignedRepId], references: [id])
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
+  // set when the lead is converted into a customer
+  convertedCustomerId String?
+  convertedAt         DateTime?
+  convertedCustomer   Customer? @relation(fields: [convertedCustomerId], references: [id])
+
+  activities Activity[]
+
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stage])
+  @@index([assignedRepId])
+}
+
+model Activity {
+  id                String       @id @default(cuid())
+  type              ActivityType
+  occurredAt        DateTime     @default(now())
+  subject           String
+  notes             String?
+  outcome           String?
+  meaningful        Boolean      @default(false) // real conversation vs. no answer
+  followUpRequired  Boolean      @default(false)
+  nextFollowUpAt    DateTime?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  repId      String
+  rep        User      @relation(fields: [repId], references: [id])
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  quoteId    String?
+  quote      Quote?    @relation(fields: [quoteId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, occurredAt])
+  @@index([repId, occurredAt])
+}
+
+model Task {
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(OPEN)
+  type        TaskType     @default(FOLLOW_UP)
+  completedAt DateTime?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assigneeId String
+  assignee   User      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creatorId  String
+  creator    User      @relation("TaskCreator", fields: [creatorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assigneeId, status, dueDate])
+}
+
+model Quote {
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  id             String      @id @default(cuid())
+  quoteNumber    String      @unique
+  quoteDate      DateTime    @default(now())
+  expirationDate DateTime?
+  status         QuoteStatus @default(DRAFT)
+  sentAt         DateTime?
+  decidedAt      DateTime? // when ACCEPTED / REJECTED
+  lastFollowUpAt DateTime?
+  nextFollowUpAt DateTime?
+  competitorPrice Decimal?   @db.Decimal(12, 2)
+  competitorBrand String?
+  total          Decimal     @default(0) @db.Decimal(12, 2)
+  notes          String?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  repId      String
+  rep        User     @relation(fields: [repId], references: [id])
+
+  items      QuoteItem[]
+  activities Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([repId])
+}
+
+model QuoteItem {
+  id          String          @id @default(cuid())
+  category    ProductCategory @default(PCR_TIRES)
+  description String
+  sizeSku     String?
+  brand       String?
+  quantity    Int             @default(1)
+  unitPrice   Decimal         @default(0) @db.Decimal(12, 2)
+  lineTotal   Decimal         @default(0) @db.Decimal(12, 2)
+
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+model Opportunity {
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  id                String            @id @default(cuid())
+  category          ProductCategory
+  estMonthlyVolume  String?
+  currentSupplier   String?
+  targetPrice       Decimal?          @db.Decimal(12, 2)
+  competitorBrand   String?
+  probability       Probability       @default(MEDIUM)
+  nextAction        String?
+  status            OpportunityStatus @default(OPEN)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  repId      String
+  rep        User     @relation(fields: [repId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  color     String        @default("#64748b")
+  customers CustomerTag[]
+}
+
+model CustomerTag {
+  customerId String
+  tagId      String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+}
+
+model ImportBatch {
+  id         String   @id @default(cuid())
+  entity     String // "customers" | "leads" | ...
+  fileName   String
+  rowCount   Int
+  successful Int
+  failed     Int
+  createdAt  DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  leads Lead[]
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+}
+
+
+// ---------- v2: documents, catalog, inventory, orders ----------
+
+model CustomerDocument {
+  id          String       @id @default(cuid())
+  customerId  String
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type        DocumentType
+  fileName    String
+  storagePath String // Supabase Storage object path
+  fileSize    Int
+  mimeType    String
+  expiresAt   DateTime? // resale certificate expiration
+  sensitive   Boolean      @default(false) // DRIVER_LICENSE / CREDIT_CARD_AUTH
+  notes       String?
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([type, expiresAt])
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  sku         String          @unique
+  brand       String?
+  category    ProductCategory @default(PCR_TIRES)
+  sizeSpec    String? // "ST205/75R15"
+  description String
+  cost        Decimal?        @db.Decimal(10, 2)
+  priceA      Decimal?        @db.Decimal(10, 2)
+  priceB      Decimal?        @db.Decimal(10, 2)
+  priceC      Decimal?        @db.Decimal(10, 2)
+  priceD      Decimal?        @db.Decimal(10, 2)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  inventory  InventorySnapshot[]
+  orderItems OrderItem[]
+
+  @@index([category])
+  @@index([sizeSpec])
+}
+
+model InventorySnapshot {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+  quantity   Int
+  snapshotAt DateTime @default(now())
+
+  @@unique([productId, locationId]) // full-overwrite upsert on re-import
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  externalId String?  @unique // Tire Guru invoice #
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+  orderDate  DateTime
+  total      Decimal  @db.Decimal(12, 2)
+  source     String   @default("TIREGURU_CSV")
+  createdAt  DateTime @default(now())
+
+  items OrderItem[]
+
+  @@index([customerId, orderDate])
+  @@index([locationId, orderDate])
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id])
+  rawDescription String // as it appeared in the imported CSV
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  lineTotal      Decimal  @db.Decimal(12, 2)
+}
