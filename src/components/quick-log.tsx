@@ -27,8 +27,10 @@ export function QuickLogButton({
   size?: "sm" | "md";
 }) {
   const [open, setOpen] = useState(false);
+  const [outcome, setOutcome] = useState("");
   const [state, action] = useFormState(logActivity, null);
   const toast = useToast();
+  const isLost = outcome.startsWith("LOST");
 
   useEffect(() => {
     if (state?.ok) { toast("Activity logged"); setOpen(false); }
@@ -65,11 +67,44 @@ export function QuickLogButton({
           <Field label="Subject *">
             <Input name="subject" required placeholder="e.g. Called about TBR restock pricing" />
           </Field>
+          <Field label="Outcome">
+            <Select name="outcome" value={outcome} onChange={e => setOutcome(e.target.value)}>
+              <option value="">— normal conversation —</option>
+              <option value="POSITIVE">✅ Positive — order / quote coming</option>
+              <option value="LOST_NO_STOCK">❌ Lost sale — we had NO STOCK</option>
+              <option value="LOST_PRICE">❌ Lost sale — competitor PRICE</option>
+              <option value="LOST_OTHER">❌ Lost sale — other reason</option>
+            </Select>
+          </Field>
+          {isLost && (
+            <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Item / size they wanted">
+                  <Input name="lostItem" placeholder="e.g. ST225/75R15" />
+                </Field>
+                <Field label="Quantity">
+                  <Input name="lostQty" type="number" min={0} defaultValue={48} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Est. lost value $">
+                  <Input name="lostValue" type="number" min={0} step="0.01" placeholder="2500" />
+                </Field>
+                {outcome === "LOST_PRICE" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Competitor">
+                      <Input name="lostCompetitor" placeholder="ATD / Horizon…" />
+                    </Field>
+                    <Field label="Their price">
+                      <Input name="lostCompetitorPrice" type="number" min={0} step="0.01" />
+                    </Field>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <Field label="Notes">
             <Textarea name="notes" placeholder="What was discussed, prices mentioned, next steps…" />
-          </Field>
-          <Field label="Outcome">
-            <Input name="outcome" placeholder="e.g. Will order 40 trailer tires next week" />
           </Field>
           <div className="flex items-center gap-5 text-sm text-slate-600">
             <label className="flex items-center gap-1.5"><input type="checkbox" name="meaningful" /> Meaningful conversation</label>

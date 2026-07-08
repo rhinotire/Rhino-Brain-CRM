@@ -8,6 +8,8 @@ import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
 import { EditCustomerButton } from "@/components/edit-customer-button";
 import { TaskActions } from "@/components/task-form";
+import { CustomerDocuments } from "@/components/customer-documents";
+import { isStorageConfigured } from "@/lib/storage";
 import {
   customerTypeLabels, customerStatusLabels, customerSourceLabels, productLabels,
   activityTypeLabels, quoteStatusLabels, taskPriorityLabels,
@@ -30,6 +32,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       quotes: { orderBy: { quoteDate: "desc" }, include: { rep: { select: { name: true } } } },
       tasks: { orderBy: { dueDate: "asc" }, include: { assignee: { select: { name: true } } } },
       opportunities: { orderBy: { createdAt: "desc" } },
+      documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
     },
   });
   if (!customer) notFound();
@@ -76,7 +79,12 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               companyName: customer.companyName,
               contactPerson: customer.contactPerson ?? undefined,
               phone: customer.phone ?? undefined,
+              contactCell: customer.contactCell ?? undefined,
               email: customer.email ?? undefined,
+              website: customer.website ?? undefined,
+              facebookUrl: customer.facebookUrl ?? undefined,
+              instagramUrl: customer.instagramUrl ?? undefined,
+              whatsapp: customer.whatsapp ?? undefined,
               address: customer.address ?? undefined,
               city: customer.city ?? undefined,
               state: customer.state ?? undefined,
@@ -103,8 +111,13 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             <dl className="space-y-2 text-sm">
               {[
                 ["Contact", customer.contactPerson],
-                ["Phone", customer.phone],
+                ["Company phone", customer.phone],
+                ["Contact cell", customer.contactCell],
                 ["Email", customer.email],
+                ["WhatsApp", customer.whatsapp],
+                ["Website", customer.website],
+                ["Facebook", customer.facebookUrl],
+                ["Instagram", customer.instagramUrl],
                 ["Address", [customer.address, customer.city, customer.state, customer.zip].filter(Boolean).join(", ")],
                 ["Source", customerSourceLabels[customer.source]],
                 ["Main interest", productLabels[customer.mainInterest]],
@@ -141,10 +154,18 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             </div>
           </Card>
 
-          <Card title="Order History">
-            <div className="rounded-md border border-dashed border-slate-300 p-4 text-center text-sm text-slate-400">
-              Order history will appear here after Tireguru POS integration (Phase 3).
-            </div>
+          <Card title="📄 Documents">
+            <CustomerDocuments
+              customerId={customer.id}
+              isManager={manager}
+              storageReady={isStorageConfigured()}
+              docs={customer.documents.map(d => ({
+                id: d.id, type: d.type, fileName: d.fileName,
+                expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+                sensitive: d.sensitive, createdAt: d.createdAt.toISOString(),
+                uploadedBy: d.uploadedBy.name,
+              }))}
+            />
           </Card>
         </div>
 
@@ -213,11 +234,10 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             </div>
           </Card>
 
-          <Card title="AI Assistant (coming soon)">
-            <div className="space-y-2 text-sm text-slate-400">
-              <div className="rounded-md border border-dashed border-slate-300 p-3">Summarize this customer&apos;s history</div>
-              <div className="rounded-md border border-dashed border-slate-300 p-3">Draft a follow-up message</div>
-            </div>
+          <Card title="🤖 AI Assistant">
+            <Link href="/assistant" className="block rounded-md border border-dashed border-brand-300 bg-brand-50/50 p-3 text-sm text-brand-700 hover:bg-brand-50">
+              Draft a follow-up email/text for this customer, or ask about your book of business →
+            </Link>
           </Card>
         </div>
       </div>

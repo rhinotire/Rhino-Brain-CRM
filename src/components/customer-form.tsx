@@ -13,7 +13,8 @@ import { useEffect } from "react";
 export type RepOption = { id: string; name: string };
 
 type CustomerValues = Partial<{
-  companyName: string; contactPerson: string; phone: string; email: string; address: string;
+  companyName: string; contactPerson: string; phone: string; contactCell: string; email: string;
+  website: string; facebookUrl: string; instagramUrl: string; whatsapp: string; address: string;
   city: string; state: string; zip: string; type: string; status: string; source: string;
   mainInterest: string; tier: string; creditLimit: string; paymentTerms: string;
   nextFollowUpAt: string; notes: string; assignedRepId: string;
@@ -51,8 +52,13 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
         <Input name="companyName" defaultValue={values.companyName} required />
       </Field>
       <Field label="Contact Person"><Input name="contactPerson" defaultValue={values.contactPerson} /></Field>
-      <Field label="Phone"><Input name="phone" defaultValue={values.phone} /></Field>
+      <Field label="Company Phone"><Input name="phone" defaultValue={values.phone} /></Field>
+      <Field label="Contact Cell"><Input name="contactCell" defaultValue={values.contactCell} /></Field>
       <Field label="Email"><Input name="email" type="email" defaultValue={values.email} /></Field>
+      <Field label="Website"><Input name="website" placeholder="https://…" defaultValue={values.website} /></Field>
+      <Field label="WhatsApp"><Input name="whatsapp" defaultValue={values.whatsapp} /></Field>
+      <Field label="Facebook"><Input name="facebookUrl" placeholder="https://facebook.com/…" defaultValue={values.facebookUrl} /></Field>
+      <Field label="Instagram"><Input name="instagramUrl" placeholder="https://instagram.com/…" defaultValue={values.instagramUrl} /></Field>
       <Field label="Address"><Input name="address" defaultValue={values.address} /></Field>
       <Field label="City"><Input name="city" defaultValue={values.city} /></Field>
       <div className="grid grid-cols-2 gap-3">

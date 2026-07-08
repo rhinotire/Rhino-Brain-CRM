@@ -31,13 +31,20 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
   else if (d.leadId) locId = (await db.lead.findUnique({ where: { id: d.leadId }, select: { locationId: true } }))?.locationId ?? null;
   if (!locId) locId = defaultLocationId(session, null);
 
+  const OUTCOME_LABELS: Record<string, string> = {
+    POSITIVE: "Positive — order / quote coming",
+    LOST_NO_STOCK: "Lost sale — no stock",
+    LOST_PRICE: "Lost sale — competitor price",
+    LOST_OTHER: "Lost sale — other reason",
+  };
+
   const activity = await db.activity.create({
     data: {
       locationId: locId,
       type: d.type,
       subject: d.subject,
       notes: d.notes,
-      outcome: d.outcome,
+      outcome: d.outcome ? OUTCOME_LABELS[d.outcome] ?? d.outcome : undefined,
       meaningful,
       followUpRequired: d.followUpRequired,
       nextFollowUpAt: d.nextFollowUpAt,
@@ -47,6 +54,29 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
       repId: session.userId,
     },
   });
+
+  // Lost-sale outcomes also create a LostSale record (restock / pricing intel)
+  if (d.outcome?.startsWith("LOST")) {
+    let accountName = "";
+    if (d.customerId) accountName = (await db.customer.findUnique({ where: { id: d.customerId }, select: { companyName: true } }))?.companyName ?? "";
+    else if (d.leadId) accountName = (await db.lead.findUnique({ where: { id: d.leadId }, select: { companyName: true } }))?.companyName ?? "";
+    await db.lostSale.create({
+      data: {
+        reason: d.outcome === "LOST_NO_STOCK" ? "NO_STOCK" : d.outcome === "LOST_PRICE" ? "PRICE" : "OTHER",
+        item: d.lostItem || "(unspecified)",
+        quantity: d.lostQty ?? 0,
+        estValue: d.lostValue ?? 0,
+        competitor: d.lostCompetitor,
+        competitorPrice: d.lostCompetitorPrice,
+        notes: d.notes,
+        customerName: accountName,
+        customerId: d.customerId || null,
+        repId: session.userId,
+        locationId: locId,
+      },
+    });
+    revalidatePath("/lost-sales");
+  }
 
   // Keep customer maintenance fields + score in sync
   if (d.customerId && isContact) {
