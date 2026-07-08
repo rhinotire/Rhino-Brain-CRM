@@ -1,0 +1,101 @@
+import { db } from "@/lib/db";
+import { requireSession, isManager } from "@/lib/auth";
+import { Table, THead, EmptyRow, Badge, Input, Select, Button, StatCard } from "@/components/ui/primitives";
+import { fmtMoney } from "@/lib/domain";
+import type { Prisma } from "@prisma/client";
+
+export const dynamic = "force-dynamic";
+
+type Search = { q?: string; cat?: string; stock?: string };
+
+export default async function ProductsPage({ searchParams }: { searchParams: Search }) {
+  const session = await requireSession();
+  const manager = isManager(session);
+
+  const where: Prisma.ProductWhereInput = { active: true };
+  const q = searchParams.q?.trim();
+  if (q) {
+    where.OR = [
+      { sku: { contains: q, mode: "insensitive" } },
+      { sizeSpec: { contains: q, mode: "insensitive" } },
+      { brand: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ];
+  }
+  if (searchParams.cat) where.rawCategory = searchParams.cat;
+
+  const [locations, categories, totalCount, products] = await Promise.all([
+    db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } }),
+    db.product.findMany({ where: { active: true, rawCategory: { not: null } }, distinct: ["rawCategory"], select: { rawCategory: true }, orderBy: { rawCategory: "asc" } }),
+    db.product.count({ where }),
+    db.product.findMany({
+      where,
+      orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
+      take: 200,
+      include: { inventory: { select: { locationId: true, quantity: true } } },
+    }),
+  ]);
+
+  const qtyAt = (p: (typeof products)[number], locId: string) =>
+    p.inventory.find(i => i.locationId === locId)?.quantity ?? null;
+
+  let rows = products.map(p => ({ p, stocks: locations.map(l => qtyAt(p, l.id)) }));
+  if (searchParams.stock === "in") rows = rows.filter(r => r.stocks.some(s => (s ?? 0) > 0));
+  if (searchParams.stock === "out") rows = rows.filter(r => !r.stocks.some(s => (s ?? 0) > 0));
+
+  const totalUnits = await db.inventorySnapshot.groupBy({ by: ["locationId"], _sum: { quantity: true } });
+  const unitsAt = (locId: string) => totalUnits.find(t => t.locationId === locId)?._sum.quantity ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-xl font-bold">Products &amp; Stock <span className="text-sm font-normal text-slate-400">({totalCount} SKUs)</span></h1>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatCard label="Active SKUs" value={totalCount} />
+        {locations.map(l => (
+          <StatCard key={l.id} label={`${l.name} units on hand`} value={unitsAt(l.id).toLocaleString()} />
+        ))}
+      </div>
+
+      <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-5">
+        <Input name="q" placeholder="Search size / SKU / brand / description — e.g. 205/75" defaultValue={searchParams.q} className="col-span-2" />
+        <Select name="cat" defaultValue={searchParams.cat ?? ""}>
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c.rawCategory!} value={c.rawCategory!}>{c.rawCategory}</option>)}
+        </Select>
+        <Select name="stock" defaultValue={searchParams.stock ?? ""}>
+          <option value="">Any stock</option>
+          <option value="in">In stock</option>
+          <option value="out">Out of stock</option>
+        </Select>
+        <Button type="submit" variant="secondary">Search</Button>
+      </form>
+
+      <Table>
+        <THead cols={["SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost"] : []), ...locations.map(l => `${l.shortTag} Stock`)]} />
+        <tbody>
+          {rows.map(({ p, stocks }) => (
+            <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
+              <td className="px-3 py-2 font-mono text-xs text-slate-700 whitespace-nowrap">{p.sku}</td>
+              <td className="px-3 py-2">{p.brand ?? "—"}</td>
+              <td className="px-3 py-2"><Badge>{p.rawCategory ?? "—"}</Badge></td>
+              <td className="px-3 py-2 font-medium whitespace-nowrap">{p.sizeSpec ?? "—"}</td>
+              <td className="px-3 py-2 text-slate-600">{p.description}</td>
+              {manager && <td className="px-3 py-2 tabular-nums">{p.cost === null ? "—" : fmtMoney(Number(p.cost))}</td>}
+              {stocks.map((s, i) => (
+                <td key={i} className="px-3 py-2 tabular-nums">
+                  {s === null ? <span className="text-slate-300">—</span>
+                    : s === 0 ? <span className="font-semibold text-red-600">0</span>
+                    : s <= 4 ? <span className="font-semibold text-amber-600">{s}</span>
+                    : <span className="font-semibold text-emerald-700">{s}</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {rows.length === 0 && <EmptyRow colSpan={7 + locations.length} message="No products match your search." />}
+        </tbody>
+      </Table>
+      {totalCount > 200 && <p className="text-xs text-slate-400">Showing first 200 of {totalCount} — refine your search to narrow down.</p>}
+    </div>
+  );
+}

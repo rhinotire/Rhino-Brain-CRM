@@ -8,6 +8,8 @@ import { NotificationBell } from "@/components/notification-bell";
 
 const managerNav = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/products", label: "Products & Stock", icon: "📦" },
+  { href: "/ar", label: "A/R Aging", icon: "💰" },
   { href: "/customers", label: "Customers", icon: "🏬" },
   { href: "/pipeline", label: "Lead Pipeline", icon: "⇉" },
   { href: "/leads", label: "Leads List", icon: "☰" },
@@ -26,6 +28,8 @@ const adminNav = [
 
 const repNav = [
   { href: "/my-work", label: "My Work Today", icon: "★" },
+  { href: "/products", label: "Products & Stock", icon: "📦" },
+  { href: "/ar", label: "My A/R", icon: "💰" },
   { href: "/customers", label: "My Customers", icon: "🏬" },
   { href: "/pipeline", label: "My Leads", icon: "⇉" },
   { href: "/quotes", label: "My Quotes", icon: "＄" },
