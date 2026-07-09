@@ -3,8 +3,17 @@
 import { useEffect, useState, useTransition } from "react";
 import { generateFlyerCopy, type FlyerCopy, type FlyerItemInput } from "@/actions/flyers";
 import { ProductPicker } from "@/components/product-picker";
-import { Button, Input, Select, Field, Card } from "@/components/ui/primitives";
+import { Button, Input, Select, Textarea, Field, Card } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+
+const THEME_PRESETS: [string, string][] = [
+  ["🇺🇸 July 4th", "Independence Day sale — patriotic energy, summer road trips, get fleets and shops stocked for the holiday rush"],
+  ["🌀 Hurricane season", "Florida hurricane season prep — trailer tires and spares in stock now, don't get caught unprepared when a storm is coming"],
+  ["🔥 Overstock blowout", "Warehouse overstock clearance — prices this low only while these quantities last, first come first served"],
+  ["📦 New arrivals", "Just landed — new container arrived, fresh stock of hard-to-find sizes, order before they sell out again"],
+  ["🎄 Year-end", "Year-end closeout — last chance at this year's pricing, stock up before the new year price increases"],
+  ["🚚 Fleet special", "Fleet-focused deal — volume pricing for fleets and repair shops, keep your trucks rolling for less"],
+];
 
 type Row = FlyerItemInput & { stockNote?: string; image?: string };
 const emptyRow = (): Row => ({ name: "", description: "", wasPrice: "", specialPrice: "" });
@@ -24,6 +33,7 @@ export function FlyerBuilder() {
   const [language, setLanguage] = useState<"en" | "es" | "both">("both");
   const [tone, setTone] = useState("bold and urgent");
   const [contactLine, setContactLine] = useState("Rhino Tire USA — Orlando, FL · Call your sales rep to order");
+  const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [copy, setCopy] = useState<FlyerCopy | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
@@ -45,7 +55,7 @@ export function FlyerBuilder() {
 
   const generate = () => start(async () => {
     const items = rows.filter(r => r.name && r.specialPrice);
-    const res = await generateFlyerCopy({ title, language, tone, contactLine, items });
+    const res = await generateFlyerCopy({ title, language, tone, contactLine, notes, items });
     if (res.ok && res.copy) { setCopy(res.copy); toast("Flyer generated — review below, then print"); }
     else toast(res.error ?? "Failed", "error");
   });
@@ -72,6 +82,24 @@ export function FlyerBuilder() {
             </Select>
           </Field>
           <Field label="Contact line"><Input value={contactLine} onChange={e => setContactLine(e.target.value)} /></Field>
+        </div>
+
+        <div className="mt-3">
+          <Field label="Promotion theme / notes to the AI (optional)">
+            <>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="min-h-[60px]"
+                placeholder='e.g. "4th of July sale, focus on trailer tires, mention free local delivery on 20+ tires" — 中文写也可以，文案仍按所选语言输出' />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {THEME_PRESETS.map(([label, text]) => (
+                  <button key={label} type="button"
+                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 hover:border-brand-400 hover:bg-brand-50"
+                    onClick={() => setNotes(text)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          </Field>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-dashed border-slate-300 p-3">

@@ -25,6 +25,7 @@ export async function generateFlyerCopy(input: {
   language: "en" | "es" | "both";
   tone: string;            // e.g. "bold and urgent" | "friendly"
   contactLine: string;
+  notes?: string;          // theme / extra instructions from the owner
   items: FlyerItemInput[];
 }): Promise<{ ok?: boolean; copy?: FlyerCopy; error?: string }> {
   await requireManager();
@@ -48,7 +49,7 @@ export async function generateFlyerCopy(input: {
       system: `You write punchy wholesale-tire promo flyers for Rhino Tire USA (Orlando, FL) and Everflow Tire (Dallas, TX). Audience: tire shop owners, car dealers, fleets. Tone: ${input.tone}. ${langNote} Never invent prices or products. Reply ONLY with valid JSON, no markdown fences.`,
       messages: [{
         role: "user",
-        content: `Flyer: "${input.title}". Contact: ${input.contactLine}\n\nProducts on special:\n${itemsText}\n\nReturn JSON exactly in this shape:\n{"headline": "big attention-grabbing headline (max 8 words)", "tagline": "one supporting line (max 14 words)", "intro": "1-2 short sentences to shop owners", "itemBlurbs": ["one punchy line per product, same order, max 12 words each — ${input.items.length} entries"], "footer": "one-line call to action mentioning limited time"}`,
+        content: `Flyer: "${input.title}". Contact: ${input.contactLine}${input.notes?.trim() ? `\n\nTheme / instructions from the owner (follow these closely): ${input.notes.trim()}` : ""}\n\nProducts on special:\n${itemsText}\n\nReturn JSON exactly in this shape:\n{"headline": "big attention-grabbing headline (max 8 words)", "tagline": "one supporting line (max 14 words)", "intro": "1-2 short sentences to shop owners", "itemBlurbs": ["one punchy line per product, same order, max 12 words each — ${input.items.length} entries"], "footer": "one-line call to action mentioning limited time"}`,
       }],
     });
     const text = response.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("").trim();
