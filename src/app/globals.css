@@ -4,3 +4,16 @@
 
 :root { color-scheme: light; }
 body { @apply bg-slate-100 text-slate-900 antialiased; }
+
+/* Printing a flyer: hide the app shell, print only #flyer-print with full colors */
+@media print {
+  body * { visibility: hidden; }
+  #flyer-print, #flyer-print * { visibility: visible; }
+  #flyer-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

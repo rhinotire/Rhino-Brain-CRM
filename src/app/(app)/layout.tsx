@@ -10,6 +10,7 @@ import { ResponsiveShell } from "@/components/responsive-shell";
 const managerNav = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/assistant", label: "AI Assistant", icon: "🤖" },
+  { href: "/flyers", label: "Special Flyers", icon: "📣" },
   { href: "/products", label: "Products & Stock", icon: "📦" },
   { href: "/lost-sales", label: "Lost Sales", icon: "💸" },
   { href: "/ar", label: "A/R Aging", icon: "💰" },
