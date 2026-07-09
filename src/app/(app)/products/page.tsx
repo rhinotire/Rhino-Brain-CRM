@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireSession, isManager } from "@/lib/auth";
-import { Table, THead, EmptyRow, Badge, Input, Select, Button, StatCard } from "@/components/ui/primitives";
+import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
+import { ProductsFilter } from "@/components/products-filter";
 import { fmtMoney } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
 
@@ -23,6 +24,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     ];
   }
   if (searchParams.cat) where.rawCategory = searchParams.cat;
+  // stock filter belongs in the DB query, not post-filtering the first 200 rows
+  if (searchParams.stock === "in") where.inventory = { some: { quantity: { gt: 0 } } };
+  if (searchParams.stock === "out") where.NOT = { inventory: { some: { quantity: { gt: 0 } } } };
 
   const [locations, categories, totalCount, products] = await Promise.all([
     db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } }),
@@ -39,9 +43,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const qtyAt = (p: (typeof products)[number], locId: string) =>
     p.inventory.find(i => i.locationId === locId)?.quantity ?? null;
 
-  let rows = products.map(p => ({ p, stocks: locations.map(l => qtyAt(p, l.id)) }));
-  if (searchParams.stock === "in") rows = rows.filter(r => r.stocks.some(s => (s ?? 0) > 0));
-  if (searchParams.stock === "out") rows = rows.filter(r => !r.stocks.some(s => (s ?? 0) > 0));
+  const rows = products.map(p => ({ p, stocks: locations.map(l => qtyAt(p, l.id)) }));
 
   const totalUnits = await db.inventorySnapshot.groupBy({ by: ["locationId"], _sum: { quantity: true } });
   const unitsAt = (locId: string) => totalUnits.find(t => t.locationId === locId)?._sum.quantity ?? 0;
@@ -57,19 +59,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
         ))}
       </div>
 
-      <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-5">
-        <Input name="q" placeholder="Search size / SKU / brand / description — e.g. 205/75" defaultValue={searchParams.q} className="col-span-2" />
-        <Select name="cat" defaultValue={searchParams.cat ?? ""}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c.rawCategory!} value={c.rawCategory!}>{c.rawCategory}</option>)}
-        </Select>
-        <Select name="stock" defaultValue={searchParams.stock ?? ""}>
-          <option value="">Any stock</option>
-          <option value="in">In stock</option>
-          <option value="out">Out of stock</option>
-        </Select>
-        <Button type="submit" variant="secondary">Search</Button>
-      </form>
+      <ProductsFilter categories={categories.map(c => c.rawCategory!).filter(Boolean)} />
 
       <Table>
         <THead cols={["SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost"] : []), ...locations.map(l => `${l.shortTag} Stock`)]} />
