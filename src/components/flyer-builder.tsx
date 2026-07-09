@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { generateFlyerCopy, type FlyerCopy, type FlyerItemInput } from "@/actions/flyers";
 import { ProductPicker } from "@/components/product-picker";
 import { Button, Input, Select, Field, Card } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 
-type Row = FlyerItemInput & { stockNote?: string };
+type Row = FlyerItemInput & { stockNote?: string; image?: string };
 const emptyRow = (): Row => ({ name: "", description: "", wasPrice: "", specialPrice: "" });
+
+const LOGO_KEY = "rhino_flyer_logo";
+
+function readAsDataUrl(file: File, cb: (url: string) => void) {
+  const r = new FileReader();
+  r.onload = () => cb(String(r.result));
+  r.readAsDataURL(file);
+}
 
 export function FlyerBuilder() {
   const now = new Date();
@@ -18,8 +26,19 @@ export function FlyerBuilder() {
   const [contactLine, setContactLine] = useState("Rhino Tire USA — Orlando, FL · Call your sales rep to order");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [copy, setCopy] = useState<FlyerCopy | null>(null);
+  const [logo, setLogo] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
+
+  // company logo is remembered on this computer once uploaded
+  useEffect(() => {
+    try { const saved = localStorage.getItem(LOGO_KEY); if (saved) setLogo(saved); } catch {}
+  }, []);
+  const saveLogo = (file: File) => readAsDataUrl(file, url => {
+    setLogo(url);
+    try { localStorage.setItem(LOGO_KEY, url); toast("Logo saved — it will be used on every flyer"); }
+    catch { toast("Logo loaded for this flyer (too large to remember — use an image under ~2 MB to save it)", "error"); }
+  });
 
   const setRow = (i: number, patch: Partial<Row>) =>
     setRows(list => list.map((r, x) => (x === i ? { ...r, ...patch } : r)));
@@ -55,6 +74,25 @@ export function FlyerBuilder() {
           <Field label="Contact line"><Input value={contactLine} onChange={e => setContactLine(e.target.value)} /></Field>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-dashed border-slate-300 p-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company logo</span>
+          {logo
+            /* eslint-disable-next-line @next/next/no-img-element */
+            ? <img src={logo} alt="logo" className="h-10 w-auto rounded border border-slate-200 bg-white px-1" />
+            : <span className="text-xs text-slate-400">none yet — using the default Rhino header</span>}
+          <label className="cursor-pointer rounded-md bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300">
+            {logo ? "Change logo" : "⬆ Upload logo"}
+            <input type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) saveLogo(f); e.target.value = ""; }} />
+          </label>
+          {logo && (
+            <button type="button" className="text-xs text-red-500 hover:underline"
+              onClick={() => { setLogo(null); try { localStorage.removeItem(LOGO_KEY); } catch {} }}>
+              Remove
+            </button>
+          )}
+        </div>
+
         <div className="mt-4 space-y-2">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Products on special</div>
           {rows.map((r, i) => (
@@ -72,7 +110,17 @@ export function FlyerBuilder() {
               <div className="col-span-2 sm:col-span-2"><Input className="h-8 text-xs" type="number" step="0.01" placeholder="Was $" value={r.wasPrice} onChange={e => setRow(i, { wasPrice: e.target.value })} /></div>
               <div className="col-span-2 sm:col-span-2"><Input className="h-8 text-xs" type="number" step="0.01" placeholder="Special $ *" value={r.specialPrice} onChange={e => setRow(i, { specialPrice: e.target.value })} /></div>
               <button className="col-span-2 h-8 rounded text-xs text-red-500 hover:bg-red-50 sm:col-span-1" onClick={() => setRows(l => l.filter((_, x) => x !== i))} disabled={rows.length === 1}>Remove</button>
-              {r.stockNote && <div className="col-span-6 -mt-1 text-xs text-slate-400 sm:col-span-12">📦 {r.stockNote}</div>}
+              <div className="col-span-6 -mt-1 flex items-center gap-3 sm:col-span-12">
+                {r.stockNote && <span className="text-xs text-slate-400">📦 {r.stockNote}</span>}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {r.image && <img src={r.image} alt="" className="h-8 w-8 rounded border border-slate-200 object-cover" />}
+                <label className="cursor-pointer text-xs text-brand-600 hover:underline">
+                  {r.image ? "Change photo" : "📷 Add tire photo"}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) readAsDataUrl(f, url => setRow(i, { image: url })); e.target.value = ""; }} />
+                </label>
+                {r.image && <button type="button" className="text-xs text-red-400 hover:underline" onClick={() => setRow(i, { image: undefined })}>remove photo</button>}
+              </div>
             </div>
           ))}
           <div className="flex items-center justify-between">
@@ -92,11 +140,21 @@ export function FlyerBuilder() {
           </div>
 
           <div id="flyer-print" className="mx-auto max-w-2xl rounded-lg border border-slate-200 bg-white shadow-sm print:max-w-none print:rounded-none print:border-0 print:shadow-none">
-            <div className="rounded-t-lg bg-ink-900 px-8 py-6 text-center print:rounded-none">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-16 w-16 rounded-lg" />
-              <div className="mt-2 text-xl font-black tracking-tight text-white">RHINO <span className="text-brand-500">TIRE USA</span></div>
-              <div className="mt-3 text-3xl font-black uppercase text-brand-500">{copy.headline}</div>
+            {logo && (
+              <div className="rounded-t-lg bg-white px-8 pb-3 pt-6 text-center print:rounded-none">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo} alt="Company logo" className="mx-auto max-h-28 w-auto max-w-full" />
+              </div>
+            )}
+            <div className={`${logo ? "" : "rounded-t-lg"} bg-ink-900 px-8 py-6 text-center print:rounded-none`}>
+              {!logo && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-16 w-16 rounded-lg" />
+                  <div className="mt-2 text-xl font-black tracking-tight text-white">RHINO <span className="text-brand-500">TIRE USA</span></div>
+                </>
+              )}
+              <div className={`${logo ? "" : "mt-3"} text-3xl font-black uppercase text-brand-500`}>{copy.headline}</div>
               <div className="mt-1 text-sm text-slate-300">{copy.tagline}</div>
             </div>
             <div className="px-8 py-6">
@@ -105,10 +163,14 @@ export function FlyerBuilder() {
               <div className="space-y-3">
                 {validRows.map((r, i) => (
                   <div key={i} className="flex items-center justify-between gap-4 rounded-md border border-slate-200 p-4">
-                    <div className="min-w-0">
-                      <div className="text-lg font-black text-slate-800">{r.name}</div>
-                      <div className="text-sm text-slate-500">{r.description}</div>
-                      {copy.itemBlurbs[i] && <div className="mt-0.5 text-sm font-medium text-brand-700">{copy.itemBlurbs[i]}</div>}
+                    <div className="flex min-w-0 items-center gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {r.image && <img src={r.image} alt={r.name} className="h-20 w-20 shrink-0 rounded-md border border-slate-100 object-cover" />}
+                      <div className="min-w-0">
+                        <div className="text-lg font-black text-slate-800">{r.name}</div>
+                        <div className="text-sm text-slate-500">{r.description}</div>
+                        {copy.itemBlurbs[i] && <div className="mt-0.5 text-sm font-medium text-brand-700">{copy.itemBlurbs[i]}</div>}
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
                       {r.wasPrice && <div className="text-sm text-slate-400 line-through">${Number(r.wasPrice).toFixed(2)}</div>}
