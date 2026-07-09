@@ -219,12 +219,17 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* AI assistant placeholder (Phase 3) */}
-      <Card title="AI Sales Assistant — coming soon">
-        <div className="grid gap-3 text-sm text-slate-500 md:grid-cols-3">
-          <div className="rounded-md border border-dashed border-slate-300 p-3">📞 Suggest who to call today</div>
-          <div className="rounded-md border border-dashed border-slate-300 p-3">📝 Draft follow-up messages</div>
-          <div className="rounded-md border border-dashed border-slate-300 p-3">⚠️ Detect at-risk customers</div>
+      <Card title="🤖 AI Sales Assistant" action={<Link href="/assistant" className="text-xs text-brand-600 hover:underline">Open assistant →</Link>}>
+        <div className="grid gap-3 text-sm md:grid-cols-3">
+          <Link href="/assistant" className="rounded-md border border-brand-200 bg-brand-50/50 p-3 text-slate-700 hover:bg-brand-50">
+            📞 <span className="font-medium">Who to call today</span> — top follow-ups ranked with AI coaching tips
+          </Link>
+          <Link href="/assistant" className="rounded-md border border-brand-200 bg-brand-50/50 p-3 text-slate-700 hover:bg-brand-50">
+            📝 <span className="font-medium">Draft follow-up messages</span> — email + text, ready to copy and send
+          </Link>
+          <Link href="/assistant" className="rounded-md border border-brand-200 bg-brand-50/50 p-3 text-slate-700 hover:bg-brand-50">
+            💬 <span className="font-medium">Ask about your business</span> — English or 中文
+          </Link>
         </div>
       </Card>
     </div>
