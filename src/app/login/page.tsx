@@ -13,8 +13,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/rhino-brain-logo.png" alt="Rhino Brain" className="mx-auto h-16 w-16 rounded-lg" />
-          <div className="mt-3 text-2xl font-black tracking-tight text-white">
+          <img src="/rhino-brain-logo.png" alt="Rhino Brain" className="mx-auto h-36 w-36 rounded-2xl shadow-lg" />
+          <div className="mt-4 text-3xl font-black tracking-tight text-white">
             RHINO <span className="text-brand-500">BRAIN</span>
           </div>
           <p className="mt-1 text-sm text-slate-400">AI Business Command Center — tire &amp; wheel wholesale</p>
@@ -30,9 +30,6 @@ export default function LoginPage() {
           </div>
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           <SubmitButton>Sign in</SubmitButton>
-          <p className="text-xs text-slate-400">
-            Demo accounts (after seeding): owner@rhinobrain.com / linda@rhinotireusa.com / mike@rhinotireusa.com / jake@everflowtire.com — password <code>demo1234</code>
-          </p>
         </form>
       </div>
     </main>

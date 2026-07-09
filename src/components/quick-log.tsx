@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import { logActivity } from "@/actions/activities";
+import { ProductPicker, stockLabel } from "@/components/product-picker";
 import { Modal } from "@/components/ui/modal";
 import { Button, Input, Select, Textarea, Field } from "@/components/ui/primitives";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -28,6 +29,9 @@ export function QuickLogButton({
 }) {
   const [open, setOpen] = useState(false);
   const [outcome, setOutcome] = useState("");
+  const [pickedCustomerId, setPickedCustomerId] = useState("");
+  const [lostItem, setLostItem] = useState("");
+  const [lostStockNote, setLostStockNote] = useState("");
   const [state, action] = useFormState(logActivity, null);
   const toast = useToast();
   const isLost = outcome.startsWith("LOST");
@@ -48,7 +52,7 @@ export function QuickLogButton({
           {quoteId && <input type="hidden" name="quoteId" value={quoteId} />}
           {!customerId && !leadId && (
             <Field label="Customer *">
-              <Select name="customerId" required defaultValue="">
+              <Select name="customerId" required defaultValue="" onChange={e => setPickedCustomerId(e.target.value)}>
                 <option value="" disabled>Select customer…</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
               </Select>
@@ -80,7 +84,15 @@ export function QuickLogButton({
             <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Item / size they wanted">
-                  <Input name="lostItem" placeholder="e.g. ST225/75R15" />
+                  <>
+                    <ProductPicker value={lostItem} customerId={customerId || pickedCustomerId || undefined}
+                      className="h-9 text-sm"
+                      placeholder="Type size/SKU — searches your stock"
+                      onType={v => { setLostItem(v); setLostStockNote(""); }}
+                      onPick={h => { setLostItem(h.sizeSpec ?? h.sku); setLostStockNote(`${h.sku} — our stock: ${stockLabel(h)}`); }} />
+                    <input type="hidden" name="lostItem" value={lostItem} />
+                    {lostStockNote && <p className="mt-1 text-xs text-slate-500">📦 {lostStockNote}</p>}
+                  </>
                 </Field>
                 <Field label="Quantity">
                   <Input name="lostQty" type="number" min={0} defaultValue={48} />
