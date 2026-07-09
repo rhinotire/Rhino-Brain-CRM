@@ -113,7 +113,7 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
-        <div className="text-sm text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+        <div className="text-sm text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" })}</div>
       </div>
 
       {/* KPI cards */}

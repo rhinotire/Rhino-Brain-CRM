@@ -66,7 +66,7 @@ export default async function MyWorkPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">My Work Today</h1>
-          <p className="text-sm text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} — {session.name}</p>
+          <p className="text-sm text-slate-500">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" })} — {session.name}</p>
         </div>
         <div className="flex gap-2">
           <QuickLogButton customers={myCustomers} label="Log Call" />

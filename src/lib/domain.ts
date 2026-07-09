@@ -195,15 +195,43 @@ export function computeCustomerScore(input: {
 
 // ---------- Formatting ----------
 
+// All timestamps display in Eastern time (HQ: Orlando, FL) — the server itself runs in UTC.
+export const BUSINESS_TZ = "America/New_York";
+
+/** UTC instant when the Eastern-time clock reads midnight on the given ET calendar date (DST-aware). */
+function etMidnightUTC(y: number, m: number, d: number): Date {
+  const guess = new Date(Date.UTC(y, m - 1, d, 6, 0, 0)); // 06:00 UTC = 01:00/02:00 ET, always date d in ET
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(guess);
+  const h = Number(parts.find(p => p.type === "hour")?.value ?? 0) % 24;
+  const min = Number(parts.find(p => p.type === "minute")?.value ?? 0);
+  return new Date(guess.getTime() - (h * 60 + min) * 60000);
+}
+
+/**
+ * Start of the Eastern-time day containing `at` (optionally snapped to the
+ * ET week/month start) — report ranges use this so "Today" means today in
+ * Orlando, not UTC, regardless of the server's own timezone.
+ */
+export function etDayStart(at = new Date(), opts: { toWeekStart?: boolean; toMonthStart?: boolean } = {}): Date {
+  const f = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+  const parts = f.formatToParts(at);
+  const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? 0);
+  // carry the ET calendar date in a UTC container for easy week/month arithmetic
+  const cal = new Date(Date.UTC(get("year"), get("month") - 1, get("day")));
+  if (opts.toWeekStart) cal.setUTCDate(cal.getUTCDate() - cal.getUTCDay());
+  if (opts.toMonthStart) cal.setUTCDate(1);
+  return etMidnightUTC(cal.getUTCFullYear(), cal.getUTCMonth() + 1, cal.getUTCDate());
+}
+
 export function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: BUSINESS_TZ });
 }
 
 export function fmtDateTime(d: Date | string | null | undefined): string {
   if (!d) return "—";
   return new Date(d).toLocaleString("en-US", {
-    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: BUSINESS_TZ,
   });
 }
 

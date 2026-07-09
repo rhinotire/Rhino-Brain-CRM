@@ -1,22 +1,25 @@
 import { db } from "@/lib/db";
 import { requireManager, locationScope } from "@/lib/auth";
 import { Table, THead, EmptyRow, Input, Select, Button, Card } from "@/components/ui/primitives";
-import { fmtMoney } from "@/lib/domain";
+import { fmtMoney, etDayStart } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
 
 type Search = { range?: string; from?: string; to?: string; rep?: string };
 
+// Ranges are computed on Eastern-time day boundaries (Orlando HQ), not server UTC.
 function rangeToDates(range: string | undefined, from?: string, to?: string): { start: Date; end: Date; label: string } {
   const now = new Date();
-  const end = new Date(now); end.setHours(23, 59, 59, 999);
+  const end = now;
   if (range === "custom" && from) {
-    return { start: new Date(from), end: to ? new Date(to + "T23:59:59") : end, label: `${from} → ${to ?? "today"}` };
+    // interpret the picked calendar dates as ET days
+    const start = etDayStart(new Date(from + "T12:00:00Z"));
+    const endCustom = to ? new Date(etDayStart(new Date(to + "T12:00:00Z")).getTime() + 86400000 - 1) : end;
+    return { start, end: endCustom, label: `${from} → ${to ?? "today"}` };
   }
-  const start = new Date(now); start.setHours(0, 0, 0, 0);
-  if (range === "week") { start.setDate(start.getDate() - start.getDay()); return { start, end, label: "This Week" }; }
-  if (range === "month") { start.setDate(1); return { start, end, label: "This Month" }; }
-  return { start, end, label: "Today" };
+  if (range === "week") return { start: etDayStart(now, { toWeekStart: true }), end, label: "This Week" };
+  if (range === "month") return { start: etDayStart(now, { toMonthStart: true }), end, label: "This Month" };
+  return { start: etDayStart(now), end, label: "Today" };
 }
 
 export default async function SalesRepReport({ searchParams }: { searchParams: Search }) {

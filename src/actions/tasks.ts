@@ -31,7 +31,7 @@ export async function createTask(_prev: ActionResult | null, formData: FormData)
       data: {
         type: isSameDay(task.dueDate, new Date()) ? "TASK_DUE" : "TASK_DUE",
         title: `New task: ${task.title}`,
-        body: `Due ${task.dueDate.toLocaleDateString()}`,
+        body: `Due ${task.dueDate.toLocaleDateString("en-US", { timeZone: "America/New_York" })}`,
         link: "/tasks",
         userId: assigneeId,
       },

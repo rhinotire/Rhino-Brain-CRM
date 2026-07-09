@@ -86,7 +86,7 @@ export async function getPriorityFollowUps(): Promise<{ items: PriorityItem[]; a
     items.push({
       customerId: c.id, companyName: c.companyName,
       reason: "Follow-up overdue",
-      metric: `was due ${c.nextFollowUpAt?.toLocaleDateString("en-US")}`,
+      metric: `was due ${c.nextFollowUpAt?.toLocaleDateString("en-US", { timeZone: "America/New_York" })}`,
       tip: "You promised this customer a follow-up — call today before a competitor does.",
     });
   }
