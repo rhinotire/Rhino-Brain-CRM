@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { logout } from "@/actions/auth";
 import { roleLabels } from "@/lib/domain";
 import { NotificationBell } from "@/components/notification-bell";
+import { ResponsiveShell } from "@/components/responsive-shell";
 
 const managerNav = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
@@ -58,10 +59,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
   const unread = notifications.filter(n => !n.read).length;
 
-  return (
-    <div className="flex min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-ink-900 text-slate-300">
-        <div className="px-4 py-5">
+  const sidebar = (
+    <>
+      <div className="px-4 py-5">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/rhino-brain-logo.png" alt="Rhino Brain" className="h-9 w-9 rounded" />
@@ -116,17 +116,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </button>
           </form>
         </div>
-      </aside>
+    </>
+  );
 
-      <div className="ml-56 flex-1">
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-end gap-3 border-b border-slate-200 bg-white px-6">
-          <NotificationBell notifications={notifications.map(n => ({
-            id: n.id, title: n.title, body: n.body, link: n.link, read: n.read,
-            createdAt: n.createdAt.toISOString(),
-          }))} unread={unread} />
-        </header>
-        <main className="p-6">{children}</main>
-      </div>
-    </div>
+  return (
+    <ResponsiveShell
+      sidebar={sidebar}
+      bell={<NotificationBell notifications={notifications.map(n => ({
+        id: n.id, title: n.title, body: n.body, link: n.link, read: n.read,
+        createdAt: n.createdAt.toISOString(),
+      }))} unread={unread} />}
+    >
+      {children}
+    </ResponsiveShell>
   );
 }

@@ -49,15 +49,15 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
   }, [state]);
 
   return (
-    <form action={formAction} className="grid grid-cols-2 gap-3">
+    <form action={formAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {locations && locations.length > 0 && (
-        <Field label="Location *" className="col-span-2">
+        <Field label="Location *" className="sm:col-span-2">
           <Select name="locationId" defaultValue={currentLocationId ?? locations[0].id}>
             {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.shortTag})</option>)}
           </Select>
         </Field>
       )}
-      <Field label="Company Name *" className="col-span-2">
+      <Field label="Company Name *" className="sm:col-span-2">
         <Input name="companyName" defaultValue={values.companyName} required />
       </Field>
       <Field label="Contact Person"><Input name="contactPerson" defaultValue={values.contactPerson} /></Field>
@@ -110,11 +110,11 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
           </Select>
         </Field>
       )}
-      <Field label="Notes" className="col-span-2">
+      <Field label="Notes" className="sm:col-span-2">
         <Textarea name="notes" defaultValue={values.notes} />
       </Field>
       {!customerId && storageReady && (
-        <div className="col-span-2 space-y-2 rounded-md border border-dashed border-slate-300 p-3">
+        <div className="space-y-2 rounded-md border border-dashed border-slate-300 p-3 sm:col-span-2">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">📄 Documents (optional — PDF/image, max 10 MB each)</div>
           {NEW_DOC_TYPES.map(([type, label]) => (
             <div key={type} className="flex items-center gap-3">
@@ -128,8 +128,8 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
           ))}
         </div>
       )}
-      {state?.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}
-      <div className="col-span-2 flex justify-end">
+      {state?.error && <p className="text-sm text-red-600 sm:col-span-2">{state.error}</p>}
+      <div className="flex justify-end sm:col-span-2">
         <SubmitButton>{customerId ? "Save changes" : "Create customer"}</SubmitButton>
       </div>
     </form>

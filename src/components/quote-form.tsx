@@ -68,8 +68,8 @@ export function NewQuoteButton({ customers, defaultCustomerId, label = "+ New Qu
             <div className="space-y-2">
               {items.map((it, i) => (
                 <div key={i} className="rounded-md border border-slate-100 bg-slate-50 p-2">
-                  <div className="grid grid-cols-12 items-end gap-2">
-                    <div className="col-span-3">
+                  <div className="grid grid-cols-6 items-end gap-2 sm:grid-cols-12">
+                    <div className="col-span-6 sm:col-span-3">
                       <ProductPicker value={it.sizeSku} customerId={customerId || undefined}
                         onType={v => setItem(i, { sizeSku: v, stockNote: undefined, stockTotal: undefined })}
                         onPick={h => setItem(i, {
@@ -82,16 +82,16 @@ export function NewQuoteButton({ customers, defaultCustomerId, label = "+ New Qu
                           stockTotal: h.stock.reduce((s, x) => s + x.qty, 0),
                         })} />
                     </div>
-                    <div className="col-span-3"><Input className="h-8 text-xs" placeholder="Description *" value={it.description} onChange={e => setItem(i, { description: e.target.value })} /></div>
-                    <div className="col-span-2">
+                    <div className="col-span-6 sm:col-span-3"><Input className="h-8 text-xs" placeholder="Description *" value={it.description} onChange={e => setItem(i, { description: e.target.value })} /></div>
+                    <div className="col-span-3 sm:col-span-2">
                       <Select value={it.category} onChange={e => setItem(i, { category: e.target.value })} className="h-8 text-xs">
                         {Object.entries(productLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </Select>
                     </div>
-                    <div className="col-span-1"><Input className="h-8 text-xs" placeholder="Brand" value={it.brand} onChange={e => setItem(i, { brand: e.target.value })} /></div>
-                    <div className="col-span-1"><Input className="h-8 text-xs" type="number" min={1} value={it.quantity} onChange={e => setItem(i, { quantity: Number(e.target.value) })} /></div>
-                    <div className="col-span-1"><Input className="h-8 text-xs" type="number" min={0} step="0.01" value={it.unitPrice} onChange={e => setItem(i, { unitPrice: Number(e.target.value) })} /></div>
-                    <button className="col-span-1 h-8 rounded text-xs text-red-500 hover:bg-red-50" onClick={() => setItems(l => l.filter((_, x) => x !== i))} disabled={items.length === 1}>Remove</button>
+                    <div className="col-span-3 sm:col-span-1"><Input className="h-8 text-xs" placeholder="Brand" value={it.brand} onChange={e => setItem(i, { brand: e.target.value })} /></div>
+                    <div className="col-span-2 sm:col-span-1"><Input className="h-8 text-xs" type="number" min={1} value={it.quantity} onChange={e => setItem(i, { quantity: Number(e.target.value) })} /></div>
+                    <div className="col-span-2 sm:col-span-1"><Input className="h-8 text-xs" type="number" min={0} step="0.01" value={it.unitPrice} onChange={e => setItem(i, { unitPrice: Number(e.target.value) })} /></div>
+                    <button className="col-span-2 h-8 rounded text-xs text-red-500 hover:bg-red-50 sm:col-span-1" onClick={() => setItems(l => l.filter((_, x) => x !== i))} disabled={items.length === 1}>Remove</button>
                   </div>
                   {it.stockNote && (
                     <div className={`mt-1 text-xs font-medium ${it.stockTotal !== undefined && it.quantity > it.stockTotal ? "text-amber-600" : "text-emerald-700"}`}>
