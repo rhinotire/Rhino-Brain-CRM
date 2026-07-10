@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireManager } from "@/lib/auth";
 import { Card, Table, THead, EmptyRow } from "@/components/ui/primitives";
 import { CsvImporter } from "@/components/csv-importer";
+import { ArImporter } from "@/components/ar-importer";
 import { fmtDateTime } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export default async function ImportPage() {
       <h1 className="text-xl font-bold">Import / Export</h1>
 
       <CsvImporter />
+
+      <ArImporter />
 
       <Card title="Export Data (CSV)">
         <div className="flex flex-wrap gap-2">
