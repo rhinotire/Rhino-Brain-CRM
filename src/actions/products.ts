@@ -1,7 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth";
+import { requireSession, requireManager } from "@/lib/auth";
+
+/** Managers flag products as discontinued — the flyer auto-pick clears these first. */
+export async function setDiscontinued(productId: string, value: boolean): Promise<{ ok?: boolean; error?: string }> {
+  await requireManager();
+  await db.product.update({ where: { id: productId }, data: { discontinued: value } });
+  revalidatePath("/products");
+  return { ok: true };
+}
 
 export type ProductHit = {
   id: string;
