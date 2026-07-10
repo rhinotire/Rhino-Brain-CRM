@@ -33,6 +33,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       tasks: { orderBy: { dueDate: "asc" }, include: { assignee: { select: { name: true } } } },
       opportunities: { orderBy: { createdAt: "desc" } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
+      orders: { orderBy: { orderDate: "desc" }, take: 12 },
     },
   });
   if (!customer) notFound();
@@ -153,6 +154,34 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               {openTasks.length === 0 && <div className="py-4 text-center text-sm text-slate-400">No open tasks.</div>}
             </div>
           </Card>
+
+          {customer.orders.length > 0 && (() => {
+            const now = new Date();
+            const d90 = new Date(now.getTime() - 90 * 86400000);
+            const d180 = new Date(now.getTime() - 180 * 86400000);
+            const lifetime = customer.orders.reduce((s, o) => s + Number(o.total), 0);
+            const last90 = customer.orders.filter(o => o.orderDate >= d90).reduce((s, o) => s + Number(o.total), 0);
+            const prior90 = customer.orders.filter(o => o.orderDate < d90 && o.orderDate >= d180).reduce((s, o) => s + Number(o.total), 0);
+            const dropping = prior90 >= 500 && last90 < prior90 * 0.5;
+            return (
+              <Card title="🧾 Order History">
+                <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                  <div><div className="text-xs text-slate-400">Lifetime (shown)</div><div className="font-bold text-slate-800">{fmtMoney(lifetime)}</div></div>
+                  <div><div className="text-xs text-slate-400">Last 90d</div><div className={`font-bold ${dropping ? "text-red-600" : "text-slate-800"}`}>{fmtMoney(last90)}</div></div>
+                  <div><div className="text-xs text-slate-400">Prior 90d</div><div className="font-bold text-slate-800">{fmtMoney(prior90)}</div></div>
+                </div>
+                {dropping && <div className="mb-2 rounded-md bg-red-50 p-2 text-xs font-medium text-red-700">⚠ Buying is down sharply vs the prior 90 days — worth a check-in.</div>}
+                <div className="space-y-1">
+                  {customer.orders.map(o => (
+                    <div key={o.id} className="flex justify-between border-b border-slate-50 py-1 text-sm">
+                      <span className="text-slate-500">{fmtDate(o.orderDate)}{o.externalId && <span className="ml-1 text-xs text-slate-400">#{o.externalId}</span>}</span>
+                      <span className="font-medium text-slate-700">{fmtMoney(Number(o.total))}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })()}
 
           <Card title="📄 Documents">
             <CustomerDocuments

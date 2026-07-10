@@ -4,6 +4,7 @@ import { Card, Table, THead, EmptyRow } from "@/components/ui/primitives";
 import { CsvImporter } from "@/components/csv-importer";
 import { ArImporter } from "@/components/ar-importer";
 import { InventoryImporter } from "@/components/inventory-importer";
+import { OrderImporter } from "@/components/order-importer";
 import { fmtDateTime } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function ImportPage() {
       <CsvImporter />
 
       <InventoryImporter locations={locations} />
+
+      <OrderImporter />
 
       <ArImporter />
 
