@@ -26,7 +26,7 @@ export default async function ImportPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Import / Export</h1>
 
-      <CustomerMasterImporter />
+      <CustomerMasterImporter locations={locations} />
 
       <InventoryImporter locations={locations} />
 

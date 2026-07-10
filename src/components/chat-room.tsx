@@ -8,26 +8,56 @@ import { useToast } from "@/components/ui/toast";
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
+const SOUND_KEY = "rhino_chat_sound";
+
 export function ChatRoom({ meId, peers, storageReady }: { meId: string; peers: ChatPeer[]; storageReady: boolean }) {
   const [peerId, setPeerId] = useState<string>(""); // "" = Team channel
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
   const [uploading, setUploading] = useState(false);
+  const [sound, setSound] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const peerRef = useRef(peerId);
+  const lastIdRef = useRef<string | null>(null);
+  const primed = useRef(false);
+  const soundRef = useRef(true);
   const toast = useToast();
   peerRef.current = peerId;
+  soundRef.current = sound;
+
+  useEffect(() => { try { setSound(localStorage.getItem(SOUND_KEY) !== "off"); } catch {} }, []);
+  const toggleSound = () => setSound(s => { const v = !s; try { localStorage.setItem(SOUND_KEY, v ? "on" : "off"); } catch {} return v; });
+
+  const beep = () => {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ac = new Ctx();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
+      o.start(); o.stop(ac.currentTime + 0.36);
+    } catch {}
+  };
 
   const load = async (pid: string) => {
     try {
       const fresh = await fetchChatMessages(pid || undefined);
-      if (peerRef.current === pid) setMessages(fresh);
+      if (peerRef.current !== pid) return;
+      const newest = fresh[fresh.length - 1];
+      // sound when a new message from someone else arrives (skip the very first load)
+      if (primed.current && newest && newest.id !== lastIdRef.current && newest.authorId !== meId && soundRef.current) beep();
+      if (newest) lastIdRef.current = newest.id;
+      primed.current = true;
+      setMessages(fresh);
     } catch {}
   };
 
-  useEffect(() => { atBottom.current = true; load(peerId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [peerId]);
+  useEffect(() => { atBottom.current = true; primed.current = false; lastIdRef.current = null; load(peerId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [peerId]);
   useEffect(() => {
     const id = setInterval(() => load(peerRef.current), 3000);
     return () => clearInterval(id);
@@ -84,8 +114,10 @@ export function ChatRoom({ meId, peers, storageReady }: { meId: string; peers: C
 
       {/* Conversation */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-b border-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-          {peerId ? `Direct message · ${peerName}` : "👥 Team Chat — everyone"}
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+          <span className="text-sm font-semibold text-slate-700">{peerId ? `Direct message · ${peerName}` : "👥 Team Chat — everyone"}</span>
+          <button type="button" onClick={toggleSound} title={sound ? "Sound on — click to mute" : "Muted — click to enable sound"}
+            className="rounded px-2 py-1 text-sm hover:bg-slate-100">{sound ? "🔔" : "🔕"}</button>
         </div>
         <div ref={scrollRef} onScroll={onScroll} className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 && <p className="py-10 text-center text-sm text-slate-400">No messages yet — say hi 👋</p>}

@@ -29,10 +29,11 @@ function splitName(raw: string): { contact: string | null; company: string } {
 }
 
 /** Upsert customers from a Tire Guru Customer Master List. Matches by Cust# → phone → company name. */
-export async function importCustomerMaster(fileName: string, rows: MasterRow[]): Promise<{ ok?: boolean; updated?: number; created?: number; error?: string }> {
+export async function importCustomerMaster(fileName: string, rows: MasterRow[], locationId?: string): Promise<{ ok?: boolean; updated?: number; created?: number; error?: string }> {
   const session = await requireManager();
   if (rows.length === 0) return { error: "No customer rows found." };
   if (rows.length > 20000) return { error: "Too many rows (max 20000)." };
+  const loc = locationId ? await db.location.findUnique({ where: { id: locationId }, select: { id: true } }) : null;
 
   const users = await db.user.findMany({ select: { id: true, name: true } });
   const userByName = new Map(users.map(u => [norm(u.name), u.id]));
@@ -69,6 +70,7 @@ export async function importCustomerMaster(fileName: string, rows: MasterRow[]):
       creditLimit: money(r.credit ?? "") ?? undefined,
       ...(type ? { type } : {}),
       ...(repId ? { assignedRepId: repId } : {}),
+      ...(loc ? { locationId: loc.id } : {}),
       ...(r.custNo?.trim() ? { tireguruId: r.custNo.trim() } : {}),
     };
 

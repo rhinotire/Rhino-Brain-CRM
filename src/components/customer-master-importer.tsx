@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
 import { importCustomerMaster, type MasterRow } from "@/actions/customer-import";
-import { Button, Card } from "@/components/ui/primitives";
+import { Button, Card, Select } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 
 const H = {
@@ -28,7 +28,8 @@ function findCol(hs: string[], keys: string[]): number {
 
 type Preview = { rows: MasterRow[]; fileName: string };
 
-export function CustomerMasterImporter() {
+export function CustomerMasterImporter({ locations }: { locations: { id: string; name: string; shortTag: string }[] }) {
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -78,10 +79,12 @@ export function CustomerMasterImporter() {
 
   const doImport = () => start(async () => {
     if (!preview) return;
-    const res = await importCustomerMaster(preview.fileName, preview.rows);
+    const res = await importCustomerMaster(preview.fileName, preview.rows, locationId || undefined);
     if (res.ok) { toast(`Customers updated: ${res.updated} updated, ${res.created} added`); setPreview(null); }
     else toast(res.error ?? "Import failed", "error");
   });
+
+  const locName = locations.find(l => l.id === locationId)?.name ?? "";
 
   return (
     <Card title="🏬 Customer Master List (Excel/CSV — updates + adds)">
@@ -90,12 +93,20 @@ export function CustomerMasterImporter() {
         name and their details refreshed (phone, address, terms, credit limit, salesperson, type); new customers are added.
         Nothing is deleted.
       </p>
+      {locations.length > 1 && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-sm font-medium text-slate-600">This list is for:</span>
+          <Select value={locationId} onChange={e => setLocationId(e.target.value)} className="w-64">
+            {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.shortTag})</option>)}
+          </Select>
+        </div>
+      )}
       <input type="file" accept=".csv,.xlsx,.xls"
         className="text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand-700"
         onChange={e => { const f = e.target.files?.[0]; if (f) parse(f); e.target.value = ""; }} />
       {preview && (
         <div className="mt-3 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
-          <div className="text-sm text-slate-700"><b>{preview.fileName}</b>: {preview.rows.length} customers ready</div>
+          <div className="text-sm text-slate-700"><b>{preview.fileName}</b>: {preview.rows.length} customers ready{locName && <span> · assigned to <b>{locName}</b></span>}</div>
           <div className="text-xs text-slate-500">Sample: {preview.rows.slice(0, 3).map(r => r.name.slice(0, 40)).join(" · ")}</div>
           <div className="flex gap-2">
             <Button onClick={doImport} disabled={pending}>{pending ? "Importing…" : `Import ${preview.rows.length} customers`}</Button>
