@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { searchProducts, type ProductHit } from "@/actions/products";
-import { Input } from "@/components/ui/primitives";
+import { Input, Select } from "@/components/ui/primitives";
 import { fmtMoney } from "@/lib/domain";
 
 export function stockLabel(hit: ProductHit): string {
@@ -10,42 +10,62 @@ export function stockLabel(hit: ProductHit): string {
   return hit.stock.map(s => `${s.tag}: ${s.qty}`).join(" · ");
 }
 
-/** Text input with live catalog search: dropdown shows per-warehouse stock; picking calls onPick. */
-export function ProductPicker({ value, customerId, onType, onPick, placeholder, className }: {
+/**
+ * Text input with live catalog search: dropdown shows per-warehouse stock; picking calls onPick.
+ * Pass `categories` to add a category filter — selecting one lists that category's products
+ * even with no search text.
+ */
+export function ProductPicker({ value, customerId, onType, onPick, placeholder, className, categories }: {
   value: string;
   customerId?: string;
   onType: (v: string) => void;
   onPick: (hit: ProductHit) => void;
   placeholder?: string;
   className?: string;
+  categories?: string[];
 }) {
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [openList, setOpenList] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [category, setCategory] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout>>();
+
+  const runSearch = async (v: string, cat: string) => {
+    if (v.trim().length < 2 && !cat) { setHits([]); setOpenList(false); return; }
+    setSearching(true);
+    try {
+      const res = await searchProducts(v, customerId, cat || undefined);
+      setHits(res);
+      setOpenList(true);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const handleChange = (v: string) => {
     onType(v);
     if (timer.current) clearTimeout(timer.current);
-    if (v.trim().length < 2) { setHits([]); setOpenList(false); return; }
-    timer.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await searchProducts(v, customerId);
-        setHits(res);
-        setOpenList(true);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
+    timer.current = setTimeout(() => runSearch(v, category), 300);
+  };
+
+  const handleCategory = (cat: string) => {
+    setCategory(cat);
+    runSearch(value, cat);
   };
 
   return (
     <div className="relative">
-      <Input className={className ?? "h-8 text-xs"} placeholder={placeholder ?? "Size / SKU — type to search stock"}
+      {categories && categories.length > 0 && (
+        <Select value={category} onChange={e => handleCategory(e.target.value)} className="mb-1 h-8 text-xs">
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </Select>
+      )}
+      <Input className={className ?? "h-8 text-xs"}
+        placeholder={placeholder ?? (category ? `Search within ${category}…` : "Size / SKU — type to search stock")}
         value={value}
         onChange={e => handleChange(e.target.value)}
-        onFocus={() => hits.length > 0 && setOpenList(true)}
+        onFocus={() => { if (hits.length > 0) setOpenList(true); else if (category) runSearch(value, category); }}
         onBlur={() => setTimeout(() => setOpenList(false), 200)} />
       {searching && <span className="absolute right-2 top-1.5 text-xs text-slate-400">…</span>}
       {openList && hits.length > 0 && (

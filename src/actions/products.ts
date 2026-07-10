@@ -24,11 +24,27 @@ export type ProductHit = {
   stock: { tag: string; qty: number }[];
 };
 
-/** Live product search for the quote form — matches size/SKU/brand/description. */
-export async function searchProducts(query: string, customerId?: string): Promise<ProductHit[]> {
+/** Distinct product categories (raw labels) for filter dropdowns. */
+export async function listProductCategories(): Promise<string[]> {
+  await requireSession();
+  const rows = await db.product.findMany({
+    where: { active: true, rawCategory: { not: null } },
+    distinct: ["rawCategory"],
+    select: { rawCategory: true },
+    orderBy: { rawCategory: "asc" },
+  });
+  return rows.map(r => r.rawCategory!).filter(Boolean);
+}
+
+/**
+ * Live product search — matches size/SKU/brand/description, optionally scoped to
+ * a category. With a category set, an empty query lists that category's products.
+ */
+export async function searchProducts(query: string, customerId?: string, category?: string): Promise<ProductHit[]> {
   await requireSession();
   const q = query.trim();
-  if (q.length < 2) return [];
+  const cat = category?.trim();
+  if (q.length < 2 && !cat) return []; // need either text or a category to search
 
   const tier = customerId
     ? (await db.customer.findUnique({ where: { id: customerId }, select: { tier: true } }))?.tier ?? null
@@ -37,15 +53,18 @@ export async function searchProducts(query: string, customerId?: string): Promis
   const products = await db.product.findMany({
     where: {
       active: true,
-      OR: [
-        { sizeSpec: { contains: q, mode: "insensitive" } },
-        { sku: { contains: q, mode: "insensitive" } },
-        { brand: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
-      ],
+      ...(cat ? { rawCategory: cat } : {}),
+      ...(q.length >= 2 ? {
+        OR: [
+          { sizeSpec: { contains: q, mode: "insensitive" } },
+          { sku: { contains: q, mode: "insensitive" } },
+          { brand: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+        ],
+      } : {}),
     },
     orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
-    take: 12,
+    take: cat && q.length < 2 ? 40 : 12,
     include: { inventory: { include: { location: { select: { shortTag: true } } } } },
   });
 

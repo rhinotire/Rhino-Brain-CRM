@@ -26,7 +26,7 @@ function readAsDataUrl(file: File, cb: (url: string) => void) {
   r.readAsDataURL(file);
 }
 
-export function FlyerBuilder() {
+export function FlyerBuilder({ categories }: { categories?: string[] }) {
   const now = new Date();
   const defaultTitle = `${now.toLocaleString("en-US", { month: "long", timeZone: "America/New_York" })} Specials`;
   const [title, setTitle] = useState(defaultTitle);
@@ -143,7 +143,7 @@ export function FlyerBuilder() {
           {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-6 items-end gap-2 rounded-md border border-slate-100 bg-slate-50 p-2 sm:grid-cols-12">
               <div className="col-span-6 sm:col-span-3">
-                <ProductPicker value={r.name}
+                <ProductPicker value={r.name} categories={categories}
                   onType={v => setRow(i, { name: v, stockNote: undefined })}
                   onPick={h => setRow(i, {
                     name: h.sizeSpec ?? h.sku,

@@ -8,3 +8,4 @@ node_modules
 import-real-data.ts
 .claude/settings.local.json
 import-ar-xlsx.ts
+mark-disc.ts
