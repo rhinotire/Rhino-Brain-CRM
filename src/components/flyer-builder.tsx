@@ -34,6 +34,7 @@ export function FlyerBuilder({ categories, brands }: { categories?: string[]; br
   const [tone, setTone] = useState("bold and urgent");
   const [contactLine, setContactLine] = useState("Rhino Tire USA — Orlando, FL · Call your sales rep to order");
   const [notes, setNotes] = useState("");
+  const [style, setStyle] = useState<"list" | "grid">("list");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [copy, setCopy] = useState<FlyerCopy | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
@@ -97,6 +98,21 @@ export function FlyerBuilder({ categories, brands }: { categories?: string[]; br
         </div>
 
         <div className="mt-3">
+          <Field label="Flyer style">
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStyle("list")}
+                className={`rounded-md border px-3 py-1.5 text-sm font-medium ${style === "list" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                📋 List — big cards, one per row
+              </button>
+              <button type="button" onClick={() => setStyle("grid")}
+                className={`rounded-md border px-3 py-1.5 text-sm font-medium ${style === "grid" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                ▦ Grid — 2 per row, fits more
+              </button>
+            </div>
+          </Field>
+        </div>
+
+        <div className="mt-3">
           <Field label="Promotion theme / notes to the AI (optional)">
             <>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="min-h-[60px]"
@@ -149,6 +165,7 @@ export function FlyerBuilder({ categories, brands }: { categories?: string[]; br
                     name: h.sizeSpec ?? h.sku,
                     description: h.description,
                     stockNote: `stock ${h.stock.map(s => `${s.tag}:${s.qty}`).join(" ")}`,
+                    ...(h.imageUrl && !r.image ? { image: h.imageUrl } : {}), // reuse the product's saved photo
                   })} />
               </div>
               <div className="col-span-6 sm:col-span-4"><Input className="h-8 text-xs" placeholder="Description" value={r.description} onChange={e => setRow(i, { description: e.target.value })} /></div>
@@ -221,39 +238,65 @@ export function FlyerBuilder({ categories, brands }: { categories?: string[]; br
                   <p className="text-sm font-medium text-slate-700">{copy.intro}</p>
                   {copy.introEs && <p className="mb-4 text-sm italic text-slate-500">{copy.introEs}</p>}
 
-                  <div className="mt-4 space-y-3">
+                  <div className={style === "grid" ? "mt-4 grid grid-cols-2 gap-3" : "mt-4 space-y-3"}>
                     {validRows.map((r, i) => {
                       const was = r.wasPrice ? Number(r.wasPrice) : null;
                       const sp = Number(r.specialPrice);
                       const save = was && was > sp ? was - sp : null;
                       const isBest = anySavings && i === bestIdx && save;
+                      const bestRibbon = isBest && (
+                        <div className="absolute left-0 top-0 z-10 rounded-br-lg px-3 py-1 text-xs font-black uppercase text-ink-900" style={{ background: "#e5a50a" }}>Best Deal</div>
+                      );
+                      const features = (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {(copy.itemFeatures[i] ?? []).map((f, k) => (
+                            <span key={k} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full text-white" style={{ background: navy }}>✓</span>{f}
+                            </span>
+                          ))}
+                        </div>
+                      );
+
+                      if (style === "grid") {
+                        return (
+                          <div key={i} className="relative overflow-hidden rounded-lg border border-slate-200 shadow-sm"
+                            style={isBest ? { borderColor: "#e5a50a", borderWidth: 2 } : undefined}>
+                            {bestRibbon}
+                            <div className="flex flex-col p-3 text-center">
+                              <div className="mx-auto mb-2 flex h-28 w-full items-center justify-center">
+                                {r.image
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  ? <img src={r.image} alt={r.name} className="h-28 w-full rounded object-contain" />
+                                  : <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-slate-200 bg-slate-50 text-3xl">🛞</div>}
+                              </div>
+                              <div className="text-lg font-black leading-tight text-ink-900">{r.name}</div>
+                              {r.description && <div className="text-xs font-bold uppercase text-brand-700">{r.description}</div>}
+                              <div className="mt-1 flex items-baseline justify-center gap-2">
+                                {was && <span className="text-xs text-slate-400 line-through">${was.toFixed(2)}</span>}
+                                <span className="text-2xl font-black text-red-600">${sp.toFixed(2)}</span>
+                              </div>
+                              {save && <div className="mx-auto mt-1 inline-block rounded px-2 py-0.5 text-xs font-black uppercase text-ink-900" style={{ background: "#e5a50a" }}>Save ${save.toFixed(2)}</div>}
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div key={i} className="relative overflow-hidden rounded-lg border border-slate-200 shadow-sm"
                           style={isBest ? { borderColor: "#e5a50a", borderWidth: 2 } : undefined}>
-                          {isBest && (
-                            <div className="absolute left-0 top-0 rounded-br-lg px-3 py-1 text-xs font-black uppercase text-ink-900" style={{ background: "#e5a50a" }}>
-                              Best Deal
-                            </div>
-                          )}
+                          {bestRibbon}
                           <div className="flex items-stretch gap-4 p-4">
                             <div className="flex w-24 shrink-0 items-center justify-center">
                               {r.image
                                 /* eslint-disable-next-line @next/next/no-img-element */
-                                ? <img src={r.image} alt={r.name} className="h-24 w-24 rounded object-cover" />
+                                ? <img src={r.image} alt={r.name} className="h-24 w-24 rounded object-contain" />
                                 : <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-slate-200 bg-slate-50 text-3xl">🛞</div>}
                             </div>
                             <div className="flex min-w-0 flex-1 flex-col justify-center">
                               <div className="text-xl font-black leading-tight text-ink-900">{r.name}</div>
                               {r.description && <div className="text-sm font-bold uppercase text-brand-700">{r.description}</div>}
                               {copy.itemBlurbs[i] && <div className="text-xs text-slate-500">{copy.itemBlurbs[i]}</div>}
-                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                                {(copy.itemFeatures[i] ?? []).map((f, k) => (
-                                  <span key={k} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                                    <span className="flex h-4 w-4 items-center justify-center rounded-full text-white" style={{ background: navy }}>✓</span>
-                                    {f}
-                                  </span>
-                                ))}
-                              </div>
+                              <div className="mt-2">{features}</div>
                             </div>
                             <div className="flex shrink-0 flex-col items-end justify-center">
                               {was && <div className="text-sm text-slate-400 line-through">${was.toFixed(2)}</div>}

@@ -62,3 +62,46 @@ export async function deleteObject(path: string): Promise<void> {
   });
   if (!res.ok && res.status !== 404) throw new Error(`Delete failed: ${res.status} ${await res.text()}`);
 }
+
+// ---- Public bucket for product images (non-sensitive marketing photos) ----
+const PUBLIC_BUCKET = "product-images";
+
+async function ensurePublicBucket(c: NonNullable<ReturnType<typeof config>>) {
+  const res = await fetch(`${c.url}/storage/v1/bucket`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id: PUBLIC_BUCKET, name: PUBLIC_BUCKET, public: true }),
+  });
+  if (!res.ok && res.status !== 400 && res.status !== 409) {
+    throw new Error(`Public bucket setup failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+/** Upload a product image and return its stored path. */
+export async function uploadProductImage(path: string, data: ArrayBuffer, contentType: string): Promise<void> {
+  const c = config();
+  if (!c) throw new Error("Image storage is not configured");
+  await ensurePublicBucket(c);
+  const res = await fetch(`${c.url}/storage/v1/object/${PUBLIC_BUCKET}/${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": contentType, "x-upsert": "true" },
+    body: data,
+  });
+  if (!res.ok) throw new Error(`Image upload failed: ${res.status} ${await res.text()}`);
+}
+
+export async function deleteProductImage(path: string): Promise<void> {
+  const c = config();
+  if (!c) return;
+  await fetch(`${c.url}/storage/v1/object/${PUBLIC_BUCKET}/${path}`, {
+    method: "DELETE", headers: { Authorization: `Bearer ${c.key}` },
+  }).catch(() => {});
+}
+
+/** Public URL for a product image path (no signing needed). */
+export function productImageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  if (!url) return null;
+  return `${url}/storage/v1/object/public/${PUBLIC_BUCKET}/${path}`;
+}

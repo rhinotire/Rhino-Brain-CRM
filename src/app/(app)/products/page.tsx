@@ -3,6 +3,8 @@ import { requireSession, isManager } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { ProductsFilter } from "@/components/products-filter";
 import { DiscontinuedToggle } from "@/components/discontinued-toggle";
+import { ProductImageCell } from "@/components/product-image-cell";
+import { productImageUrl, isStorageConfigured } from "@/lib/storage";
 import { fmtMoney } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
 
@@ -40,6 +42,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
       include: { inventory: { select: { locationId: true, quantity: true } } },
     }),
   ]);
+  const storageReady = isStorageConfigured();
 
   const qtyAt = (p: (typeof products)[number], locId: string) =>
     p.inventory.find(i => i.locationId === locId)?.quantity ?? null;
@@ -63,10 +66,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
       <ProductsFilter categories={categories.map(c => c.rawCategory!).filter(Boolean)} />
 
       <Table>
-        <THead cols={["SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost"] : []), ...locations.map(l => `${l.shortTag} Stock`), ...(manager ? ["Disc."] : [])]} />
+        <THead cols={[...(manager && storageReady ? ["Photo"] : []), "SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost"] : []), ...locations.map(l => `${l.shortTag} Stock`), ...(manager ? ["Disc."] : [])]} />
         <tbody>
           {rows.map(({ p, stocks }) => (
             <tr key={p.id} className={`border-b border-slate-50 hover:bg-slate-50 ${p.discontinued ? "opacity-70" : ""}`}>
+              {manager && storageReady && (
+                <td className="px-3 py-2"><ProductImageCell productId={p.id} imageUrl={productImageUrl(p.imagePath)} storageReady={storageReady} /></td>
+              )}
               <td className="px-3 py-2 font-mono text-xs text-slate-700 whitespace-nowrap">
                 {p.sku}
                 {p.discontinued && <Badge className="ml-1.5 bg-red-100 text-red-700">DISC</Badge>}

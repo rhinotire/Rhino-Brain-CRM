@@ -522,6 +522,7 @@ model Product {
   category    ProductCategory @default(PCR_TIRES)
   rawCategory String? // original category label from import (e.g. "Specialty / ATV")
   discontinued Boolean @default(false) // marked by managers; flyer auto-pick clears these first
+  imagePath   String? // product photo in Supabase Storage (public product-images bucket)
   sizeSpec    String? // "ST205/75R15"
   description String
   cost        Decimal?        @db.Decimal(10, 2)
