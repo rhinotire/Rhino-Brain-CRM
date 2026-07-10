@@ -15,7 +15,7 @@ export function stockLabel(hit: ProductHit): string {
  * Pass `categories` to add a category filter — selecting one lists that category's products
  * even with no search text.
  */
-export function ProductPicker({ value, customerId, onType, onPick, placeholder, className, categories }: {
+export function ProductPicker({ value, customerId, onType, onPick, placeholder, className, categories, brands }: {
   value: string;
   customerId?: string;
   onType: (v: string) => void;
@@ -23,18 +23,20 @@ export function ProductPicker({ value, customerId, onType, onPick, placeholder, 
   placeholder?: string;
   className?: string;
   categories?: string[];
+  brands?: string[];
 }) {
   const [hits, setHits] = useState<ProductHit[]>([]);
   const [openList, setOpenList] = useState(false);
   const [searching, setSearching] = useState(false);
   const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
-  const runSearch = async (v: string, cat: string) => {
-    if (v.trim().length < 2 && !cat) { setHits([]); setOpenList(false); return; }
+  const runSearch = async (v: string, cat: string, br: string) => {
+    if (v.trim().length < 2 && !cat && !br) { setHits([]); setOpenList(false); return; }
     setSearching(true);
     try {
-      const res = await searchProducts(v, customerId, cat || undefined);
+      const res = await searchProducts(v, customerId, cat || undefined, br || undefined);
       setHits(res);
       setOpenList(true);
     } finally {
@@ -45,27 +47,34 @@ export function ProductPicker({ value, customerId, onType, onPick, placeholder, 
   const handleChange = (v: string) => {
     onType(v);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => runSearch(v, category), 300);
+    timer.current = setTimeout(() => runSearch(v, category, brand), 300);
   };
 
-  const handleCategory = (cat: string) => {
-    setCategory(cat);
-    runSearch(value, cat);
-  };
+  const filterActive = category || brand;
 
   return (
     <div className="relative">
-      {categories && categories.length > 0 && (
-        <Select value={category} onChange={e => handleCategory(e.target.value)} className="mb-1 h-8 text-xs">
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </Select>
+      {((categories && categories.length > 0) || (brands && brands.length > 0)) && (
+        <div className="mb-1 flex gap-1">
+          {categories && categories.length > 0 && (
+            <Select value={category} onChange={e => { setCategory(e.target.value); runSearch(value, e.target.value, brand); }} className="h-8 text-xs">
+              <option value="">All categories</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          )}
+          {brands && brands.length > 0 && (
+            <Select value={brand} onChange={e => { setBrand(e.target.value); runSearch(value, category, e.target.value); }} className="h-8 text-xs">
+              <option value="">All brands</option>
+              {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </Select>
+          )}
+        </div>
       )}
       <Input className={className ?? "h-8 text-xs"}
-        placeholder={placeholder ?? (category ? `Search within ${category}…` : "Size / SKU — type to search stock")}
+        placeholder={placeholder ?? (filterActive ? `Search within ${[brand, category].filter(Boolean).join(" · ")}…` : "Size / SKU — type to search stock")}
         value={value}
         onChange={e => handleChange(e.target.value)}
-        onFocus={() => { if (hits.length > 0) setOpenList(true); else if (category) runSearch(value, category); }}
+        onFocus={() => { if (hits.length > 0) setOpenList(true); else if (filterActive) runSearch(value, category, brand); }}
         onBlur={() => setTimeout(() => setOpenList(false), 200)} />
       {searching && <span className="absolute right-2 top-1.5 text-xs text-slate-400">…</span>}
       {openList && hits.length > 0 && (

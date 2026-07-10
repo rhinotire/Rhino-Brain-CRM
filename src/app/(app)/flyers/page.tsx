@@ -1,12 +1,12 @@
 import { requireManager } from "@/lib/auth";
 import { FlyerBuilder } from "@/components/flyer-builder";
-import { listProductCategories } from "@/actions/products";
+import { listProductCategories, listProductBrands } from "@/actions/products";
 
 export const dynamic = "force-dynamic";
 
 export default async function FlyersPage() {
   await requireManager();
-  const categories = await listProductCategories();
+  const [categories, brands] = await Promise.all([listProductCategories(), listProductBrands()]);
   return (
     <div className="space-y-4">
       <div className="print:hidden">
@@ -15,7 +15,7 @@ export default async function FlyersPage() {
           Pick the products on special, set the prices, and AI writes the copy — then print or save as PDF to email/WhatsApp to your customers.
         </p>
       </div>
-      <FlyerBuilder categories={categories} />
+      <FlyerBuilder categories={categories} brands={brands} />
     </div>
   );
 }

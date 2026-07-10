@@ -36,15 +36,28 @@ export async function listProductCategories(): Promise<string[]> {
   return rows.map(r => r.rawCategory!).filter(Boolean);
 }
 
+/** Distinct brands for filter dropdowns. */
+export async function listProductBrands(): Promise<string[]> {
+  await requireSession();
+  const rows = await db.product.findMany({
+    where: { active: true, brand: { not: null } },
+    distinct: ["brand"],
+    select: { brand: true },
+    orderBy: { brand: "asc" },
+  });
+  return rows.map(r => r.brand!).filter(b => b && b.trim());
+}
+
 /**
  * Live product search — matches size/SKU/brand/description, optionally scoped to
  * a category. With a category set, an empty query lists that category's products.
  */
-export async function searchProducts(query: string, customerId?: string, category?: string): Promise<ProductHit[]> {
+export async function searchProducts(query: string, customerId?: string, category?: string, brand?: string): Promise<ProductHit[]> {
   await requireSession();
   const q = query.trim();
   const cat = category?.trim();
-  if (q.length < 2 && !cat) return []; // need either text or a category to search
+  const br = brand?.trim();
+  if (q.length < 2 && !cat && !br) return []; // need text, a category, or a brand to search
 
   const tier = customerId
     ? (await db.customer.findUnique({ where: { id: customerId }, select: { tier: true } }))?.tier ?? null
@@ -54,6 +67,7 @@ export async function searchProducts(query: string, customerId?: string, categor
     where: {
       active: true,
       ...(cat ? { rawCategory: cat } : {}),
+      ...(br ? { brand: br } : {}),
       ...(q.length >= 2 ? {
         OR: [
           { sizeSpec: { contains: q, mode: "insensitive" } },
@@ -64,7 +78,7 @@ export async function searchProducts(query: string, customerId?: string, categor
       } : {}),
     },
     orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
-    take: cat && q.length < 2 ? 40 : 12,
+    take: (cat || br) && q.length < 2 ? 40 : 12,
     include: { inventory: { include: { location: { select: { shortTag: true } } } } },
   });
 
