@@ -154,6 +154,7 @@ enum NotificationType {
   QUOTE_FOLLOW_UP
   CUSTOMER_NEEDS_CONTACT
   LEAD_ASSIGNED
+  CHAT_MENTION
 }
 
 enum DocumentType {
@@ -220,6 +221,17 @@ model User {
   importBatches  ImportBatch[]
   documentsUploaded CustomerDocument[]
   lostSales      LostSale[]
+  chatMessages   ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Customer {
