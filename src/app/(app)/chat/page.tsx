@@ -1,19 +1,20 @@
 import { requireSession } from "@/lib/auth";
-import { fetchChatMessages } from "@/actions/chat";
+import { listChatPeers } from "@/actions/chat";
+import { isStorageConfigured } from "@/lib/storage";
 import { ChatRoom } from "@/components/chat-room";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChatPage() {
   const session = await requireSession();
-  const initial = await fetchChatMessages();
+  const peers = await listChatPeers();
   return (
     <div className="space-y-3">
       <div>
         <h1 className="text-xl font-bold">💬 Team Chat</h1>
-        <p className="text-sm text-slate-500">Company-wide chat for the whole team. Type @name to notify someone, @all for everyone.</p>
+        <p className="text-sm text-slate-500">Team channel for everyone, plus 1-on-1 direct messages. @name to notify someone, @all for everyone. 📷 to send a photo.</p>
       </div>
-      <ChatRoom meId={session.userId} initial={initial} />
+      <ChatRoom meId={session.userId} peers={peers} storageReady={isStorageConfigured()} />
     </div>
   );
 }

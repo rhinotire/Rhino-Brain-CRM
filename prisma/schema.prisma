@@ -221,17 +221,22 @@ model User {
   importBatches  ImportBatch[]
   documentsUploaded CustomerDocument[]
   lostSales      LostSale[]
-  chatMessages   ChatMessage[]
+  chatMessages   ChatMessage[] @relation("ChatAuthor")
+  chatReceived   ChatMessage[] @relation("ChatRecipient")
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  body      String
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("ChatAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  recipientId String?  // null = company-wide team channel; set = 1:1 direct message
+  recipient   User?    @relation("ChatRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  body        String
+  imagePath   String?  // attached image in the public chat-images bucket
+  createdAt   DateTime @default(now())
 
   @@index([createdAt])
+  @@index([recipientId, userId])
 }
 
 model Customer {

@@ -105,3 +105,34 @@ export function productImageUrl(path: string | null | undefined): string | null 
   if (!url) return null;
   return `${url}/storage/v1/object/public/${PUBLIC_BUCKET}/${path}`;
 }
+
+// ---- Chat image attachments (public bucket) ----
+const CHAT_BUCKET = "chat-images";
+
+async function ensureNamedPublicBucket(c: NonNullable<ReturnType<typeof config>>, id: string) {
+  const res = await fetch(`${c.url}/storage/v1/bucket`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name: id, public: true }),
+  });
+  if (!res.ok && res.status !== 400 && res.status !== 409) throw new Error(`Bucket setup failed: ${res.status} ${await res.text()}`);
+}
+
+export async function uploadChatImage(path: string, data: ArrayBuffer, contentType: string): Promise<void> {
+  const c = config();
+  if (!c) throw new Error("Image storage is not configured");
+  await ensureNamedPublicBucket(c, CHAT_BUCKET);
+  const res = await fetch(`${c.url}/storage/v1/object/${CHAT_BUCKET}/${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": contentType, "x-upsert": "true" },
+    body: data,
+  });
+  if (!res.ok) throw new Error(`Image upload failed: ${res.status} ${await res.text()}`);
+}
+
+export function chatImageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  if (!url) return null;
+  return `${url}/storage/v1/object/public/${CHAT_BUCKET}/${path}`;
+}

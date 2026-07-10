@@ -2,30 +2,55 @@
 
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
+import { uploadChatImage, chatImageUrl, isStorageConfigured } from "@/lib/storage";
+import type { Prisma } from "@prisma/client";
 
-export type ChatMsg = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
+export type ChatMsg = { id: string; body: string; authorId: string; authorName: string; imageUrl: string | null; createdAt: string };
+export type ChatPeer = { id: string; name: string };
 
-export async function fetchChatMessages(): Promise<ChatMsg[]> {
-  await requireSession();
+/** Where-clause for a channel: team (peerId null) or the 1:1 thread between me and peer. */
+function channelWhere(meId: string, peerId?: string): Prisma.ChatMessageWhereInput {
+  if (!peerId) return { recipientId: null };
+  return {
+    OR: [
+      { userId: meId, recipientId: peerId },
+      { userId: peerId, recipientId: meId },
+    ],
+  };
+}
+
+export async function fetchChatMessages(peerId?: string): Promise<ChatMsg[]> {
+  const session = await requireSession();
   const rows = await db.chatMessage.findMany({
+    where: channelWhere(session.userId, peerId),
     orderBy: { createdAt: "desc" },
     take: 100,
     include: { user: { select: { id: true, name: true } } },
   });
   return rows.reverse().map(m => ({
-    id: m.id, body: m.body, authorId: m.userId, authorName: m.user.name, createdAt: m.createdAt.toISOString(),
+    id: m.id, body: m.body, authorId: m.userId, authorName: m.user.name,
+    imageUrl: chatImageUrl(m.imagePath), createdAt: m.createdAt.toISOString(),
   }));
 }
 
-export async function sendChatMessage(body: string): Promise<{ ok?: boolean; error?: string }> {
+export async function listChatPeers(): Promise<ChatPeer[]> {
   const session = await requireSession();
-  const text = body.trim();
-  if (!text) return { error: "Empty message" };
-  if (text.length > 2000) return { error: "Message too long" };
+  const users = await db.user.findMany({
+    where: { active: true, id: { not: session.userId } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  return users;
+}
 
-  await db.chatMessage.create({ data: { userId: session.userId, body: text } });
-
-  // @mention → notification. Matches "@FirstName", "@Full Name", or "@all".
+async function notifyMentions(session: { userId: string; name: string }, text: string, peerId?: string) {
+  if (peerId) {
+    // DM → always notify the recipient
+    await db.notification.create({
+      data: { userId: peerId, type: "CHAT_MENTION", title: `${session.name} messaged you`, body: text.slice(0, 120) || "📷 Photo", link: "/chat" },
+    });
+    return;
+  }
   const mentioned = new Set<string>();
   const lower = text.toLowerCase();
   if (/@all\b/.test(lower)) {
@@ -41,12 +66,42 @@ export async function sendChatMessage(body: string): Promise<{ ok?: boolean; err
   if (mentioned.size > 0) {
     await db.notification.createMany({
       data: [...mentioned].map(userId => ({
-        userId, type: "CHAT_MENTION" as const,
-        title: `${session.name} mentioned you in Team Chat`,
-        body: text.slice(0, 120),
-        link: "/chat",
+        userId, type: "CHAT_MENTION" as const, title: `${session.name} mentioned you in Team Chat`, body: text.slice(0, 120), link: "/chat",
       })),
     });
   }
+}
+
+export async function sendChatMessage(body: string, peerId?: string): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireSession();
+  const text = body.trim();
+  if (!text) return { error: "Empty message" };
+  if (text.length > 2000) return { error: "Message too long" };
+  await db.chatMessage.create({ data: { userId: session.userId, recipientId: peerId || null, body: text } });
+  await notifyMentions(session, text, peerId);
   return { ok: true };
+}
+
+const IMG_MAX = 8 * 1024 * 1024;
+const IMG_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"];
+
+export async function sendChatImage(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireSession();
+  if (!isStorageConfigured()) return { error: "Image sharing is not configured (SUPABASE keys missing)." };
+  const file = formData.get("file");
+  const peerId = String(formData.get("peerId") ?? "") || null;
+  const caption = String(formData.get("caption") ?? "").trim();
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image." };
+  if (file.size > IMG_MAX) return { error: "Image too large (max 8 MB)." };
+  if (!IMG_MIME.includes(file.type)) return { error: "Use a JPG, PNG, GIF, or WebP image." };
+  try {
+    const ext = file.type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+    const path = `${session.userId}/${Date.now()}.${ext}`;
+    await uploadChatImage(path, await file.arrayBuffer(), file.type);
+    await db.chatMessage.create({ data: { userId: session.userId, recipientId: peerId, body: caption, imagePath: path } });
+    await notifyMentions(session, caption || "📷 Photo", peerId ?? undefined);
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Upload failed." };
+  }
 }
