@@ -7,3 +7,4 @@ node_modules
 .env*
 import-real-data.ts
 .claude/settings.local.json
+import-ar-xlsx.ts

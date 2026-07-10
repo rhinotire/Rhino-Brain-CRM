@@ -31,7 +31,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
   const now = new Date();
 
   const where: Prisma.InvoiceWhereInput = {
-    balance: { gt: 0 },
+    balance: { not: 0 }, // negative = customer credit / prepayment
     ...(Object.keys(locationScope(session)).length ? { locationId: locationScope(session).locationId } : {}),
   };
   // Reps only see A/R for their own customers.
@@ -52,9 +52,11 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
     manager ? db.user.findMany({ where: { active: true, role: "SALES_REP" }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
+  const CREDIT = { key: "credit", label: "Credit / prepaid", min: 0, max: 0 } as const;
   const withBucket = invoices.map(inv => {
     const days = overdueDays(inv.dueDate, now);
-    return { inv, days, bucket: bucketOf(days) };
+    const credit = Number(inv.balance) < 0;
+    return { inv, days: credit ? 0 : days, bucket: credit ? CREDIT : bucketOf(days) };
   });
 
   const totals = BUCKETS.map(b => ({
@@ -62,7 +64,8 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
     sum: withBucket.filter(x => x.bucket.key === b.key).reduce((s, x) => s + Number(x.inv.balance), 0),
     count: withBucket.filter(x => x.bucket.key === b.key).length,
   }));
-  const grandTotal = totals.reduce((s, t) => s + t.sum, 0);
+  const creditTotal = withBucket.filter(x => x.bucket.key === "credit").reduce((s, x) => s + Number(x.inv.balance), 0);
+  const grandTotal = totals.reduce((s, t) => s + t.sum, 0) + creditTotal;
   const pastDueTotal = totals.filter(t => t.key !== "current").reduce((s, t) => s + t.sum, 0);
 
   const filtered = searchParams.bucket
@@ -76,12 +79,13 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
       <h1 className="text-xl font-bold">{manager ? "A/R Aging" : "My A/R"} <span className="text-sm font-normal text-slate-400">({invoices.length} open invoices)</span></h1>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        <StatCard label="Total outstanding" value={fmtMoney(grandTotal)} />
+        <StatCard label="Net outstanding" value={fmtMoney(grandTotal)} />
         <StatCard label="Total past due" value={fmtMoney(pastDueTotal)} tone={pastDueTotal > 0 ? "danger" : "good"} />
         {totals.map(t => (
           <StatCard key={t.key} label={t.label} value={fmtMoney(t.sum)} hint={`${t.count} invoices`}
             tone={t.key === "current" ? "default" : t.key === "b30" ? "warn" : "danger"} />
         ))}
+        {creditTotal !== 0 && <StatCard label="Customer credits" value={fmtMoney(creditTotal)} tone="good" />}
       </div>
 
       <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-5">
@@ -89,6 +93,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
         <Select name="bucket" defaultValue={searchParams.bucket ?? ""}>
           <option value="">All buckets</option>
           {BUCKETS.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
+          <option value="credit">Credit / prepaid</option>
         </Select>
         {manager && (
           <Select name="rep" defaultValue={searchParams.rep ?? ""}>
@@ -111,7 +116,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
               </td>
               <td className="px-3 py-2 text-slate-600">{inv.customer?.assignedRep?.name ?? "—"}</td>
               <td className="px-3 py-2">
-                <Badge className={bucket.key === "current" ? "bg-emerald-100 text-emerald-700"
+                <Badge className={bucket.key === "credit" || bucket.key === "current" ? "bg-emerald-100 text-emerald-700"
                   : bucket.key === "b30" ? "bg-amber-100 text-amber-700"
                   : "bg-red-100 text-red-700"}>{bucket.label}</Badge>
               </td>
