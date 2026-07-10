@@ -3,6 +3,7 @@ import { requireManager } from "@/lib/auth";
 import { Card, Table, THead, EmptyRow } from "@/components/ui/primitives";
 import { CsvImporter } from "@/components/csv-importer";
 import { ArImporter } from "@/components/ar-importer";
+import { InventoryImporter } from "@/components/inventory-importer";
 import { fmtDateTime } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
@@ -10,17 +11,22 @@ export const dynamic = "force-dynamic";
 export default async function ImportPage() {
   await requireManager();
 
-  const batches = await db.importBatch.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { user: { select: { name: true } } },
-    take: 20,
-  });
+  const [batches, locations] = await Promise.all([
+    db.importBatch.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true } } },
+      take: 20,
+    }),
+    db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } }),
+  ]);
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Import / Export</h1>
 
       <CsvImporter />
+
+      <InventoryImporter locations={locations} />
 
       <ArImporter />
 
