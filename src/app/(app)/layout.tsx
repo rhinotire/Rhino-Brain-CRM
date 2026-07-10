@@ -46,14 +46,22 @@ const repNav = [
   { href: "/opportunities", label: "Opportunities", icon: "◎" },
 ];
 
+// Accounting: A/R-focused, read-only, cross-company.
+const accountingNav = [
+  { href: "/ar", label: "A/R Aging", icon: "💰" },
+  { href: "/customers", label: "Customers", icon: "🏬" },
+  { href: "/chat", label: "Team Chat", icon: "💬" },
+];
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
-  const locations = session.role === "ADMIN"
+  const showSwitcher = session.role === "ADMIN" || session.role === "ACCOUNTING";
+  const locations = showSwitcher
     ? await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true, color: true } })
     : [];
-  const currentLoc = session.role === "ADMIN" ? adminLocFilter() : null;
+  const currentLoc = showSwitcher ? adminLocFilter() : null;
   const manager = isManager(session);
-  const nav = manager ? managerNav : repNav;
+  const nav = session.role === "ACCOUNTING" ? accountingNav : manager ? managerNav : repNav;
 
   const notifications = await db.notification.findMany({
     where: { userId: session.userId },
@@ -72,7 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">AI Business Command Center</div>
         </div>
-        {session.role === "ADMIN" && locations.length > 0 && (
+        {showSwitcher && locations.length > 0 && (
           <LocationSwitcher locations={locations} current={currentLoc} />
         )}
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2">

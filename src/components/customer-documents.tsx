@@ -23,9 +23,10 @@ const DOC_TYPES: [string, string][] = [
 ];
 const CORE_TYPES = DOC_TYPES.slice(0, 5).map(([v]) => v);
 
-export function CustomerDocuments({ customerId, docs, isManager, storageReady }: {
-  customerId: string; docs: DocRow[]; isManager: boolean; storageReady: boolean;
+export function CustomerDocuments({ customerId, docs, isManager, storageReady, isAccounting = false, canUpload = true }: {
+  customerId: string; docs: DocRow[]; isManager: boolean; storageReady: boolean; isAccounting?: boolean; canUpload?: boolean;
 }) {
+  const canDownload = (d: DocRow) => !d.sensitive || isManager || (isAccounting && d.type === "CREDIT_CARD_AUTH");
   const [state, action] = useFormState(uploadCustomerDocument, null);
   const [docType, setDocType] = useState("ACCOUNT_APPLICATION");
   const toast = useToast();
@@ -75,10 +76,9 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady }:
                 <div key={d.id} className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
                   <span className="truncate">{d.fileName}{d.expiresAt && ` · expires ${new Date(d.expiresAt).toLocaleDateString("en-US")}`}</span>
                   <span className="flex shrink-0 gap-2">
-                    {(!d.sensitive || isManager) && (
-                      <button type="button" onClick={() => download(d.id)} className="text-brand-600 hover:underline">Download</button>
-                    )}
-                    {d.sensitive && !isManager && <span className="text-slate-400">restricted</span>}
+                    {canDownload(d)
+                      ? <button type="button" onClick={() => download(d.id)} className="text-brand-600 hover:underline">Download</button>
+                      : <span className="text-slate-400">restricted</span>}
                     {isManager && <button type="button" onClick={() => remove(d.id)} className="text-red-500 hover:underline">Delete</button>}
                   </span>
                 </div>
@@ -88,7 +88,7 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady }:
         })}
       </div>
 
-      {storageReady ? (
+      {storageReady && canUpload ? (
         <form action={action} className="space-y-2 rounded-md border border-dashed border-slate-300 p-3">
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid grid-cols-2 gap-2">
@@ -110,11 +110,11 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady }:
           {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
           <SubmitButton>⬆ Upload document</SubmitButton>
         </form>
-      ) : (
+      ) : !storageReady && canUpload ? (
         <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-700">
           Document storage is not configured yet. Admin: add <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> to the environment to enable uploads.
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

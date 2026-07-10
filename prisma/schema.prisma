@@ -16,6 +16,7 @@ enum Role {
   ADMIN
   MANAGER
   SALES_REP
+  ACCOUNTING
 }
 
 enum CustomerType {

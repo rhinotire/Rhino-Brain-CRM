@@ -46,18 +46,31 @@ export async function requireSession(): Promise<Session> {
   return s;
 }
 
-/** Redirects to /my-work when the user is not admin/manager. */
+/** Redirects to a safe page when the user is not an admin/manager (blocks reps and accounting). */
 export async function requireManager(): Promise<Session> {
   const s = await requireSession();
+  if (s.role === "ACCOUNTING") redirect("/ar");
   if (s.role === "SALES_REP") redirect("/my-work");
   return s;
 }
 
 export const isManager = (s: Session) => s.role === "ADMIN" || s.role === "MANAGER";
+export const isAccounting = (s: Session) => s.role === "ACCOUNTING";
+/** Roles that see every location's data (admins + accounting), optionally via the sidebar filter. */
+export const seesAllLocations = (s: Session) => s.role === "ADMIN" || s.role === "ACCOUNTING";
+/** Roles that see all records, not just their own (managers + accounting). */
+const seesAllReps = (s: Session) => isManager(s) || isAccounting(s);
+
+/** Redirects non-accounting/non-manager users away. */
+export async function requireAccountingView(): Promise<Session> {
+  const s = await requireSession();
+  if (s.role === "SALES_REP") redirect("/my-work");
+  return s;
+}
 
 /** Prisma `where` fragment that scopes reps to their own records. */
 export function repScope(s: Session, field = "assignedRepId") {
-  return isManager(s) ? {} : { [field]: s.userId };
+  return seesAllReps(s) ? {} : { [field]: s.userId };
 }
 
 const LOC_COOKIE = "tirepro_loc";
@@ -79,7 +92,7 @@ export function setAdminLocFilterCookie(id: string | null) {
  * Every scoped model (Customer, Lead, Quote, Task, Activity, Opportunity, Order) has `locationId`.
  */
 export function locationScope(s: Session): { locationId?: string } {
-  if (s.role === "ADMIN") {
+  if (seesAllLocations(s)) {
     const f = adminLocFilter();
     return f ? { locationId: f } : {};
   }

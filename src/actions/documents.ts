@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager } from "@/lib/auth";
+import { requireSession, isManager, isAccounting } from "@/lib/auth";
 import { uploadObject, createSignedUrl, deleteObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
 import type { DocumentType } from "@prisma/client";
@@ -54,8 +54,10 @@ export async function getDocumentDownloadUrl(documentId: string): Promise<{ url?
   const session = await requireSession();
   const doc = await db.customerDocument.findUnique({ where: { id: documentId }, include: { customer: { select: { assignedRepId: true } } } });
   if (!doc) return { error: "Document not found." };
-  if (doc.sensitive && !isManager(session)) return { error: "Only managers can download driver licenses and credit card authorizations." };
-  if (!isManager(session) && doc.customer.assignedRepId !== session.userId) return { error: "Not your customer." };
+  // Accounting can pull credit-card authorizations (billing) but not driver licenses.
+  const acctCanView = isAccounting(session) && doc.type === "CREDIT_CARD_AUTH";
+  if (doc.sensitive && !isManager(session) && !acctCanView) return { error: "Only managers can download this document." };
+  if (!isManager(session) && !isAccounting(session) && doc.customer.assignedRepId !== session.userId) return { error: "Not your customer." };
   try {
     return { url: await createSignedUrl(doc.storagePath, 300) };
   } catch (e) {

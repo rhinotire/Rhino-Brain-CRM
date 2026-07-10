@@ -11,6 +11,7 @@ export const roleLabels: Record<Role, string> = {
   ADMIN: "Admin / Owner",
   MANAGER: "Sales Manager",
   SALES_REP: "Sales Rep",
+  ACCOUNTING: "Accounting",
 };
 
 export const customerTypeLabels: Record<CustomerType, string> = {

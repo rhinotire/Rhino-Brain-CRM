@@ -116,5 +116,5 @@ export const userSchema = z.object({
   locationId: optionalStr,
   email: z.string().email(),
   password: z.string().min(6, "At least 6 characters").optional().or(z.literal("")).transform(v => v || undefined),
-  role: z.enum(["ADMIN","MANAGER","SALES_REP"]),
+  role: z.enum(["ADMIN","MANAGER","SALES_REP","ACCOUNTING"]),
 });

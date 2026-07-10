@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireSession, isManager, locationScope } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard, Select, Button, Input } from "@/components/ui/primitives";
 import { fmtMoney, fmtDate } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
@@ -27,15 +27,16 @@ function bucketOf(days: number) {
 
 export default async function ARAgingPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
-  const manager = isManager(session);
+  const seesAll = isManager(session) || isAccounting(session);
+  const manager = seesAll; // controls rep filter + rep column
   const now = new Date();
 
   const where: Prisma.InvoiceWhereInput = {
     balance: { not: 0 }, // negative = customer credit / prepayment
     ...(Object.keys(locationScope(session)).length ? { locationId: locationScope(session).locationId } : {}),
   };
-  // Reps only see A/R for their own customers.
-  if (!manager) where.customer = { assignedRepId: session.userId };
+  // Only sales reps are limited to their own customers; managers and accounting see all.
+  if (session.role === "SALES_REP") where.customer = { assignedRepId: session.userId };
   else if (searchParams.rep) where.customer = { assignedRepId: searchParams.rep };
   const q = searchParams.q?.trim();
   if (q) where.customerName = { contains: q, mode: "insensitive" };
@@ -49,7 +50,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
         location: { select: { shortTag: true } },
       },
     }),
-    manager ? db.user.findMany({ where: { active: true, role: "SALES_REP" }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    seesAll ? db.user.findMany({ where: { active: true, role: "SALES_REP" }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   const CREDIT = { key: "credit", label: "Credit / prepaid", min: 0, max: 0 } as const;

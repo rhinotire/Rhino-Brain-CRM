@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, isManager, repScope, locationScope, adminLocFilter } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, seesAllLocations, repScope, locationScope, adminLocFilter } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge } from "@/components/ui/primitives";
 import { NewCustomerButton } from "@/components/new-customer-button";
 import { CustomersFilter } from "@/components/customers-filter";
@@ -21,11 +21,13 @@ type Search = {
 
 export default async function CustomersPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
-  const showLocCol = session.role === "ADMIN" && !adminLocFilter();
+  const allLoc = seesAllLocations(session);
+  const showLocCol = allLoc && !adminLocFilter();
   const adminLocations = session.role === "ADMIN"
     ? await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } })
     : [];
-  const manager = isManager(session);
+  const manager = isManager(session);      // write actions (new / export / assign)
+  const seesAll = manager || isAccounting(session); // rep column + rep filter + view all
   const now = new Date();
 
   const where: Prisma.CustomerWhereInput = { ...repScope(session), ...locationScope(session) };
@@ -44,7 +46,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   if (searchParams.type) where.type = searchParams.type as CustomerType;
   if (searchParams.interest) where.mainInterest = searchParams.interest as ProductCategory;
   if (searchParams.state) where.state = { equals: searchParams.state, mode: "insensitive" };
-  if (manager && searchParams.rep) where.assignedRepId = searchParams.rep;
+  if (seesAll && searchParams.rep) where.assignedRepId = searchParams.rep;
   if (searchParams.lastContact) {
     const days = Number(searchParams.lastContact);
     where.OR = [
@@ -66,16 +68,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       take: 200,
       include: { assignedRep: { select: { name: true } }, tags: { include: { tag: true } }, location: { select: { shortTag: true, name: true, color: true } } },
     }),
-    manager ? db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    seesAll ? db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{manager ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
+        <h1 className="text-xl font-bold">{seesAll ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
         <div className="flex gap-2">
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
-          <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />
+          {manager && <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />}
         </div>
       </div>
 
@@ -84,7 +86,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         statuses={Object.entries(customerStatusLabels)}
         types={Object.entries(customerTypeLabels)}
         interests={Object.entries(productLabels)}
-        reps={manager ? reps : []}
+        reps={seesAll ? reps : []}
       />
 
       <Table>

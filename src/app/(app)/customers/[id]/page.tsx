@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, locationScope } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Card, Badge, Button } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import { NewTaskButton } from "@/components/task-form";
@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
   const session = await requireSession();
   const manager = isManager(session);
+  const accounting = isAccounting(session);
 
   const customer = await db.customer.findUnique({
     where: { id: params.id },
@@ -37,7 +38,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     },
   });
   if (!customer) notFound();
-  if (!manager && customer.assignedRepId !== session.userId) notFound();
+  if (!manager && !accounting && customer.assignedRepId !== session.userId) notFound();
   // location isolation: managers/reps (and admins with a location filter) cannot open other locations' customers
   const locGuard = locationScope(session);
   if (locGuard.locationId && customer.locationId && customer.locationId !== locGuard.locationId) notFound();
@@ -67,6 +68,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {!accounting && <>
           <QuickLogButton customerId={customer.id} label="Log Call" defaultType="CALL" />
           <QuickLogButton customerId={customer.id} label="Add Note" defaultType="INTERNAL_NOTE" variant="secondary" />
           <NewQuoteButton customers={[{ id: customer.id, companyName: customer.companyName }]} defaultCustomerId={customer.id} label="Create Quote" />
@@ -102,6 +104,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               assignedRepId: customer.assignedRepId ?? undefined,
             }}
           />
+          </>}
         </div>
       </div>
 
@@ -187,6 +190,8 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             <CustomerDocuments
               customerId={customer.id}
               isManager={manager}
+              isAccounting={accounting}
+              canUpload={!accounting}
               storageReady={isStorageConfigured()}
               docs={customer.documents.map(d => ({
                 id: d.id, type: d.type, fileName: d.fileName,
