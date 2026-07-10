@@ -5,6 +5,7 @@ import { CsvImporter } from "@/components/csv-importer";
 import { ArImporter } from "@/components/ar-importer";
 import { InventoryImporter } from "@/components/inventory-importer";
 import { OrderImporter } from "@/components/order-importer";
+import { CustomerMasterImporter } from "@/components/customer-master-importer";
 import { fmtDateTime } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +26,15 @@ export default async function ImportPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Import / Export</h1>
 
-      <CsvImporter />
+      <CustomerMasterImporter />
 
       <InventoryImporter locations={locations} />
 
       <OrderImporter />
 
       <ArImporter />
+
+      <CsvImporter />
 
       <Card title="Export Data (CSV)">
         <div className="flex flex-wrap gap-2">
