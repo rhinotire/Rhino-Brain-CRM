@@ -52,10 +52,17 @@ export function QuickLogButton({
           {quoteId && <input type="hidden" name="quoteId" value={quoteId} />}
           {!customerId && !leadId && (
             <Field label="Customer *">
-              <Select name="customerId" required defaultValue="" onChange={e => setPickedCustomerId(e.target.value)}>
-                <option value="" disabled>Select customer…</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-              </Select>
+              <>
+                <Input list="ql-cust-list" placeholder="Type a customer name…" autoComplete="off" required
+                  onChange={e => {
+                    const opt = document.querySelector<HTMLOptionElement>(`#ql-cust-list option[value="${CSS.escape(e.target.value)}"]`);
+                    setPickedCustomerId(opt?.dataset.id ?? "");
+                  }} />
+                <datalist id="ql-cust-list">
+                  {customers.map(c => <option key={c.id} value={c.companyName} data-id={c.id} />)}
+                </datalist>
+                <input type="hidden" name="customerId" value={pickedCustomerId} />
+              </>
             </Field>
           )}
           <div className="grid grid-cols-2 gap-3">

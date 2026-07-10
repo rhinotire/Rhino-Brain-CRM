@@ -2,8 +2,9 @@ import Link from "next/link";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
 import { requireSession, isManager, repScope, locationScope, adminLocFilter } from "@/lib/auth";
-import { Table, THead, EmptyRow, Badge, Input, Select, Button } from "@/components/ui/primitives";
+import { Table, THead, EmptyRow, Badge } from "@/components/ui/primitives";
 import { NewCustomerButton } from "@/components/new-customer-button";
+import { CustomersFilter } from "@/components/customers-filter";
 import { isStorageConfigured } from "@/lib/storage";
 import {
   customerTypeLabels, customerStatusLabels, productLabels, temperatureClasses, temperatureLabels,
@@ -79,43 +80,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       </div>
 
       {/* Filters */}
-      <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-4 xl:grid-cols-8">
-        <Input name="q" placeholder="Search name / phone / email / city / tag" defaultValue={searchParams.q} className="col-span-2" />
-        <Select name="status" defaultValue={searchParams.status ?? ""}>
-          <option value="">All statuses</option>
-          {Object.entries(customerStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        <Select name="type" defaultValue={searchParams.type ?? ""}>
-          <option value="">All types</option>
-          {Object.entries(customerTypeLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        <Select name="interest" defaultValue={searchParams.interest ?? ""}>
-          <option value="">All products</option>
-          {Object.entries(productLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {manager && (
-          <Select name="rep" defaultValue={searchParams.rep ?? ""}>
-            <option value="">All reps</option>
-            {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </Select>
-        )}
-        <Select name="lastContact" defaultValue={searchParams.lastContact ?? ""}>
-          <option value="">Any last contact</option>
-          <option value="7">Not contacted 7d+</option>
-          <option value="14">Not contacted 14d+</option>
-          <option value="30">Not contacted 30d+</option>
-          <option value="60">Not contacted 60d+</option>
-          <option value="90">Not contacted 90d+</option>
-        </Select>
-        <div className="flex gap-2">
-          <Select name="followUp" defaultValue={searchParams.followUp ?? ""}>
-            <option value="">Any follow-up</option>
-            <option value="today">Follow-up today</option>
-            <option value="overdue">Follow-up overdue</option>
-          </Select>
-          <Button type="submit" variant="secondary">Filter</Button>
-        </div>
-      </form>
+      <CustomersFilter
+        statuses={Object.entries(customerStatusLabels)}
+        types={Object.entries(customerTypeLabels)}
+        interests={Object.entries(productLabels)}
+        reps={manager ? reps : []}
+      />
 
       <Table>
         <THead cols={["Company", ...(showLocCol ? ["Location"] : []), "Contact", "Type", "Status", "Tier", "Temperature", "Rep", "Last Contact", "Next F/U"]} />
