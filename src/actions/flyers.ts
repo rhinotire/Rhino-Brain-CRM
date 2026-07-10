@@ -16,10 +16,15 @@ export type FlyerItemInput = {
 
 export type FlyerCopy = {
   headline: string;
+  headlineAccent?: string; // trailing words rendered in gold
   tagline: string;
+  bannerLine: string;      // the "THIS WEEK ONLY • WHILE SUPPLIES LAST" strip
   intro: string;
-  itemBlurbs: string[]; // one per item, same order
+  introEs?: string;        // Spanish intro line (bilingual mode)
+  itemBlurbs: string[];    // one per item, same order
+  itemFeatures: string[][]; // 3 short feature tags per item, same order
   footer: string;
+  footerEs?: string;
 };
 
 export type SuggestedProduct = {
@@ -176,7 +181,7 @@ export async function generateFlyerCopy(input: {
       system: `You write punchy wholesale-tire promo flyers for Rhino Tire USA (Orlando, FL) and Everflow Tire (Dallas, TX). Audience: tire shop owners, car dealers, fleets. Tone: ${input.tone}. ${langNote} Never invent prices or products. Reply ONLY with valid JSON, no markdown fences.`,
       messages: [{
         role: "user",
-        content: `Flyer: "${input.title}". Contact: ${input.contactLine}${input.notes?.trim() ? `\n\nTheme / instructions from the owner (follow these closely): ${input.notes.trim()}` : ""}\n\nProducts on special:\n${itemsText}\n\nReturn JSON exactly in this shape:\n{"headline": "big attention-grabbing headline (max 8 words)", "tagline": "one supporting line (max 14 words)", "intro": "1-2 short sentences to shop owners", "itemBlurbs": ["one punchy line per product, same order, max 12 words each — ${input.items.length} entries"], "footer": "one-line call to action mentioning limited time"}`,
+        content: `Flyer: "${input.title}". Contact: ${input.contactLine}${input.notes?.trim() ? `\n\nTheme / instructions from the owner (follow these closely): ${input.notes.trim()}` : ""}\n\nProducts on special:\n${itemsText}\n\nReturn JSON exactly in this shape:\n{"headline": "main headline, 2-5 words", "headlineAccent": "1-3 trailing words shown in gold (e.g. WHOLESALE DEALS)", "tagline": "punchy dealer-focused line, max 8 words", "bannerLine": "urgency strip like THIS WEEK ONLY • WHILE SUPPLIES LAST", "intro": "1 sentence to shop owners about protecting margins / stocking up (English)", ${input.language === "both" ? `"introEs": "the intro translated to Spanish", ` : ""}"itemBlurbs": ["one short benefit line per product, same order, max 10 words — ${input.items.length} entries"], "itemFeatures": [["3 SHORT UPPERCASE feature tags per product (2-3 words each), e.g. BUILT TO LAST / HEAVY-DUTY / TRAILER READY"], "...same count: ${input.items.length} arrays of 3"], "footer": "one-line urgent call to action (English)"${input.language === "both" ? `, "footerEs": "footer translated to Spanish"` : ""}}`,
       }],
     });
     const text = response.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("").trim();
@@ -184,6 +189,10 @@ export async function generateFlyerCopy(input: {
     const copy = JSON.parse(jsonStr) as FlyerCopy;
     if (!copy.headline || !Array.isArray(copy.itemBlurbs)) throw new Error("bad shape");
     while (copy.itemBlurbs.length < input.items.length) copy.itemBlurbs.push("");
+    if (!Array.isArray(copy.itemFeatures)) copy.itemFeatures = [];
+    while (copy.itemFeatures.length < input.items.length) copy.itemFeatures.push(["QUALITY BUILT", "DEALER PRICED", "IN STOCK"]);
+    copy.itemFeatures = copy.itemFeatures.map(f => (Array.isArray(f) ? f.slice(0, 3) : ["QUALITY", "VALUE", "IN STOCK"]));
+    if (!copy.bannerLine) copy.bannerLine = "THIS WEEK ONLY • WHILE SUPPLIES LAST";
     return { ok: true, copy };
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return { error: "AI key is invalid — check ANTHROPIC_API_KEY." };

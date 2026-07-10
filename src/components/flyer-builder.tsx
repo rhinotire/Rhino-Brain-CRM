@@ -185,50 +185,104 @@ export function FlyerBuilder({ categories }: { categories?: string[] }) {
             <Button onClick={() => window.print()}>🖨 Print / Save as PDF</Button>
           </div>
 
-          <div id="flyer-print" className="mx-auto max-w-2xl rounded-lg border border-slate-200 bg-white shadow-sm print:max-w-none print:rounded-none print:border-0 print:shadow-none">
-            {logo && (
-              <div className="rounded-t-lg bg-white px-8 pb-3 pt-6 text-center print:rounded-none">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logo} alt="Company logo" className="mx-auto max-h-28 w-auto max-w-full" />
-              </div>
-            )}
-            <div className={`${logo ? "" : "rounded-t-lg"} bg-ink-900 px-8 py-6 text-center print:rounded-none`}>
-              {!logo && (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-16 w-16 rounded-lg" />
-                  <div className="mt-2 text-xl font-black tracking-tight text-white">RHINO <span className="text-brand-500">TIRE USA</span></div>
-                </>
-              )}
-              <div className={`${logo ? "" : "mt-3"} text-3xl font-black uppercase text-brand-500`}>{copy.headline}</div>
-              <div className="mt-1 text-sm text-slate-300">{copy.tagline}</div>
-            </div>
-            <div className="px-8 py-6">
-              <div className="mb-1 inline-block rounded-full bg-brand-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">{title}</div>
-              <p className="mb-5 text-sm text-slate-600">{copy.intro}</p>
-              <div className="space-y-3">
-                {validRows.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between gap-4 rounded-md border border-slate-200 p-4">
-                    <div className="flex min-w-0 items-center gap-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {r.image && <img src={r.image} alt={r.name} className="h-20 w-20 shrink-0 rounded-md border border-slate-100 object-cover" />}
-                      <div className="min-w-0">
-                        <div className="text-lg font-black text-slate-800">{r.name}</div>
-                        <div className="text-sm text-slate-500">{r.description}</div>
-                        {copy.itemBlurbs[i] && <div className="mt-0.5 text-sm font-medium text-brand-700">{copy.itemBlurbs[i]}</div>}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {r.wasPrice && <div className="text-sm text-slate-400 line-through">${Number(r.wasPrice).toFixed(2)}</div>}
-                      <div className="text-2xl font-black text-red-600">${Number(r.specialPrice).toFixed(2)}</div>
-                    </div>
+          {(() => {
+            const bestIdx = validRows.reduce((best, r, i) => {
+              const sv = r.wasPrice ? Number(r.wasPrice) - Number(r.specialPrice) : 0;
+              const bestSv = validRows[best].wasPrice ? Number(validRows[best].wasPrice) - Number(validRows[best].specialPrice) : 0;
+              return sv > bestSv ? i : best;
+            }, 0);
+            const anySavings = validRows.some(r => r.wasPrice && Number(r.wasPrice) > Number(r.specialPrice));
+            const navy = "linear-gradient(135deg,#0a1526 0%,#152a4a 55%,#0a1526 100%)";
+            return (
+              <div id="flyer-print" className="mx-auto max-w-2xl overflow-hidden rounded-lg bg-white shadow-lg print:max-w-none print:rounded-none print:shadow-none">
+                {/* Header */}
+                <div className="relative px-8 pb-5 pt-7 text-center" style={{ background: navy }}>
+                  <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: "linear-gradient(90deg,#8f6400,#e5a50a,#8f6400)" }} />
+                  {logo
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={logo} alt="Company logo" className="mx-auto mb-3 max-h-24 w-auto max-w-full" />
+                    : <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-14 w-14 rounded-lg" />
+                        <div className="mt-1 text-lg font-black tracking-tight text-white">RHINO <span className="text-brand-500">TIRE USA</span></div>
+                      </>}
+                  <div className="text-3xl font-black uppercase leading-tight tracking-tight text-white">
+                    {copy.headline} {copy.headlineAccent && <span className="text-brand-500">{copy.headlineAccent}</span>}
                   </div>
-                ))}
+                  <div className="mt-1 text-base font-bold text-white">{copy.tagline}</div>
+                  <div className="mx-auto mt-2 inline-block rounded-full px-4 py-1 text-xs font-bold uppercase tracking-wide text-ink-900" style={{ background: "linear-gradient(90deg,#e5a50a,#c98d00)" }}>
+                    {copy.bannerLine}
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="px-8 py-6">
+                  <div className="mb-1 inline-block rounded bg-brand-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">{title}</div>
+                  <p className="text-sm font-medium text-slate-700">{copy.intro}</p>
+                  {copy.introEs && <p className="mb-4 text-sm italic text-slate-500">{copy.introEs}</p>}
+
+                  <div className="mt-4 space-y-3">
+                    {validRows.map((r, i) => {
+                      const was = r.wasPrice ? Number(r.wasPrice) : null;
+                      const sp = Number(r.specialPrice);
+                      const save = was && was > sp ? was - sp : null;
+                      const isBest = anySavings && i === bestIdx && save;
+                      return (
+                        <div key={i} className="relative overflow-hidden rounded-lg border border-slate-200 shadow-sm"
+                          style={isBest ? { borderColor: "#e5a50a", borderWidth: 2 } : undefined}>
+                          {isBest && (
+                            <div className="absolute left-0 top-0 rounded-br-lg px-3 py-1 text-xs font-black uppercase text-ink-900" style={{ background: "#e5a50a" }}>
+                              Best Deal
+                            </div>
+                          )}
+                          <div className="flex items-stretch gap-4 p-4">
+                            <div className="flex w-24 shrink-0 items-center justify-center">
+                              {r.image
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                ? <img src={r.image} alt={r.name} className="h-24 w-24 rounded object-cover" />
+                                : <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-slate-200 bg-slate-50 text-3xl">🛞</div>}
+                            </div>
+                            <div className="flex min-w-0 flex-1 flex-col justify-center">
+                              <div className="text-xl font-black leading-tight text-ink-900">{r.name}</div>
+                              {r.description && <div className="text-sm font-bold uppercase text-brand-700">{r.description}</div>}
+                              {copy.itemBlurbs[i] && <div className="text-xs text-slate-500">{copy.itemBlurbs[i]}</div>}
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                {(copy.itemFeatures[i] ?? []).map((f, k) => (
+                                  <span key={k} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                                    <span className="flex h-4 w-4 items-center justify-center rounded-full text-white" style={{ background: navy }}>✓</span>
+                                    {f}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end justify-center">
+                              {was && <div className="text-sm text-slate-400 line-through">${was.toFixed(2)}</div>}
+                              <div className="text-3xl font-black leading-none text-red-600">${sp.toFixed(2)}</div>
+                              {save && <div className="mt-1 rounded px-2 py-0.5 text-xs font-black uppercase text-ink-900" style={{ background: "#e5a50a" }}>Save ${save.toFixed(2)}</div>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center gap-4 px-8 py-5" style={{ background: navy }}>
+                  <div className="text-3xl">🛒</div>
+                  <div className="flex-1">
+                    <div className="text-xl font-black uppercase text-brand-500">Order Today</div>
+                    <div className="text-sm font-semibold text-white">{copy.footer}</div>
+                    {copy.footerEs && <div className="text-xs italic text-slate-300">{copy.footerEs}</div>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 bg-ink-900 px-8 py-3 text-center text-xs font-semibold text-slate-300">
+                  <span>🛡 Dealer-only pricing</span>
+                  <span>📍 {contactLine}</span>
+                </div>
               </div>
-              <div className="mt-6 rounded-md bg-amber-50 p-3 text-center text-sm font-semibold text-amber-800">{copy.footer}</div>
-              <div className="mt-4 text-center text-xs text-slate-500">{contactLine}</div>
-            </div>
-          </div>
+            );
+          })()}
         </>
       )}
     </div>
