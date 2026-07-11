@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:platform-config": "tsx scripts/upsert-platform-config.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

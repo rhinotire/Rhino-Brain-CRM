@@ -199,6 +199,9 @@ model Location {
   inventory     InventorySnapshot[]
   invoices      Invoice[]
   lostSales     LostSale[]
+  brandConfigs  BrandConfig[]
+  installers    Installer[]
+  consumerLeads ConsumerLead[]
 }
 
 model User {
@@ -228,6 +231,8 @@ model User {
   lostSales      LostSale[]
   chatMessages   ChatMessage[] @relation("ChatAuthor")
   chatReceived   ChatMessage[] @relation("ChatRecipient")
+  installers     Installer[]
+  consumerLeads  ConsumerLead[]
 
   // "Assistant" access: this user can also see the customers of everyone in `assists`.
   assists    User[] @relation("RepAssists")
@@ -293,6 +298,7 @@ model Customer {
   orders        Order[]
   invoices      Invoice[]
   lostSales     LostSale[]
+  installers    Installer[]
 
   // Placeholder fields for future Tireguru POS integration
   tireguruId     String? @unique
@@ -339,6 +345,7 @@ model Lead {
   convertedCustomer   Customer? @relation(fields: [convertedCustomerId], references: [id])
 
   activities Activity[]
+  consumerLeads ConsumerLead[]
 
   importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
@@ -589,6 +596,7 @@ model Product {
   documents ProductDocument[]
   relations ProductRelation[] @relation("ProductRelations")
   relatedTo ProductRelation[] @relation("RelatedProduct")
+  consumerLeads ConsumerLead[]
 
   @@index([category])
   @@index([sizeSpec])
@@ -811,4 +819,201 @@ model Invoice {
 
   @@index([dueDate])
   @@index([customerId])
+}
+
+// ---------- Consumer lead platform (MVP-A) — see docs/b2b-consumer-lead-platform-architecture.md ----------
+
+enum InstallerPreferredStatus {
+  OWNED // IDEAL — William's own store, always priority 1
+  PREFERRED
+  PARTNER
+  PROSPECT
+}
+
+enum ConsumerLeadKind {
+  INSTALLED_PRICE
+  APPOINTMENT
+  INSTALLER_NEEDED
+  SEND_TO_INSTALLER
+}
+
+enum ConsumerLeadStatus {
+  SUBMITTED
+  INSTALLER_NEEDED
+  IDEAL_ELIGIBLE
+  PARTNER_MATCHED
+  EXISTING_DEALER_MATCHED
+  NEW_INSTALLER_PROSPECT
+  POSSIBLE_DUPLICATE
+  SALES_REVIEW
+  INSTALLER_CONTACTED
+  INSTALLER_REQUEST_OPENED
+  INSTALLER_ACCEPTED
+  INSTALLER_DECLINED
+  AWAITING_WHOLESALE_QUOTE
+  QUOTE_CREATED
+  QUOTE_SENT
+  ORDER_CONFIRMED
+  PRODUCT_RESERVED
+  INSTALLATION_REQUESTED
+  INSTALLATION_SCHEDULED
+  INSTALLATION_COMPLETED
+  LOST
+  CANCELLED
+  EXPIRED
+  MANUAL_ASSISTANCE_REQUIRED
+}
+
+// Web-facing brand identity per company (addendum #1/#3). Operational tenant stays Location.
+model BrandConfig {
+  id           String  @id @default(cuid())
+  key          String  @unique // "RHINO" | "EVERFLOW"
+  domain       String  @unique // "rhinotiresusa.com"
+  name         String // "Rhino Tire USA"
+  legalName    String
+  phone        String // E.164-ish for tel: links
+  phoneDisplay String
+  addressJson  Json?
+  networkName  String // "RHINO Local Installer Network"
+  locationId   String
+  location     Location @relation(fields: [locationId], references: [id])
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Installer {
+  id         String    @id @default(cuid())
+  locationId String // owning company (Location)
+  location   Location  @relation(fields: [locationId], references: [id])
+  customerId String? // link when the installer is an existing CRM customer (dealer)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  storeName String
+  legalName String?
+  address   String
+  city      String
+  state     String
+  zip       String
+  lat       Float?
+  lng       Float?
+
+  serviceRadiusMi Int     @default(35)
+  phone           String
+  email           String?
+  notifyEmail     String? // where consumer-lead notifications go (front desk)
+  website         String?
+  hoursJson       Json? // { mon: "8:00-17:30", ... }
+
+  passenger     Boolean @default(true)
+  lightTruck    Boolean @default(true)
+  trailer       Boolean @default(false)
+  tbr           Boolean @default(false)
+  wheels        Boolean @default(false)
+  mobileService Boolean @default(false)
+  maxWheelSize  Int?
+
+  appointmentEnabled Boolean                  @default(true)
+  sameDayEnabled     Boolean                  @default(false) // only true when operationally verified (spec Hook 2)
+  preferredStatus    InstallerPreferredStatus @default(PROSPECT)
+
+  assignedRepId     String?
+  assignedRep       User?   @relation(fields: [assignedRepId], references: [id])
+  responseScore     Int     @default(0)
+  publicPageEnabled Boolean @default(false)
+  active            Boolean @default(true)
+
+  consumerLeads ConsumerLead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([zip])
+  @@index([locationId, active])
+}
+
+model ConsumerLead {
+  id        String  @id @default(cuid())
+  brandKey  String // BrandConfig.key that captured the lead
+  sourceUrl String?
+  campaignId String?
+
+  name             String
+  phone            String
+  email            String?
+  zip              String
+  vehicleJson      Json?
+  preferredContact String    @default("phone")
+  preferredDate    DateTime?
+  message          String?
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  tireSize  String?
+  quantity  Int      @default(4)
+
+  kind   ConsumerLeadKind
+  status ConsumerLeadStatus @default(SUBMITTED)
+
+  installerId   String?
+  installer     Installer? @relation(fields: [installerId], references: [id])
+  locationId    String?
+  location      Location?  @relation(fields: [locationId], references: [id])
+  assignedRepId String?
+  assignedRep   User?      @relation(fields: [assignedRepId], references: [id])
+
+  consumerToken String  @unique // consumer status-page capability; never a sequential id
+  crmLeadId     String? // bridge: B2B Lead created when this becomes a dealer prospect
+  crmLead       Lead?   @relation(fields: [crmLeadId], references: [id])
+
+  consents      ConsumerConsent[]
+  statusHistory ReferralStatusHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([zip])
+  @@index([brandKey, createdAt])
+}
+
+// Proof of consumer contact consent (TCPA groundwork — SMS ships Phase 2)
+model ConsumerConsent {
+  id             String       @id @default(cuid())
+  consumerLeadId String
+  consumerLead   ConsumerLead @relation(fields: [consumerLeadId], references: [id], onDelete: Cascade)
+  kind           String       @default("CONTACT") // CONTACT | SMS
+  textShown      String
+  ip             String
+  createdAt      DateTime     @default(now())
+
+  @@index([consumerLeadId])
+}
+
+model ReferralStatusHistory {
+  id             String       @id @default(cuid())
+  consumerLeadId String
+  consumerLead   ConsumerLead @relation(fields: [consumerLeadId], references: [id], onDelete: Cascade)
+  fromStatus     String?
+  toStatus       String
+  actor          String // "system" | "consumer" | "installer" | userId
+  reason         String?
+  createdAt      DateTime     @default(now())
+
+  @@index([consumerLeadId, createdAt])
+}
+
+// Server-side event log powering spec §23 BI reports (no PII in meta)
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  event          String
+  brandKey       String?
+  zip            String?
+  productId      String?
+  consumerLeadId String?
+  meta           Json?
+  createdAt      DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([zip])
 }

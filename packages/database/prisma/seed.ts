@@ -42,6 +42,36 @@ async function main() {
   const reps = [mike, sarah, carlos];
   const txReps = [jake, amy];
 
+  // ---- Consumer platform: brand configs + IDEAL installer (MVP-A) ----
+  await db.brandConfig.upsert({
+    where: { key: "RHINO" }, update: {},
+    create: {
+      key: "RHINO", domain: "rhinotiresusa.com", name: "Rhino Tire USA", legalName: "RHINO TIRE USA LLC",
+      phone: "+14070000000", phoneDisplay: "(407) 000-0000",
+      addressJson: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
+      networkName: "RHINO Local Installer Network", locationId: rhino.id, active: true,
+    },
+  });
+  await db.brandConfig.upsert({
+    where: { key: "EVERFLOW" }, update: {},
+    create: {
+      key: "EVERFLOW", domain: "everflowtires.com", name: "Everflow Tires & Wheels", legalName: "EVERFLOW TIRES & WHEELS",
+      phone: "+12140000000", phoneDisplay: "(214) 000-0000",
+      addressJson: { streetAddress: "Dallas, TX", addressLocality: "Dallas", addressRegion: "TX", addressCountry: "US" },
+      networkName: "EVERFLOW Preferred Dealer Network", locationId: everflow.id, active: false, // RHINO ships first
+    },
+  });
+  await db.installer.create({
+    data: {
+      locationId: rhino.id, storeName: "IDEAL TIRES & WHEELS",
+      address: "11423 Satellite Blvd", city: "Orlando", state: "FL", zip: "32837",
+      phone: "+13216820973", notifyEmail: "info@rhinotiresusa.com", serviceRadiusMi: 35,
+      hoursJson: { mon: "8:00-17:30", tue: "8:00-17:30", wed: "8:00-17:30", thu: "8:00-17:30", fri: "8:00-17:30", sat: "8:00-14:00", sun: "closed" },
+      passenger: true, lightTruck: true, trailer: true, wheels: true, tbr: false,
+      appointmentEnabled: true, sameDayEnabled: false, preferredStatus: "OWNED", active: true,
+    },
+  });
+
   if (await db.customer.count() > 0) { console.log("Data already present — skipping (drop DB to reseed)."); return; }
 
   // ---- Customers (30) ----
