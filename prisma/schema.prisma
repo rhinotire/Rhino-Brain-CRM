@@ -224,6 +224,10 @@ model User {
   lostSales      LostSale[]
   chatMessages   ChatMessage[] @relation("ChatAuthor")
   chatReceived   ChatMessage[] @relation("ChatRecipient")
+
+  // "Assistant" access: this user can also see the customers of everyone in `assists`.
+  assists    User[] @relation("RepAssists")
+  assistedBy User[] @relation("RepAssists")
 }
 
 model ChatMessage {

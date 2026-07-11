@@ -115,6 +115,8 @@ export async function upsertUser(userId: string | null, _prev: ActionResult | nu
   const parsed = userSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
   const d = parsed.data;
+  // reps this user assists (also sees their customers) — excludes self
+  const assistIds = formData.getAll("assists").map(String).filter(id => id && id !== userId);
 
   if (userId) {
     await db.user.update({
@@ -124,13 +126,19 @@ export async function upsertUser(userId: string | null, _prev: ActionResult | nu
         email: d.email.toLowerCase(),
         role: d.role,
         locationId: d.role === "ADMIN" ? null : d.locationId || null,
+        assists: { set: assistIds.map(id => ({ id })) },
         ...(d.password ? { passwordHash: await bcrypt.hash(d.password, 10) } : {}),
       },
     });
   } else {
     if (!d.password) return { ok: false, error: "Password is required for new users." };
     await db.user.create({
-      data: { name: d.name, email: d.email.toLowerCase(), role: d.role, locationId: d.role === "ADMIN" ? null : d.locationId || null, passwordHash: await bcrypt.hash(d.password, 10) },
+      data: {
+        name: d.name, email: d.email.toLowerCase(), role: d.role,
+        locationId: d.role === "ADMIN" ? null : d.locationId || null,
+        passwordHash: await bcrypt.hash(d.password, 10),
+        assists: { connect: assistIds.map(id => ({ id })) },
+      },
     });
   }
   revalidatePath("/settings/users");

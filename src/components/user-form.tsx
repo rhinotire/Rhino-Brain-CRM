@@ -9,9 +9,9 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { useToast } from "@/components/ui/toast";
 import { roleLabels } from "@/lib/domain";
 
-type UserRow = { id: string; name: string; email: string; role: string; active: boolean; locationId?: string | null };
+type UserRow = { id: string; name: string; email: string; role: string; active: boolean; locationId?: string | null; assistIds?: string[] };
 
-export function UserFormButton({ user, locations }: { user?: UserRow; locations?: { id: string; name: string; shortTag: string }[] }) {
+export function UserFormButton({ user, locations, reps }: { user?: UserRow; locations?: { id: string; name: string; shortTag: string }[]; reps?: { id: string; name: string; role: string }[] }) {
   const [open, setOpen] = useState(false);
   const bound = upsertUser.bind(null, user?.id ?? null);
   const [state, action] = useFormState(bound, null);
@@ -42,6 +42,19 @@ export function UserFormButton({ user, locations }: { user?: UserRow; locations?
               <Select name="locationId" defaultValue={user?.locationId ?? locations[0].id}>
                 {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.shortTag})</option>)}
               </Select>
+            </Field>
+          )}
+          {reps && reps.filter(r => r.id !== user?.id).length > 0 && (
+            <Field label="Assists (also sees these reps' customers)">
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 space-y-1">
+                {reps.filter(r => r.id !== user?.id).map(r => (
+                  <label key={r.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="assists" value={r.id} defaultChecked={user?.assistIds?.includes(r.id)} className="rounded" />
+                    <span>{r.name}{r.role !== "SALES_REP" ? ` (${roleLabels[r.role as keyof typeof roleLabels] ?? r.role})` : ""}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">This rep will see and manage the selected people&apos;s customers too. They must log out and back in for changes to take effect.</p>
             </Field>
           )}
           <Field label={user ? "New Password (leave blank to keep current)" : "Password *"}>

@@ -15,16 +15,21 @@ export default async function UsersPage() {
   const [users, locations] = await Promise.all([
     db.user.findMany({
       orderBy: [{ active: "desc" }, { name: "asc" }],
-      include: { _count: { select: { customers: true, activities: true } }, location: { select: { name: true, shortTag: true, color: true } } },
+      include: { _count: { select: { customers: true, activities: true } }, location: { select: { name: true, shortTag: true, color: true } }, assists: { select: { id: true } } },
     }),
     db.location.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
+
+  // Active people who own customers — candidates that another user can "assist"
+  const reps = users
+    .filter(u => u.active && (u.role === "SALES_REP" || u.role === "MANAGER" || u.role === "ADMIN"))
+    .map(u => ({ id: u.id, name: u.name, role: u.role }));
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Users & Locations</h1>
-        <UserFormButton locations={locations} />
+        <UserFormButton locations={locations} reps={reps} />
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -68,7 +73,7 @@ export default async function UsersPage() {
               <td className="px-3 py-2">{u.active ? <Badge className="bg-emerald-100 text-emerald-800">Active</Badge> : <Badge className="bg-slate-100 text-slate-500">Inactive</Badge>}</td>
               <td className="px-3 py-2">
                 <div className="flex gap-1.5">
-                  <UserFormButton user={{ id: u.id, name: u.name, email: u.email, role: u.role, active: u.active, locationId: u.locationId }} locations={locations} />
+                  <UserFormButton user={{ id: u.id, name: u.name, email: u.email, role: u.role, active: u.active, locationId: u.locationId, assistIds: u.assists.map(a => a.id) }} locations={locations} reps={reps} />
                   {u.id !== session.userId && <ToggleActiveButton userId={u.id} active={u.active} />}
                 </div>
               </td>

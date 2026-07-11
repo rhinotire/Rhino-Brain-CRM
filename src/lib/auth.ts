@@ -8,7 +8,7 @@ import type { Role } from "@prisma/client";
 const COOKIE = "tirepro_session";
 const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET || "dev-secret-change-me");
 
-export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null };
+export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null; assistIds?: string[] };
 
 export async function createSession(s: Session) {
   const token = await new SignJWT(s)
@@ -68,9 +68,11 @@ export async function requireAccountingView(): Promise<Session> {
   return s;
 }
 
-/** Prisma `where` fragment that scopes reps to their own records. */
+/** Prisma `where` fragment that scopes reps to their own records (plus anyone they assist). */
 export function repScope(s: Session, field = "assignedRepId") {
-  return seesAllReps(s) ? {} : { [field]: s.userId };
+  if (seesAllReps(s)) return {};
+  const ids = [s.userId, ...(s.assistIds ?? [])];
+  return ids.length > 1 ? { [field]: { in: ids } } : { [field]: s.userId };
 }
 
 const LOC_COOKIE = "tirepro_loc";

@@ -15,14 +15,14 @@ export async function login(_prev: ActionResult | null, formData: FormData): Pro
   });
   if (!parsed.success) return { ok: false, error: "Enter a valid email and password." };
 
-  const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+  const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() }, include: { assists: { select: { id: true } } } });
   if (!user || !user.active) return { ok: false, error: "Invalid email or password." };
 
   const match = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!match) return { ok: false, error: "Invalid email or password." };
 
-  await createSession({ userId: user.id, role: user.role, name: user.name, email: user.email, locationId: user.locationId });
-  redirect(user.role === "SALES_REP" ? "/my-work" : "/dashboard");
+  await createSession({ userId: user.id, role: user.role, name: user.name, email: user.email, locationId: user.locationId, assistIds: user.assists.map(a => a.id) });
+  redirect(user.role === "ACCOUNTING" ? "/ar" : user.role === "SALES_REP" ? "/my-work" : "/dashboard");
 }
 
 export async function logout() {
