@@ -12,6 +12,7 @@ export { PublicBrandService, type PublicBrandDTO } from "./public-brand-service"
 export { PublicReferralService, type SendToInstallerResult } from "./public-referral-service";
 export { matchInstallerReferral, phoneKey, domainKey, nameKey, type MatchResult } from "./referral-matching";
 export { runReferralMaintenance } from "./referral-maintenance";
+export { uploadDealerDoc, signDealerDocUrl, isDealerStorageConfigured } from "./storage";
 export { recordEvent } from "./analytics";
 export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";
 export { sendEmail, isEmailConfigured } from "./email";

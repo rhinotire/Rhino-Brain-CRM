@@ -13,11 +13,12 @@ export function Header({ brand }: { brand: Brand }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <Link href="/" className="shrink-0 text-lg font-black tracking-tight">
+        <Link href="/" className="shrink-0">
           {brand.key === "EVERFLOW" ? (
-            <>EVERFLOW <span className="text-brand">TIRES</span></>
+            <span className="text-lg font-black tracking-tight">EVERFLOW <span className="text-brand">TIRES</span></span>
           ) : (
-            <>RHINO <span className="text-brand">TIRE USA</span></>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/rhino-logo.png" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11" />
           )}
         </Link>
         <nav className="hidden gap-4 text-sm font-medium md:flex" aria-label="Main">

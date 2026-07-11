@@ -9,6 +9,8 @@ vi.mock("@rhino/database", () => ({
     lead: { create: (...a: unknown[]) => leadCreate(...a) },
     user: { findMany: (...a: unknown[]) => userFindMany(...a) },
     location: { findFirst: (...a: unknown[]) => locationFindFirst(...a) },
+    notification: { createMany: async () => ({ count: 0 }) },
+    task: { create: async () => ({ id: "t1" }) },
   },
 }));
 
@@ -46,13 +48,17 @@ describe("PublicLeadService.createQuoteRequest", () => {
 describe("PublicLeadService.createDealerApplication", () => {
   it("creates a WEBSITE_DEALER_APP lead with form payload in meta", async () => {
     const r = await PublicLeadService.createDealerApplication(
-      { companyName: "Fleet LLC", contactPerson: "Bob", phone: "2145559876", email: "b@f.com", businessType: "Fleet", deliveryZip: "75201" },
+      { companyName: "Fleet LLC", contactPerson: "Bob", phone: "2145559876", email: "b@f.com", businessType: "Fleet",
+        address: "500 Commerce St", city: "Dallas", state: "TX", deliveryZip: "75201" },
       `t-${Math.random()}`,
+      { resaleCertPath: "resale-certificates/fleet.pdf" },
     );
     expect(r.ok).toBe(true);
     const data = leadCreate.mock.calls[0][0].data;
     expect(data.source).toBe("WEBSITE_DEALER_APP");
-    expect(data.meta).toMatchObject({ businessType: "Fleet", deliveryZip: "75201" });
+    expect(data.city).toBe("Dallas");
+    expect(data.state).toBe("TX");
+    expect(data.meta).toMatchObject({ businessType: "Fleet", deliveryZip: "75201", address: "500 Commerce St", resaleCertPath: "resale-certificates/fleet.pdf" });
   });
 });
 

@@ -4,5 +4,11 @@ const nextConfig = {
   // directly (docs/architecture.md trust rule). database is transpiled because
   // services depends on it.
   transpilePackages: ["@rhino/database", "@rhino/services"],
+  experimental: {
+    serverActions: {
+      // resale-certificate uploads (PDF / photos) go through server actions
+      bodySizeLimit: "10mb",
+    },
+  },
 };
 export default nextConfig;

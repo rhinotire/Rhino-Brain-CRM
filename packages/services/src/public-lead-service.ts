@@ -1,5 +1,8 @@
 import { db } from "@rhino/database";
 import { z } from "zod";
+import { notifyCrm } from "./crm-notify";
+import { sendEmail } from "./email";
+import { signDealerDocUrl } from "./storage";
 
 /**
  * Fixed-window in-memory rate limiter. Per serverless instance only — good
@@ -39,6 +42,9 @@ const dealerSchema = z.object({
   phone: z.string().trim().min(7).max(30),
   email: z.string().trim().email().max(120),
   businessType: z.string().trim().min(2).max(80),
+  address: z.string().trim().min(3).max(200),
+  city: z.string().trim().min(2).max(80),
+  state: z.string().trim().min(2).max(40),
   monthlyVolume: z.string().trim().max(80).optional().or(z.literal("")),
   locationsCount: z.string().trim().max(20).optional().or(z.literal("")),
   deliveryZip: z.string().trim().max(15).optional().or(z.literal("")),
@@ -89,31 +95,58 @@ export const PublicLeadService = {
     return { ok: true };
   },
 
-  async createDealerApplication(input: unknown, rateKey: string): Promise<PublicLeadResult> {
+  async createDealerApplication(
+    input: unknown,
+    rateKey: string,
+    extras?: { resaleCertPath?: string | null },
+  ): Promise<PublicLeadResult> {
     if (rateLimited(`dealer:${rateKey}`)) return { ok: false, error: "Too many requests. Please call us instead." };
     const parsed = dealerSchema.safeParse(input);
     if (!parsed.success) return { ok: false, error: "Please check the highlighted fields." };
     const d = parsed.data;
     const { repId, locationId } = await pickRep();
-    await db.lead.create({
+    const certPath = extras?.resaleCertPath || null;
+    const lead = await db.lead.create({
       data: {
         companyName: d.companyName,
         contactPerson: d.contactPerson,
         phone: d.phone,
         email: d.email,
+        city: d.city,
+        state: d.state,
         source: "WEBSITE_DEALER_APP",
-        notes: `Dealer application — ${d.businessType}${d.monthlyVolume ? `, ~${d.monthlyVolume}/mo` : ""}`,
+        notes: `Dealer application — ${d.businessType}${d.monthlyVolume ? `, ~${d.monthlyVolume}/mo` : ""}\nAddress: ${d.address}, ${d.city}, ${d.state}${certPath ? "\nResale certificate uploaded ✓" : ""}`,
         meta: {
           businessType: d.businessType,
+          address: d.address,
           monthlyVolume: d.monthlyVolume || null,
           locationsCount: d.locationsCount || null,
           deliveryZip: d.deliveryZip || null,
           productsOfInterest: d.productsOfInterest || null,
+          resaleCertPath: certPath,
         },
         assignedRepId: repId,
         locationId,
       },
     });
+
+    // Sales visibility: in-app notification + task (+ email with a 7-day cert link)
+    if (locationId) {
+      const certUrl = certPath ? await signDealerDocUrl(certPath) : null;
+      const summary = `${d.companyName} (${d.businessType}) — ${d.contactPerson}, ${d.phone}\n${d.address}, ${d.city}, ${d.state}${d.monthlyVolume ? `\nVolume: ~${d.monthlyVolume}/mo` : ""}${certUrl ? `\nResale certificate (link valid 7 days): ${certUrl}` : "\nNo resale certificate uploaded yet."}`;
+      await notifyCrm({
+        locationId,
+        title: `New dealer application: ${d.companyName}`,
+        body: summary,
+        link: `/leads`,
+        assignedRepId: repId,
+      });
+      const salesInbox = process.env.ZOHO_SMTP_USER;
+      if (salesInbox) {
+        await sendEmail(salesInbox, `[Dealer Application] ${d.companyName} — ${d.city}, ${d.state}`, `${summary}\n\nLead created in RHINO BRAIN and assigned.`);
+      }
+    }
+    void lead;
     return { ok: true };
   },
 };

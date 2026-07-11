@@ -103,6 +103,18 @@ export function DealerForm() {
         <option>Auto repair</option>
         <option>Other reseller</option>
       </select>
+      <label className={label} htmlFor="d-address">Business street address *</label>
+      <input id="d-address" name="address" required minLength={3} className={input} placeholder="e.g. 11423 Satellite Blvd" />
+      <div className="grid gap-x-3 sm:grid-cols-3">
+        <div className="sm:col-span-2">
+          <label className={label} htmlFor="d-city">City *</label>
+          <input id="d-city" name="city" required minLength={2} className={input} />
+        </div>
+        <div>
+          <label className={label} htmlFor="d-state">State *</label>
+          <input id="d-state" name="state" required minLength={2} maxLength={20} className={input} placeholder="FL" />
+        </div>
+      </div>
       <div className="grid gap-x-3 sm:grid-cols-3">
         <div>
           <label className={label} htmlFor="d-vol">Monthly volume</label>
@@ -119,6 +131,10 @@ export function DealerForm() {
       </div>
       <label className={label} htmlFor="d-products">Products of interest</label>
       <textarea id="d-products" name="productsOfInterest" rows={2} className={input} placeholder="Trailer tires, wheels, assemblies…" />
+      <label className={label} htmlFor="d-cert">Resale certificate (PDF or photo, max 10 MB)</label>
+      <input id="d-cert" name="resaleCert" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
+        className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2.5 file:text-sm file:font-semibold" />
+      <p className="mt-1 text-xs text-slate-500">Speeds up approval — you can also submit now and email it later.</p>
       {state.error && <p className="mt-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <Submit>Apply for a Dealer Account</Submit>
     </form>
