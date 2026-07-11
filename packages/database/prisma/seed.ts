@@ -47,7 +47,7 @@ async function main() {
     where: { key: "RHINO" }, update: {},
     create: {
       key: "RHINO", domain: "rhinotiresusa.com", name: "Rhino Tire USA", legalName: "RHINO TIRE USA LLC",
-      phone: "+14077775677", phoneDisplay: "(407) 777-5677",
+      phone: "+14077775598", phoneDisplay: "(407) 777-5598",
       addressJson: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
       networkName: "RHINO Local Installer Network", locationId: rhino.id, active: true,
     },
@@ -65,7 +65,7 @@ async function main() {
     data: {
       locationId: rhino.id, storeName: "IDEAL TIRES & WHEELS",
       address: "11423 Satellite Blvd", city: "Orlando", state: "FL", zip: "32837",
-      phone: "+13216820973", notifyEmail: "orlando@rhinotiresusa.com", serviceRadiusMi: 35,
+      phone: "+13216820973", notifyEmail: "orlandotire@rhinotiresusa.com", serviceRadiusMi: 35,
       hoursJson: { mon: "8:00-17:30", tue: "8:00-17:30", wed: "8:00-17:30", thu: "8:00-17:30", fri: "8:00-17:30", sat: "8:00-14:00", sun: "closed" },
       passenger: true, lightTruck: true, trailer: true, wheels: true, tbr: false,
       appointmentEnabled: true, sameDayEnabled: false, preferredStatus: "OWNED", active: true,

@@ -7,8 +7,8 @@ export const SITE = {
   name: "Rhino Tire USA",
   legalName: "RHINO TIRE USA LLC",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rhinotiresusa.com",
-  phone: process.env.NEXT_PUBLIC_PHONE ?? "+14077775677", // owner-confirmed wholesale line
-  phoneDisplay: process.env.NEXT_PUBLIC_PHONE_DISPLAY ?? "(407) 777-5677",
+  phone: process.env.NEXT_PUBLIC_PHONE ?? "+14077775598", // owner-confirmed wholesale line
+  phoneDisplay: process.env.NEXT_PUBLIC_PHONE_DISPLAY ?? "(407) 777-5598",
   address: {
     streetAddress: process.env.NEXT_PUBLIC_ADDR_STREET ?? "Orlando, FL", // TODO: real NAP before launch
     addressLocality: "Orlando",
