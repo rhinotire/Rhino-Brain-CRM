@@ -26,7 +26,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   const adminLocations = session.role === "ADMIN"
     ? await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } })
     : [];
-  const manager = isManager(session);      // write actions (new / export / assign)
+  const manager = isManager(session);      // export CSV + assign to another rep
+  const canWrite = !isAccounting(session);  // add customers (reps add their own; accounting is read-only)
   const seesAll = manager || isAccounting(session); // rep column + rep filter + view all
   const now = new Date();
 
@@ -77,7 +78,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         <h1 className="text-xl font-bold">{seesAll ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
         <div className="flex gap-2">
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
-          {manager && <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />}
+          {canWrite && <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />}
         </div>
       </div>
 

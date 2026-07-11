@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, defaultLocationId } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, defaultLocationId } from "@/lib/auth";
 import { customerSchema } from "@/lib/validations";
 import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
@@ -49,6 +49,7 @@ async function uploadNewCustomerDocs(formData: FormData, customerId: string, use
 
 export async function createCustomer(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
+  if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
   const parsed = parseForm(formData);
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
 
