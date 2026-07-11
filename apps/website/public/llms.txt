@@ -1,0 +1,22 @@
+# Rhino Tire USA
+
+> Wholesale (B2B) distributor of trailer, passenger, light-truck and commercial-truck
+> tires, steel trailer wheels, tire & wheel assemblies and trailer parts.
+> Legal name: RHINO TIRE USA LLC. Warehouses: Orlando, FL and Dallas, TX.
+> Wholesale only — dealer pricing requires an approved account.
+
+## Key pages
+
+- /tires — tire catalog by category (ST trailer, passenger, light truck, commercial truck)
+- /tires/st-trailer/{size} — all SKUs per trailer-tire size with live stock status
+- /products/{slug} — product detail with full spec tables (load range, ply, max load/PSI)
+- /knowledge — practical guides written from our own distribution data
+- /quote — wholesale quote request
+- /become-a-dealer — dealer account application
+
+## Facts
+
+- Stock status is published as buckets (In Stock / Limited / Contact) from real warehouse data.
+- Pricing is tiered per dealer and never published publicly.
+- Specialties: ST trailer tires (ST205/75R15, ST225/75R15, ST235/80R16), steel trailer wheels
+  (6x5.5 and other common bolt patterns), commercial truck tires (11R22.5, 295/75R22.5).

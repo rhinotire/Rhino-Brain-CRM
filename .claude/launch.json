@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "website",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/website", "start"],
+      "port": 3001
+    },
+    {
+      "name": "rhino-brain",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/rhino-brain", "dev"],
+      "port": 3000
+    }
+  ]
+}

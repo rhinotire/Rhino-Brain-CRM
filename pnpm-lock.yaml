@@ -94,6 +94,49 @@ importers:
         specifier: ^5.5.3
         version: 5.9.3
 
+  apps/website:
+    dependencies:
+      '@rhino/services':
+        specifier: workspace:*
+        version: link:../../packages/services
+      next:
+        specifier: ^14.2.13
+        version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      autoprefixer:
+        specifier: ^10.4.19
+        version: 10.5.2(postcss@8.5.16)
+      postcss:
+        specifier: ^8.4.38
+        version: 8.5.16
+      prisma:
+        specifier: ^5.19.0
+        version: 5.22.0
+      tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.19(tsx@4.23.0)
+      typescript:
+        specifier: ^5.5.3
+        version: 5.9.3
+
   packages/config: {}
 
   packages/database:
@@ -126,6 +169,9 @@ importers:
       '@rhino/database':
         specifier: workspace:*
         version: link:../database
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.5.3

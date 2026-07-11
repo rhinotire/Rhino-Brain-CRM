@@ -48,6 +48,9 @@ enum CustomerSource {
   COLD_CALL
   WEBSITE
   MARKETPLACE
+  WEBSITE_QUOTE
+  WEBSITE_DEALER_APP
+  AI_ASSISTANT
   OTHER
 }
 
@@ -221,6 +224,7 @@ model User {
   notifications  Notification[]
   importBatches  ImportBatch[]
   documentsUploaded CustomerDocument[]
+  aiUsages       AiUsage[]
   lostSales      LostSale[]
   chatMessages   ChatMessage[] @relation("ChatAuthor")
   chatReceived   ChatMessage[] @relation("ChatRecipient")
@@ -319,6 +323,7 @@ model Lead {
   lostReason    LostReason?
   lostNote      String?
   notes         String?
+  meta          Json? // raw website form payload (business type, volume, products, zip …)
   nextFollowUpAt DateTime?
   lastActivityAt DateTime?
 
@@ -774,6 +779,20 @@ model LostSale {
 
   @@index([occurredAt])
   @@index([reason])
+}
+
+// AI call log — cost visibility (UPGRADE-PLAN Phase 7 / migration plan 5)
+model AiUsage {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  feature      String // "priority_followups" | "message_generator" | "ask" | …
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 // A/R aging — open receivable invoices imported from the accounting export

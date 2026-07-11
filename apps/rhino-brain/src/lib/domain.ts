@@ -43,6 +43,9 @@ export const customerSourceLabels: Record<CustomerSource, string> = {
   COLD_CALL: "Cold Call",
   WEBSITE: "Website",
   MARKETPLACE: "Marketplace",
+  WEBSITE_QUOTE: "Website Quote",
+  WEBSITE_DEALER_APP: "Dealer Application",
+  AI_ASSISTANT: "AI Assistant",
   OTHER: "Other",
 };
 
