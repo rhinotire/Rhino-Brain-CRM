@@ -2,6 +2,9 @@
 
 (Continues the log started in the Obsidian package, 2026-07-11.)
 
+## 2026-07-11 — Consumer platform owner decisions (architecture §28 answered)
+1. RHINO ships first; EVERFLOW after RHINO completes (architecture stays brand-config-driven so EVERFLOW is a config row + domain). 2. IDEAL service radius **35 miles**. 3. Consumer leads go to the **IDEAL front desk**. 4. Email via **Zoho Mail**, sender `info@rhinotiresusa.com` (SMTP; credentials to be provided as env vars). 5. IDEAL NAP: 11423 Satellite Blvd, Orlando FL 32837 · (321) 682-0973 · Mon–Fri 8:00–5:30, Sat 8:00–2:00, Sun closed. 6. Referral expiry 14 days. 7. First products published to the website within 10 days of site readiness. MVP-A build approved and started.
+
 ## 2026-07-11 — B2B + Consumer dual-channel platform adopted
 Owner delivered the master build instruction (docs/b2b-consumer-lead-platform-master-instruction.md): RHINO + EVERFLOW websites become dual-channel (B2B wholesale + consumer installation leads), routing consumers to IDEAL TIRES & WHEELS first, then partner installers, with "Send This Tire to My Installer" as the dealer-recruitment engine. Dual-channel is non-negotiable; IDEAL is already operating with responsive customer service. Approved implementation decisions (see the addendum, which wins over the body): single website codebase multi-brand by domain; ConsumerLead + InstallerReferral models bridged to the existing Lead pipeline for dealer prospects; Company/Brand config table (not generic SaaS); local ZIP-centroid table for distance; MVP split A (IDEAL funnel) / B (send-to-installer); server-side AnalyticsEvent table; coupons and SMS deferred to Phase 2; MVP uses "Request Installed Price" (no retail price data exists yet). Next step per §31: architecture document before any production code.
 

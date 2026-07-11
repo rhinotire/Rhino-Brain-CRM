@@ -71,6 +71,7 @@ function toPublicDTO(p: PublishedRow): PublicProductDTO {
     : null;
 
   return {
+    id: p.id,
     slug: p.slug ?? p.sku.toLowerCase(),
     sku: p.sku,
     name: p.name ?? p.description,

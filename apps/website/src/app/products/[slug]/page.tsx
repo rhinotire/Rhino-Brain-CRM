@@ -80,13 +80,29 @@ export default async function ProductPage({ params }: { params: Params }) {
               {p.features.map((f) => <li key={f}>{f}</li>)}
             </ul>
           )}
-          <div className="mt-6 flex gap-3">
-            <Link href={`/quote?sku=${encodeURIComponent(p.sku)}`} className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink">
-              Get Wholesale Quote
-            </Link>
-            <a href={`tel:${SITE.phone}`} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold">
-              Call {SITE.phoneDisplay}
-            </a>
+          {/* B2B path */}
+          <div className="mt-6 rounded-xl bg-slate-50 p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Wholesale Buyers — Dealer Pricing Available</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link href={`/quote?sku=${encodeURIComponent(p.sku)}`} className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink">
+                Request Volume Quote
+              </Link>
+              <a href={`tel:${SITE.phone}`} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold">
+                Call {SITE.phoneDisplay}
+              </a>
+            </div>
+          </div>
+          {/* Consumer path (spec §8) */}
+          <div className="mt-3 rounded-xl border-2 border-brand p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-brand-dark">Need This {p.category === "WHEELS" ? "Wheel" : "Tire"} Installed?</div>
+            <p className="mt-1 text-sm text-slate-600">Enter your ZIP code to check local installation options.</p>
+            <form action="/find-installation" className="mt-2 flex gap-2">
+              <input type="hidden" name="size" value={p.sizeSpec ?? ""} />
+              <input type="hidden" name="product" value={p.id} />
+              <label htmlFor="pp-zip" className="sr-only">ZIP code</label>
+              <input id="pp-zip" name="zip" required pattern="\d{5}" inputMode="numeric" placeholder="ZIP code" className="w-32 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              <button className="rounded-lg bg-ink px-4 py-2.5 text-sm font-bold text-white">Find a Store</button>
+            </form>
           </div>
         </div>
       </div>

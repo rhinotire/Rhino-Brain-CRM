@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header, Footer, MobileBar } from "@/components/chrome";
 import { JsonLd } from "@/components/json-ld";
 import { SITE } from "@/lib/site";
+import { getBrand } from "@/lib/brand";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -16,10 +17,13 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+export const revalidate = 300; // brand config edits go live within 5 min
+
 const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const brand = await getBrand();
   return (
     <html lang="en">
       <body className="min-h-screen bg-white">
@@ -29,15 +33,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             "@graph": [
               {
                 "@type": "Organization",
-                name: SITE.name,
-                legalName: SITE.legalName,
+                name: brand.name,
+                legalName: brand.legalName,
                 url: SITE.url,
-                telephone: SITE.phone,
-                address: { "@type": "PostalAddress", ...SITE.address },
+                telephone: brand.phone,
+                address: { "@type": "PostalAddress", ...brand.address },
               },
               {
                 "@type": "WebSite",
-                name: SITE.name,
+                name: brand.name,
                 url: SITE.url,
                 potentialAction: {
                   "@type": "SearchAction",
@@ -48,10 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ],
           }}
         />
-        <Header />
+        <Header brand={brand} />
         <main className="mx-auto w-full max-w-6xl px-4 pb-16">{children}</main>
-        <Footer />
-        <MobileBar />
+        <Footer brand={brand} />
+        <MobileBar brand={brand} />
         {GA4_ID && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />

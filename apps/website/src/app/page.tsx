@@ -39,6 +39,29 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Dual-channel: consumer installation path (spec §7) */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-bold">Buying for Your Business?</h2>
+          <p className="mt-1 text-sm text-slate-600">Wholesale inventory, dealer tier pricing, pallet &amp; container programs.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/tires" className="rounded-lg bg-ink px-4 py-2.5 text-sm font-bold text-white">Search Wholesale Inventory</Link>
+            <Link href="/become-a-dealer" className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold">Open Dealer Account</Link>
+          </div>
+        </div>
+        <div className="rounded-2xl border-2 border-brand p-6">
+          <h2 className="text-xl font-bold">Need Tires Installed?</h2>
+          <p className="mt-1 text-sm text-slate-600">Enter your tire size and ZIP code to find local installation options.</p>
+          <form action="/find-installation" className="mt-4 flex flex-wrap gap-2">
+            <label htmlFor="home-size" className="sr-only">Tire size</label>
+            <input id="home-size" name="size" placeholder="Tire size" className="min-w-[8rem] flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+            <label htmlFor="home-zip" className="sr-only">ZIP code</label>
+            <input id="home-zip" name="zip" required pattern="\d{5}" inputMode="numeric" placeholder="ZIP" className="w-24 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+            <button className="rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-ink">Find Local Options</button>
+          </form>
+        </div>
+      </section>
+
       {/* Category tiles */}
       <section>
         <h2 className="text-xl font-bold">Shop by Category</h2>

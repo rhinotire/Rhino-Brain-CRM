@@ -61,6 +61,7 @@ export type PublicProductImageDTO = {
  * appear here. Fields are mapped explicitly — never spread a Prisma row.
  */
 export type PublicProductDTO = {
+  id: string; // opaque cuid — used for installation-capability lookups
   slug: string;
   sku: string;
   name: string;

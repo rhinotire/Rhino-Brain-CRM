@@ -37,3 +37,30 @@ test("robots.txt blocks /dealer and sitemap.xml exists", async ({ request }) => 
   expect(robots).toContain("Disallow: /dealer/");
   expect((await request.get("/sitemap.xml")).status()).toBe(200);
 });
+
+test("find-installation: IDEAL routing inside radius, no overflow", async ({ page }) => {
+  await page.goto("/find-installation?zip=32836");
+  await expect(page.getByText("IDEAL TIRES & WHEELS")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Call \(321\) 682-0973/ })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+});
+
+test("find-installation: manual fallback outside radius", async ({ page }) => {
+  await page.goto("/find-installation?zip=33801"); // Lakeland ~40mi > 35mi radius
+  await expect(page.getByText(/locating an installer near you/i)).toBeVisible();
+  await expect(page.locator('input[name="name"]')).toBeVisible(); // fallback lead form
+});
+
+test("dual-channel header shows both paths", async ({ page }) => {
+  await page.goto("/");
+  const header = page.locator("header");
+  await expect(header.getByText("Buying for your business?")).toBeVisible();
+  await expect(header.getByText("Need tires installed?")).toBeVisible();
+  // and the homepage body repeats both paths (spec §7)
+  await expect(page.getByRole("heading", { name: "Need Tires Installed?" })).toBeVisible();
+});
+
+test("consumer request page: bad token 404s", async ({ request }) => {
+  expect((await request.get("/request/not-a-real-token-guess")).status()).toBe(404);
+});
