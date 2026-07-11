@@ -50,7 +50,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
         location: { select: { shortTag: true } },
       },
     }),
-    seesAll ? db.user.findMany({ where: { active: true, role: "SALES_REP" }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    seesAll ? db.user.findMany({ where: { active: true, role: "SALES_REP", ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   const CREDIT = { key: "credit", label: "Credit / prepaid", min: 0, max: 0 } as const;

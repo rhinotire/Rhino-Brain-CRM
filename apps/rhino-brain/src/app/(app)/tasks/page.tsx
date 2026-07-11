@@ -34,7 +34,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Search
       take: 300,
     }),
     db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const overdue = (d: Date | null) => d && d < now && d.toDateString() !== now.toDateString();

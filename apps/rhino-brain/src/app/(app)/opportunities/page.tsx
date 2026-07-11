@@ -28,7 +28,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
       take: 300,
     }),
     db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
-    manager ? db.user.findMany({ where: { active: true }, select: { id: true, name: true } }) : Promise.resolve([]),
+    manager ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true } }) : Promise.resolve([]),
   ]);
 
   const open = opps.filter(o => o.status === "OPEN");

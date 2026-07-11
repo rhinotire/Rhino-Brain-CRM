@@ -28,7 +28,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: { r
       include: { assignedRep: { select: { id: true, name: true } } },
       take: 500,
     }),
-    db.user.findMany({ where: { active: true, role: { in: ["SALES_REP", "MANAGER"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true, role: { in: ["SALES_REP", "MANAGER"] }, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const visibleStages = stageOrder.filter(s => s !== "ACTIVE_CUSTOMER");

@@ -69,7 +69,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       take: 200,
       include: { assignedRep: { select: { name: true } }, tags: { include: { tag: true } }, location: { select: { shortTag: true, name: true, color: true } } },
     }),
-    seesAll ? db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    seesAll ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   return (

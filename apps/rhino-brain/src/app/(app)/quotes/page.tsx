@@ -32,7 +32,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Searc
       },
     }),
     db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
-    manager ? db.user.findMany({ where: { active: true }, select: { id: true, name: true } }) : Promise.resolve([]),
+    manager ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true } }) : Promise.resolve([]),
   ]);
 
   // Apply the "sent 3+ days, no follow-up" business rule as a virtual status

@@ -44,7 +44,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   if (locGuard.locationId && customer.locationId && customer.locationId !== locGuard.locationId) notFound();
 
   const reps = manager
-    ? await db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+    ? await db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } })
     : [];
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);

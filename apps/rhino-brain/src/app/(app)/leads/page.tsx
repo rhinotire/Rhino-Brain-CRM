@@ -36,7 +36,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
 
   const [leads, reps] = await Promise.all([
     db.lead.findMany({ where, orderBy: { createdAt: "desc" }, include: { assignedRep: { select: { name: true } } }, take: 300 }),
-    db.user.findMany({ where: { active: true, role: { in: ["SALES_REP", "MANAGER"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true, role: { in: ["SALES_REP", "MANAGER"] }, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
