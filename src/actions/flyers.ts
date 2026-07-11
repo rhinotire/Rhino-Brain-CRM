@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, seesAllLocations, adminLocFilter } from "@/lib/auth";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
@@ -43,23 +43,26 @@ export type SuggestedProduct = {
  * Bonus: lost-sale win-backs are appended if slots remain.
  */
 export async function suggestFlyerProducts(): Promise<{ ok?: boolean; items?: SuggestedProduct[]; error?: string }> {
-  await requireManager();
+  const session = await requireManager();
   const MAX = 8;
+  // A manager's flyer only draws on their own company's stock/demand; admin can pick a company via the sidebar filter, else all.
+  const locId = seesAllLocations(session) ? adminLocFilter() : session.locationId;
+  const locFilter = locId ? { locationId: locId } : {};
 
   const picks: SuggestedProduct[] = [];
   const seen = new Set<string>();
   const stockNote = (inv: { quantity: number; location: { shortTag: string } }[]) =>
     inv.filter(i => i.quantity > 0).map(i => `${i.location.shortTag}: ${i.quantity}`).join(" · ") || "no stock";
 
-  const withStock = { inventory: { some: { quantity: { gt: 0 } } } };
-  const inc = { inventory: { include: { location: { select: { shortTag: true } } } } };
+  const withStock = { inventory: { some: { quantity: { gt: 0 }, ...locFilter } } };
+  const inc = { inventory: { where: locFilter, include: { location: { select: { shortTag: true } } } } };
   const qtyOf = (p: { inventory: { quantity: number }[] }) => p.inventory.reduce((s, i) => s + i.quantity, 0);
 
   // demand signals from the last 90 days (used to decide what counts as "dead")
   const since = subDays(new Date(), 90);
   const [quoteItems, lostRecent] = await Promise.all([
-    db.quoteItem.findMany({ where: { quote: { quoteDate: { gte: since } } }, select: { sizeSku: true, description: true } }),
-    db.lostSale.findMany({ where: { occurredAt: { gte: since } }, orderBy: { estValue: "desc" }, select: { item: true, reason: true, customerName: true } }),
+    db.quoteItem.findMany({ where: { quote: { quoteDate: { gte: since }, ...locFilter } }, select: { sizeSku: true, description: true } }),
+    db.lostSale.findMany({ where: { occurredAt: { gte: since }, ...locFilter }, orderBy: { estValue: "desc" }, select: { item: true, reason: true, customerName: true } }),
   ]);
   const demandText = (quoteItems.map(q => `${q.sizeSku ?? ""} ${q.description}`).join(" | ") + " | " +
     lostRecent.map(l => l.item).join(" | ")).toLowerCase();
@@ -107,7 +110,7 @@ export async function suggestFlyerProducts(): Promise<{ ok?: boolean; items?: Su
   // ---- 3. Overstock: remaining high-quantity items ----
   if (picks.length < MAX) {
     const over = await db.inventorySnapshot.findMany({
-      where: { quantity: { gt: 20 } },
+      where: { quantity: { gt: 20 }, ...locFilter },
       orderBy: { quantity: "desc" }, take: 30,
       include: { product: { include: inc }, location: { select: { shortTag: true } } },
     });

@@ -154,6 +154,7 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
   const customer = await db.customer.findUnique({
     where: { id: customerId },
     include: {
+      location: { select: { name: true } },
       activities: { orderBy: { occurredAt: "desc" }, take: 5, select: { type: true, subject: true, notes: true, occurredAt: true } },
       invoices: { where: { balance: { gt: 0 } }, select: { balance: true, dueDate: true } },
     },
@@ -176,7 +177,7 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
   try {
     const raw = await askClaude(
       SYSTEM,
-      `Task: ${SCENARIOS[scenario] ?? scenario}.\nSign as ${session.name}, Rhino Tire USA.\n\n${context}\n\nWrite two versions:\n1. A short email (subject line + body, under 120 words)\n2. A text/WhatsApp message (under 40 words)\n\nFormat your reply EXACTLY as:\nEMAIL:\n<email here>\nSMS:\n<sms here>`,
+      `Task: ${SCENARIOS[scenario] ?? scenario}.\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\n${context}\n\nWrite two versions:\n1. A short email (subject line + body, under 120 words)\n2. A text/WhatsApp message (under 40 words)\n\nFormat your reply EXACTLY as:\nEMAIL:\n<email here>\nSMS:\n<sms here>`,
       1200,
     );
     const emailMatch = raw.match(/EMAIL:\s*([\s\S]*?)\nSMS:/);
