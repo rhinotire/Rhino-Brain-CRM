@@ -329,6 +329,59 @@ async function main() {
     products.push({ id: p.id, sku, cost });
   }
 
+  // ---- Public catalog fields + category specs (website platform, migrations 1–3) ----
+  const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  type TireS = { width?: number; aspectRatio?: number; rimDiameter?: number; construction?: string; plyRating?: number; loadRange?: string; loadIndex?: string; speedRating?: string; position?: string; application?: string; treadDepth32nds?: number; maxLoadLbs?: number; maxPressurePsi?: number; rimWidthRange?: string; overallDiameterIn?: number; sectionWidthIn?: number };
+  type WheelS = { diameterIn?: number; widthIn?: number; boltPattern?: string; lugCount?: number; offsetMm?: number; loadRatingLbs?: number; finish?: string; material?: string };
+  type PartS = { partType?: string; capacity?: string; dimensions?: string; material?: string; mountingType?: string; compatibilityNotes?: string };
+  const catalog: { sku: string; name: string; pattern?: string; msrp: number; warranty?: string; features: string[]; tire?: TireS; wheel?: WheelS; part?: PartS }[] = [
+    { sku: "FW-2055516", name: "Fullway HP108 205/55R16", pattern: "HP108", msrp: 62, warranty: "40,000-mile limited treadwear", features: ["All-season compound", "Quiet touring tread", "Rim protector"],
+      tire: { width: 205, aspectRatio: 55, rimDiameter: 16, construction: "R", plyRating: 4, loadIndex: "91", speedRating: "V", application: "passenger touring", treadDepth32nds: 9.5, maxLoadLbs: 1356, maxPressurePsi: 44, rimWidthRange: "5.5-7.5" } },
+    { sku: "FW-2256517", name: "Fullway HP108 225/65R17", pattern: "HP108", msrp: 79, warranty: "40,000-mile limited treadwear", features: ["All-season compound", "CUV/SUV fitment", "M+S rated"],
+      tire: { width: 225, aspectRatio: 65, rimDiameter: 17, construction: "R", plyRating: 4, loadIndex: "102", speedRating: "H", application: "passenger touring", treadDepth32nds: 10, maxLoadLbs: 1874, maxPressurePsi: 44, rimWidthRange: "6.0-8.0" } },
+    { sku: "LH-2254517", name: "Lionhart LH-503 225/45R17", pattern: "LH-503", msrp: 74, features: ["UHP summer compound", "XL load", "Directional tread"],
+      tire: { width: 225, aspectRatio: 45, rimDiameter: 17, construction: "R", plyRating: 4, loadIndex: "94", speedRating: "W", application: "ultra-high performance", treadDepth32nds: 9, maxLoadLbs: 1477, maxPressurePsi: 50, rimWidthRange: "7.0-8.5" } },
+    { sku: "HD-LT26570", name: "Haida HD878 LT265/70R17", pattern: "HD878", msrp: 145, warranty: "45,000-mile limited treadwear", features: ["All-terrain 10-ply", "3-peak mountain snowflake", "Aggressive sidewall"],
+      tire: { width: 265, aspectRatio: 70, rimDiameter: 17, construction: "R", plyRating: 10, loadRange: "E", loadIndex: "121/118", speedRating: "S", application: "light truck all-terrain", treadDepth32nds: 13, maxLoadLbs: 3195, maxPressurePsi: 80, rimWidthRange: "7.0-9.0" } },
+    { sku: "HD-LT28575", name: "Haida HD868 LT285/75R16", pattern: "HD868", msrp: 168, features: ["Mud-terrain 10-ply", "Self-cleaning lugs", "Stone ejectors"],
+      tire: { width: 285, aspectRatio: 75, rimDiameter: 16, construction: "R", plyRating: 10, loadRange: "E", loadIndex: "126/123", speedRating: "Q", application: "light truck mud-terrain", treadDepth32nds: 18.5, maxLoadLbs: 3750, maxPressurePsi: 80, rimWidthRange: "7.5-9.0" } },
+    { sku: "FH-ST20575", name: "Freedom Hauler ST205/75R15 8-Ply", msrp: 68, warranty: "2-year workmanship", features: ["ST radial trailer service", "Heat-resistant compound", "Full nylon cap ply"],
+      tire: { width: 205, aspectRatio: 75, rimDiameter: 15, construction: "R", plyRating: 8, loadRange: "D", loadIndex: "107", speedRating: "M", position: "trailer", application: "trailer", treadDepth32nds: 8, maxLoadLbs: 2150, maxPressurePsi: 65, rimWidthRange: "5.0-6.0", overallDiameterIn: 27.1, sectionWidthIn: 8.1 } },
+    { sku: "TE-ST23580", name: "Transeagle ST235/80R16 10-Ply", msrp: 105, warranty: "2-year workmanship", features: ["ST radial 10-ply", "Heavy-duty steel belts", "For gooseneck & equipment trailers"],
+      tire: { width: 235, aspectRatio: 80, rimDiameter: 16, construction: "R", plyRating: 10, loadRange: "E", loadIndex: "124", speedRating: "M", position: "trailer", application: "trailer", treadDepth32nds: 9, maxLoadLbs: 3520, maxPressurePsi: 80, rimWidthRange: "6.0-7.5", overallDiameterIn: 30.8, sectionWidthIn: 9.3 } },
+    { sku: "TE-ST22575", name: "Transeagle ST225/75R15 8-Ply", msrp: 79, warranty: "2-year workmanship", features: ["ST radial 8-ply", "Boat & utility trailer fitment"],
+      tire: { width: 225, aspectRatio: 75, rimDiameter: 15, construction: "R", plyRating: 8, loadRange: "D", loadIndex: "113", speedRating: "M", position: "trailer", application: "trailer", treadDepth32nds: 8, maxLoadLbs: 2540, maxPressurePsi: 65, rimWidthRange: "5.5-6.5" } },
+    { sku: "KP-11R225D", name: "Kapsen HS208 11R22.5 Drive", pattern: "HS208", msrp: 320, warranty: "1 retread warranty", features: ["Open-shoulder drive pattern", "16-ply commercial", "Deep 26/32 tread"],
+      tire: { rimDiameter: 22.5, construction: "R", plyRating: 16, loadRange: "H", loadIndex: "146/143", speedRating: "L", position: "drive", application: "regional haul", treadDepth32nds: 26, maxLoadLbs: 6610, maxPressurePsi: 120, rimWidthRange: "7.5-8.25" } },
+    { sku: "KP-11R225T", name: "Kapsen HS205 11R22.5 Trailer", pattern: "HS205", msrp: 305, warranty: "1 retread warranty", features: ["Shallow rib trailer pattern", "16-ply commercial", "Low rolling resistance"],
+      tire: { rimDiameter: 22.5, construction: "R", plyRating: 16, loadRange: "H", loadIndex: "146/143", speedRating: "L", position: "trailer", application: "regional haul", treadDepth32nds: 13, maxLoadLbs: 6610, maxPressurePsi: 120, rimWidthRange: "7.5-8.25" } },
+    { sku: "KP-29575D", name: "Kapsen HS208 295/75R22.5 Drive", pattern: "HS208", msrp: 330, features: ["Low-profile drive position", "Open shoulder", "SmartWay-friendly casing"],
+      tire: { width: 295, aspectRatio: 75, rimDiameter: 22.5, construction: "R", plyRating: 14, loadRange: "G", loadIndex: "144/141", speedRating: "L", position: "drive", application: "regional haul", treadDepth32nds: 24, maxLoadLbs: 6175, maxPressurePsi: 110, rimWidthRange: "8.25-9.0" } },
+    { sku: "WH-15660", name: "15x6 White Spoke Trailer Wheel 6-Lug", msrp: 55, features: ["Powder-coated white spoke", "6 on 5.5 bolt pattern"],
+      wheel: { diameterIn: 15, widthIn: 6, boltPattern: "6x5.5", lugCount: 6, offsetMm: 0, loadRatingLbs: 2830, finish: "White Spoke", material: "Steel" } },
+    { sku: "WH-16665", name: "16x6 Silver Mod Trailer Wheel 6-Lug", msrp: 68, features: ["Silver modular", "6 on 5.5 bolt pattern", "High-load rated"],
+      wheel: { diameterIn: 16, widthIn: 6, boltPattern: "6x5.5", lugCount: 6, offsetMm: 0, loadRatingLbs: 3760, finish: "Silver Mod", material: "Steel" } },
+    { sku: "TP-HUB84", name: "Trailer Hub Kit 3,500 lb (84 Spindle)", msrp: 45, features: ["Pre-greased bearings", "Includes seal, nut & dust cap"],
+      part: { partType: "Hub Kit", capacity: "3,500 lb axle", material: "Cast iron", mountingType: "5x4.5 bolt pattern", compatibilityNotes: "Fits #84 spindle (L44649 inner / L44649 outer bearings)" } },
+    { sku: "TP-AXL35", name: "Idler Axle 3,500 lb 89\" Hub Face", msrp: 220, features: ["89\" hub face / 74\" spring center", "EZ-lube spindles"],
+      part: { partType: "Idler Axle", capacity: "3,500 lb", dimensions: "89\" hub face, 74\" spring center", material: "Steel", mountingType: "Spring mount", compatibilityNotes: "Accepts 5x4.5 hubs (#84 spindle)" } },
+  ];
+  for (const entry of catalog) {
+    const prod = products.find((p) => p.sku === entry.sku)!;
+    await db.product.update({
+      where: { id: prod.id },
+      data: {
+        name: entry.name, pattern: entry.pattern ?? null, slug: slugify(entry.name),
+        visibility: "PUBLIC", // seed data is demo-only; real imports stay INTERNAL until published
+        msrp: entry.msrp, countryOfOrigin: "China",
+        warrantySummary: entry.warranty ?? null, featuresJson: entry.features,
+      },
+    });
+    if (entry.tire) await db.tireSpec.create({ data: { productId: prod.id, ...entry.tire } });
+    if (entry.wheel) await db.wheelSpec.create({ data: { productId: prod.id, ...entry.wheel } });
+    if (entry.part) await db.partSpec.create({ data: { productId: prod.id, ...entry.part } });
+  }
+
   // ---- Inventory snapshots (both locations) ----
   for (let i = 0; i < products.length; i++) {
     await db.inventorySnapshot.create({ data: { productId: products[i].id, locationId: rhino.id, quantity: 60 + ((i * 37) % 340) } });

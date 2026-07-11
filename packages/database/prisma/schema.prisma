@@ -537,6 +537,14 @@ model CustomerDocument {
   @@index([type, expiresAt])
 }
 
+// Who may see a product outside the internal CRM. Existing rows stay INTERNAL
+// so nothing leaks publicly until explicitly published.
+enum Visibility {
+  INTERNAL
+  PUBLIC
+  DEALER_ONLY
+}
+
 model Product {
   id          String          @id @default(cuid())
   sku         String          @unique
@@ -556,11 +564,148 @@ model Product {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  // Public-page fields (website platform; see docs/database-migration-plan.md)
+  slug            String?    @unique // "st235-80r16-rhino-hd-14pr"
+  name            String? // display name for public pages
+  pattern         String? // tread pattern name
+  visibility      Visibility @default(INTERNAL)
+  msrp            Decimal?   @db.Decimal(10, 2) // optional public reference price
+  countryOfOrigin String?
+  warrantySummary String?
+  featuresJson    Json? // bullet features for product page
+
   inventory  InventorySnapshot[]
   orderItems OrderItem[]
 
+  tireSpec  TireSpec?
+  wheelSpec WheelSpec?
+  partSpec  PartSpec?
+  images    ProductImage[]
+  documents ProductDocument[]
+  relations ProductRelation[] @relation("ProductRelations")
+  relatedTo ProductRelation[] @relation("RelatedProduct")
+
   @@index([category])
   @@index([sizeSpec])
+  @@index([visibility])
+}
+
+// ---------- Category-specific product attributes (1:1 satellites) ----------
+
+model TireSpec {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  width             Int? // section width, e.g. 235 (mm)
+  aspectRatio       Int? // e.g. 80
+  rimDiameter       Decimal? @db.Decimal(4, 1) // 16, 16.5 …
+  construction      String? // "R" radial / "D" bias
+  plyRating         Int? // e.g. 14
+  loadRange         String? // "E", "G" …
+  loadIndex         String? // "129/125" (dual fitment kept as text)
+  speedRating       String? // "M", "L" …
+  position          String? // steer / drive / trailer / all-position
+  application       String? // trailer, regional haul, ATV …
+  treadDepth32nds   Decimal? @db.Decimal(4, 1)
+  maxLoadLbs        Int?
+  maxPressurePsi    Int?
+  rimWidthRange     String? // "5.5-7.0"
+  overallDiameterIn Decimal? @db.Decimal(5, 2)
+  sectionWidthIn    Decimal? @db.Decimal(5, 2)
+
+  @@index([loadRange]) // highest-frequency B2B filter
+}
+
+model WheelSpec {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  diameterIn    Decimal? @db.Decimal(4, 1)
+  widthIn       Decimal? @db.Decimal(4, 2)
+  boltPattern   String? // "5x4.5", "6x5.5" — powers the trailer wheel matcher
+  lugCount      Int?
+  centerBoreMm  Decimal? @db.Decimal(6, 2)
+  offsetMm      Int?
+  backspacingIn Decimal? @db.Decimal(4, 2)
+  loadRatingLbs Int?
+  finish        String? // galvanized, white spoke, black mod …
+  material      String? // steel / aluminum
+
+  @@index([boltPattern]) // highest-frequency B2B filter
+}
+
+model PartSpec {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  partType           String? // hub, bearing kit, coupler, jack …
+  capacity           String? // "3500 lb axle"
+  dimensions         String?
+  material           String?
+  mountingType       String?
+  compatibilityNotes String?
+  certGrade          String? // e.g. DOT, grade markings
+}
+
+// ---------- Product media and relations ----------
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String // required — SEO
+  sortOrder Int     @default(0)
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+enum ProductDocType {
+  SPEC_SHEET
+  LOAD_INFLATION
+  WARRANTY
+  BROCHURE
+}
+
+model ProductDocument {
+  id          String         @id @default(cuid())
+  productId   String
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        ProductDocType
+  fileName    String
+  storagePath String // Supabase Storage object path
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+enum ProductRelationType {
+  COMPATIBLE_WHEEL
+  COMPATIBLE_VALVE
+  ALTERNATIVE
+  ASSEMBLY_COMPONENT
+}
+
+// "Compatible wheel/valve" on product pages and the AI Tire Finder.
+model ProductRelation {
+  id               String              @id @default(cuid())
+  productId        String
+  product          Product             @relation("ProductRelations", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProductId String
+  relatedProduct   Product             @relation("RelatedProduct", fields: [relatedProductId], references: [id], onDelete: Cascade)
+  type             ProductRelationType
+
+  createdAt DateTime @default(now())
+
+  @@unique([productId, relatedProductId, type])
+  @@index([relatedProductId])
 }
 
 model InventorySnapshot {
