@@ -3,7 +3,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, repScope, locationScope } from "@/lib/auth";
+import { requireSession, repScope, locationScope, seesAllLocations } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import { fmtMoney } from "@/lib/domain";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
@@ -195,18 +196,22 @@ export async function askBrain(_prev: unknown, formData: FormData): Promise<{ ok
   if (!question) return { error: "Type a question first." };
 
   const scope = { ...repScope(session), ...locationScope(session) };
+  // A/R must be scoped too: reps see only their customers' invoices, managers only their location.
+  const invScope: Prisma.InvoiceWhereInput = {};
+  if (session.role === "SALES_REP") invScope.customer = { assignedRepId: session.userId };
+  else if (!seesAllLocations(session) && session.locationId) invScope.locationId = session.locationId;
   const now = new Date();
   const [customerCount, byTier, silent30, arAgg, lost30, topDebtors] = await Promise.all([
     db.customer.count({ where: scope }),
     db.customer.groupBy({ by: ["tier"], where: scope, _count: true }),
     db.customer.count({ where: { ...scope, lastContactAt: { lt: subDays(now, 30) } } }),
     db.invoice.aggregate({
-      where: { balance: { gt: 0 }, ...(session.role === "SALES_REP" ? { customer: { assignedRepId: session.userId } } : {}) },
+      where: { balance: { gt: 0 }, ...invScope },
       _sum: { balance: true }, _count: true,
     }),
     db.lostSale.aggregate({ where: { occurredAt: { gte: subDays(now, 30) }, ...repScope(session, "repId") }, _sum: { estValue: true }, _count: true }),
     db.invoice.findMany({
-      where: { balance: { gt: 0 }, dueDate: { lt: now } },
+      where: { balance: { gt: 0 }, dueDate: { lt: now }, ...invScope },
       orderBy: { balance: "desc" }, take: 10,
       select: { customerName: true, balance: true, dueDate: true },
     }),

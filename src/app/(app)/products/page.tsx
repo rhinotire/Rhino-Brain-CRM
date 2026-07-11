@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireSession, isManager } from "@/lib/auth";
+import { requireSession, isManager, seesAllLocations } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { ProductsFilter } from "@/components/products-filter";
 import { DiscontinuedToggle } from "@/components/discontinued-toggle";
@@ -27,11 +27,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     ];
   }
   if (searchParams.cat) where.rawCategory = searchParams.cat;
+  // Reps/managers only ever see their own location's stock; admins & accounting see all.
+  const allLoc = seesAllLocations(session);
+  const stockLoc = allLoc ? {} : session.locationId ? { locationId: session.locationId } : {};
   // stock filter belongs in the DB query, not post-filtering the first 200 rows
-  if (searchParams.stock === "in") where.inventory = { some: { quantity: { gt: 0 } } };
-  if (searchParams.stock === "out") where.NOT = { inventory: { some: { quantity: { gt: 0 } } } };
+  if (searchParams.stock === "in") where.inventory = { some: { ...stockLoc, quantity: { gt: 0 } } };
+  if (searchParams.stock === "out") where.NOT = { inventory: { some: { ...stockLoc, quantity: { gt: 0 } } } };
 
-  const [locations, categories, totalCount, products] = await Promise.all([
+  const [allLocations, categories, totalCount, products] = await Promise.all([
     db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } }),
     db.product.findMany({ where: { active: true, rawCategory: { not: null } }, distinct: ["rawCategory"], select: { rawCategory: true }, orderBy: { rawCategory: "asc" } }),
     db.product.count({ where }),
@@ -43,6 +46,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     }),
   ]);
   const storageReady = isStorageConfigured();
+  // Non-admins see only their own location's stock column & unit totals.
+  const locations = allLoc ? allLocations : allLocations.filter(l => l.id === session.locationId);
 
   const qtyAt = (p: (typeof products)[number], locId: string) =>
     p.inventory.find(i => i.locationId === locId)?.quantity ?? null;
