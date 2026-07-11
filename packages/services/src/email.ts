@@ -6,7 +6,9 @@ import nodemailer from "nodemailer";
  * (Zoho app password). Missing env → no-op with a console warning so a mail
  * outage can never lose a lead (in-app notifications always fire too).
  */
-const HOST = process.env.ZOHO_SMTP_HOST ?? "smtp.zoho.com";
+// smtppro.zoho.com is required for organization (custom-domain) accounts;
+// verified working 2026-07-11 (smtp.zoho.com returns 535 for this org).
+const HOST = process.env.ZOHO_SMTP_HOST ?? "smtppro.zoho.com";
 const USER = process.env.ZOHO_SMTP_USER;
 const PASS = process.env.ZOHO_SMTP_PASS;
 
