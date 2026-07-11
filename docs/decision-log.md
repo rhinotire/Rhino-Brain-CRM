@@ -2,6 +2,9 @@
 
 (Continues the log started in the Obsidian package, 2026-07-11.)
 
+## 2026-07-11 — B2B + Consumer dual-channel platform adopted
+Owner delivered the master build instruction (docs/b2b-consumer-lead-platform-master-instruction.md): RHINO + EVERFLOW websites become dual-channel (B2B wholesale + consumer installation leads), routing consumers to IDEAL TIRES & WHEELS first, then partner installers, with "Send This Tire to My Installer" as the dealer-recruitment engine. Dual-channel is non-negotiable; IDEAL is already operating with responsive customer service. Approved implementation decisions (see the addendum, which wins over the body): single website codebase multi-brand by domain; ConsumerLead + InstallerReferral models bridged to the existing Lead pipeline for dealer prospects; Company/Brand config table (not generic SaaS); local ZIP-centroid table for distance; MVP split A (IDEAL funnel) / B (send-to-installer); server-side AnalyticsEvent table; coupons and SMS deferred to Phase 2; MVP uses "Request Installed Price" (no retail price data exists yet). Next step per §31: architecture document before any production code.
+
 ## 2026-07-11 — Audit completed; build unblocked
 RHINO BRAIN code audit + current-site crawl done (see initial-audit.md). Mandatory pre-build constraint satisfied. Pending non-blocker: rendered crawl for 301 map before launch.
 
