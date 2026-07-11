@@ -6,7 +6,12 @@ import { db } from "./db";
 import type { Role } from "@prisma/client";
 
 const COOKIE = "tirepro_session";
-const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET || "dev-secret-change-me");
+const secret = () => {
+  const s = process.env.SESSION_SECRET;
+  // Security (docs/initial-audit.md finding 1): never run production on the dev fallback.
+  if (!s && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET must be set in production");
+  return new TextEncoder().encode(s || "dev-secret-change-me");
+};
 
 export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null; assistIds?: string[] };
 

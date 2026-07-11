@@ -8,7 +8,11 @@
     "@rhino/database": "workspace:*",
     "zod": "^3.23.8"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.10"
   }
 }
