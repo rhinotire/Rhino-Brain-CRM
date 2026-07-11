@@ -15,7 +15,7 @@ const IDEAL = {
   zip: "32837",
   phone: "+13216820973",
   serviceRadiusMi: 35,
-  notifyEmail: "info@rhinotiresusa.com", // front desk notifications (Zoho)
+  notifyEmail: "orlando@rhinotiresusa.com", // front desk notifications (Zoho)
   hoursJson: { mon: "8:00-17:30", tue: "8:00-17:30", wed: "8:00-17:30", thu: "8:00-17:30", fri: "8:00-17:30", sat: "8:00-14:00", sun: "closed" },
   passenger: true,
   lightTruck: true,
@@ -35,14 +35,14 @@ async function main() {
 
   await db.brandConfig.upsert({
     where: { key: "RHINO" },
-    update: { locationId: rhino.id },
+    update: { locationId: rhino.id, phone: "+14077775677", phoneDisplay: "(407) 777-5677" },
     create: {
       key: "RHINO",
       domain: "rhinotiresusa.com",
       name: "Rhino Tire USA",
       legalName: "RHINO TIRE USA LLC",
-      phone: process.env.RHINO_PHONE ?? "+14070000000", // TODO real wholesale line before launch
-      phoneDisplay: process.env.RHINO_PHONE_DISPLAY ?? "(407) 000-0000",
+      phone: "+14077775677", // owner-confirmed wholesale line, 2026-07-11
+      phoneDisplay: "(407) 777-5677",
       addressJson: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
       networkName: "RHINO Local Installer Network",
       locationId: rhino.id,

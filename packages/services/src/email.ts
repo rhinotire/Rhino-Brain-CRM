@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 
 /**
  * Transactional email via Zoho Mail (owner decision #4, 2026-07-11).
- * Env (server-only): ZOHO_SMTP_USER (info@rhinotiresusa.com), ZOHO_SMTP_PASS
+ * Env (server-only): ZOHO_SMTP_USER (orlando@rhinotiresusa.com), ZOHO_SMTP_PASS
  * (Zoho app password). Missing env → no-op with a console warning so a mail
  * outage can never lose a lead (in-app notifications always fire too).
  */
