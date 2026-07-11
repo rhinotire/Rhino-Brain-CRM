@@ -64,3 +64,16 @@ test("dual-channel header shows both paths", async ({ page }) => {
 test("consumer request page: bad token 404s", async ({ request }) => {
   expect((await request.get("/request/not-a-real-token-guess")).status()).toBe(404);
 });
+
+test("send-to-installer page renders the 3-step form", async ({ page }) => {
+  await page.goto("/send-to-installer");
+  await expect(page.locator('input[name="installerName"]')).toBeVisible();
+  await expect(page.locator('input[name="installerZip"]')).toBeVisible();
+  await expect(page.locator('input[name="consent"]')).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+});
+
+test("shop-request: guessed token 404s", async ({ request }) => {
+  expect((await request.get("/shop-request/guessed-token-abc")).status()).toBe(404);
+});

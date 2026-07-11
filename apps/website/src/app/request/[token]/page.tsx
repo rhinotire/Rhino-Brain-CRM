@@ -14,8 +14,17 @@ export const dynamic = "force-dynamic";
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: "Request submitted",
   INSTALLER_NEEDED: "We're locating an installer near you",
+  EXISTING_DEALER_MATCHED: "Your shop is in our network — contacting them",
+  PARTNER_MATCHED: "Your shop is in our network — contacting them",
+  NEW_INSTALLER_PROSPECT: "We're reaching out to your shop",
+  POSSIBLE_DUPLICATE: "Verifying your shop's details",
+  SALES_REVIEW: "Verifying your shop's details",
   INSTALLER_CONTACTED: "Store contacted",
+  INSTALLER_REQUEST_OPENED: "Store is reviewing your request",
   INSTALLER_ACCEPTED: "Store accepted your request",
+  INSTALLER_DECLINED: "Store unavailable — we're finding you another option",
+  AWAITING_WHOLESALE_QUOTE: "Store accepted — arranging the product",
+  INSTALLATION_REQUESTED: "Installation requested",
   INSTALLATION_SCHEDULED: "Installation scheduled",
   INSTALLATION_COMPLETED: "Completed",
   CANCELLED: "Cancelled",
@@ -27,10 +36,11 @@ export default async function RequestStatusPage({ params }: { params: { token: s
   const [brand, status] = await Promise.all([getBrand(), PublicConsumerLeadService.getStatus(params.token)]);
   if (!status) notFound();
 
+  const confirmed = ["INSTALLER_ACCEPTED", "AWAITING_WHOLESALE_QUOTE", "INSTALLATION_REQUESTED", "INSTALLATION_SCHEDULED", "INSTALLATION_COMPLETED"].includes(status.status);
   const steps = [
     { label: "Product selected", done: true },
-    { label: status.storeName ? `Store: ${status.storeName}` : "Finding the right store", done: !!status.storeName },
-    { label: "Store confirms your request", done: ["INSTALLER_ACCEPTED", "INSTALLATION_SCHEDULED", "INSTALLATION_COMPLETED"].includes(status.status) },
+    { label: status.storeName ? `Store: ${status.storeName}` : "Finding the right store", done: !!status.storeName || confirmed },
+    { label: "Store confirms your request", done: confirmed },
     { label: "Installation", done: status.status === "INSTALLATION_COMPLETED" },
   ];
 

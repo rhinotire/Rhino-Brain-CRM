@@ -9,6 +9,9 @@ export { PublicLeadService, rateLimited, type QuoteRequestInput, type DealerAppl
 export { PublicInstallerService, type PublicInstallerDTO, type InstallationOptions } from "./public-installer-service";
 export { PublicConsumerLeadService, type ConsumerLeadResult } from "./public-consumer-lead-service";
 export { PublicBrandService, type PublicBrandDTO } from "./public-brand-service";
+export { PublicReferralService, type SendToInstallerResult } from "./public-referral-service";
+export { matchInstallerReferral, phoneKey, domainKey, nameKey, type MatchResult } from "./referral-matching";
+export { runReferralMaintenance } from "./referral-maintenance";
 export { recordEvent } from "./analytics";
 export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";
 export { sendEmail, isEmailConfigured } from "./email";

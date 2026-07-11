@@ -5,6 +5,7 @@ import { rateLimited } from "./public-lead-service";
 import { isValidUsZip } from "./geo";
 import { sendEmail } from "./email";
 import { recordEvent } from "./analytics";
+import { notifyCrm as notifyCrmShared } from "./crm-notify";
 
 const CONSENT_TEXT =
   "I agree to be contacted about this request by phone, text, or email by the store and its supplier.";
@@ -35,30 +36,13 @@ async function logStatus(consumerLeadId: string, from: string | null, to: string
 
 /** In-app notify + task for the brand's managers (front desk works from these + email). */
 async function notifyCrm(params: { locationId: string; title: string; body: string; leadId: string; assignedRepId?: string | null }) {
-  const managers = await db.user.findMany({
-    where: { active: true, role: { in: ["MANAGER", "ADMIN"] }, OR: [{ locationId: params.locationId }, { locationId: null }] },
-    select: { id: true },
+  await notifyCrmShared({
+    locationId: params.locationId,
+    title: params.title,
+    body: params.body,
+    link: `/consumer-leads?focus=${params.leadId}`,
+    assignedRepId: params.assignedRepId,
   });
-  const link = `/consumer-leads?focus=${params.leadId}`;
-  await db.notification.createMany({
-    data: managers.map((m) => ({ userId: m.id, type: "LEAD_ASSIGNED" as const, title: params.title, body: params.body, link })),
-  });
-  const assignee = params.assignedRepId ?? managers[0]?.id;
-  if (assignee) {
-    const creator = managers[0]?.id ?? assignee;
-    await db.task.create({
-      data: {
-        title: params.title,
-        description: `${params.body}\nOpen: ${link}`,
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        priority: "HIGH",
-        type: "FOLLOW_UP",
-        assigneeId: assignee,
-        creatorId: creator,
-        locationId: params.locationId,
-      },
-    });
-  }
 }
 
 /**
@@ -155,6 +139,7 @@ export const PublicConsumerLeadService = {
         kind: true, status: true, quantity: true, tireSize: true, zip: true, createdAt: true,
         product: { select: { name: true, description: true, sizeSpec: true } },
         installer: { select: { storeName: true, city: true, state: true, phone: true } },
+        referral: { select: { rawName: true } },
         statusHistory: { orderBy: { createdAt: "asc" }, select: { toStatus: true, createdAt: true } },
       },
     });
@@ -164,7 +149,7 @@ export const PublicConsumerLeadService = {
       status: lead.status,
       product: lead.product?.name ?? lead.product?.description ?? lead.tireSize ?? "Tires",
       quantity: lead.quantity,
-      storeName: lead.installer?.storeName ?? null,
+      storeName: lead.installer?.storeName ?? lead.referral?.rawName ?? null,
       storeCity: lead.installer ? `${lead.installer.city}, ${lead.installer.state}` : null,
       storePhone: lead.installer?.phone ?? null,
       timeline: lead.statusHistory.map((h) => ({ status: h.toStatus, at: h.createdAt })),

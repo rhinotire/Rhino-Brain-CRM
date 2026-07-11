@@ -103,6 +103,12 @@ export default async function ProductPage({ params }: { params: Params }) {
               <input id="pp-zip" name="zip" required pattern="\d{5}" inputMode="numeric" placeholder="ZIP code" className="w-32 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               <button className="rounded-lg bg-ink px-4 py-2.5 text-sm font-bold text-white">Find a Store</button>
             </form>
+            <p className="mt-3 text-sm">
+              Already have a trusted tire shop?{" "}
+              <Link href={`/send-to-installer?product=${encodeURIComponent(p.slug)}`} className="font-bold text-brand-dark underline">
+                Send this tire to my installer →
+              </Link>
+            </p>
           </div>
         </div>
       </div>

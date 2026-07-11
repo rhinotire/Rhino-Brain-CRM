@@ -46,6 +46,7 @@ export const customerSourceLabels: Record<CustomerSource, string> = {
   WEBSITE_QUOTE: "Website Quote",
   WEBSITE_DEALER_APP: "Dealer Application",
   AI_ASSISTANT: "AI Assistant",
+  CONSUMER_REFERRAL: "Consumer Referral",
   OTHER: "Other",
 };
 

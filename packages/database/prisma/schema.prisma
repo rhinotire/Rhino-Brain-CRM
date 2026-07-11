@@ -51,6 +51,7 @@ enum CustomerSource {
   WEBSITE_QUOTE
   WEBSITE_DEALER_APP
   AI_ASSISTANT
+  CONSUMER_REFERRAL
   OTHER
 }
 
@@ -299,6 +300,7 @@ model Customer {
   invoices      Invoice[]
   lostSales     LostSale[]
   installers    Installer[]
+  installerReferrals InstallerReferral[]
 
   // Placeholder fields for future Tireguru POS integration
   tireguruId     String? @unique
@@ -434,6 +436,7 @@ model Quote {
 
   items      QuoteItem[]
   activities Activity[]
+  installerReferrals InstallerReferral[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -924,6 +927,7 @@ model Installer {
   active            Boolean @default(true)
 
   consumerLeads ConsumerLead[]
+  referrals     InstallerReferral[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -968,6 +972,7 @@ model ConsumerLead {
 
   consents      ConsumerConsent[]
   statusHistory ReferralStatusHistory[]
+  referral      InstallerReferral?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1016,4 +1021,61 @@ model AnalyticsEvent {
 
   @@index([event, createdAt])
   @@index([zip])
+}
+
+// ---------- Send This Tire to My Installer (MVP-B) ----------
+
+enum ReferralMatchStatus {
+  EXISTING_DEALER // matched a CRM Customer
+  EXISTING_INSTALLER // matched an Installer record
+  POSSIBLE_DUPLICATE // similar but not certain — Sales Review, never silent creation
+  NEW_PROSPECT
+}
+
+enum ReferralStatus {
+  PENDING // created, outreach not confirmed yet
+  CONTACTED
+  OPENED // installer opened the secure page
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+}
+
+model InstallerReferral {
+  id             String       @id @default(cuid())
+  consumerLeadId String       @unique
+  consumerLead   ConsumerLead @relation(fields: [consumerLeadId], references: [id], onDelete: Cascade)
+
+  // raw installer info as the consumer typed it — kept even after matching
+  rawName    String?
+  rawPhone   String?
+  rawAddress String?
+  rawZip     String?
+  rawWebsite String?
+
+  matchStatus       ReferralMatchStatus
+  matchedCustomerId String?
+  matchedCustomer   Customer? @relation(fields: [matchedCustomerId], references: [id])
+  installerId       String?
+  installer         Installer? @relation(fields: [installerId], references: [id])
+
+  secureToken String   @unique // installer capability URL — 256-bit random
+  expiresAt   DateTime // owner decision: 14 days
+  status      ReferralStatus @default(PENDING)
+
+  quoteId String?
+  quote   Quote?  @relation(fields: [quoteId], references: [id])
+
+  contactedAt DateTime?
+  openedAt    DateTime?
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, expiresAt])
 }
