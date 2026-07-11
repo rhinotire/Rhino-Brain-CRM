@@ -23,6 +23,9 @@ importers:
       '@rhino/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@rhino/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
