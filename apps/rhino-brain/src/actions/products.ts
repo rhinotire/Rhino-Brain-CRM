@@ -14,6 +14,18 @@ export async function setDiscontinued(productId: string, value: boolean): Promis
   return { ok: true };
 }
 
+/** Managers publish/unpublish a product on the public website. */
+export async function setPublished(productId: string, value: boolean): Promise<{ ok?: boolean; error?: string }> {
+  await requireManager();
+  try {
+    await ProductService.setPublished(productId, value);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to update." };
+  }
+  revalidatePath("/products");
+  return { ok: true };
+}
+
 const IMG_MAX = 5 * 1024 * 1024;
 const IMG_MIME = ["image/jpeg", "image/png", "image/webp"];
 

@@ -42,6 +42,29 @@ export const ProductService = {
   },
 
   /**
+   * Publish/unpublish a product on the public website. Publishing fills the
+   * public fields it needs: display name (from brand + description + size)
+   * and a unique slug. Unpublishing sets INTERNAL and keeps slug/name.
+   */
+  async setPublished(productId: string, publish: boolean): Promise<{ slug: string | null }> {
+    if (!publish) {
+      await db.product.update({ where: { id: productId }, data: { visibility: "INTERNAL" } });
+      return { slug: null };
+    }
+    const p = await db.product.findUniqueOrThrow({
+      where: { id: productId },
+      select: { sku: true, brand: true, description: true, sizeSpec: true, slug: true, name: true },
+    });
+    const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const name = p.name ?? [p.brand, p.description, p.sizeSpec].filter(Boolean).join(" ").trim();
+    let slug = p.slug ?? slugify(name || p.sku);
+    const clash = await db.product.findFirst({ where: { slug, NOT: { id: productId } }, select: { id: true } });
+    if (clash) slug = `${slug}-${slugify(p.sku)}`;
+    await db.product.update({ where: { id: productId }, data: { visibility: "PUBLIC", slug, name: name || p.sku } });
+    return { slug };
+  },
+
+  /**
    * Live product search — matches size/SKU/brand/description, optionally scoped
    * to a category. With a category or brand set, an empty query lists that set.
    */
