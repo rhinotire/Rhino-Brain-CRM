@@ -6,6 +6,11 @@ export { ProductService, type ProductSearchParams } from "./product-service";
 export { InventoryService, type SnapshotRow, type SnapshotResult } from "./inventory-service";
 export { PublicCatalogService } from "./public-catalog-service";
 export { PublicLeadService, rateLimited, type QuoteRequestInput, type DealerApplicationInput, type PublicLeadResult } from "./public-lead-service";
+export { PublicInstallerService, type PublicInstallerDTO, type InstallationOptions } from "./public-installer-service";
+export { PublicConsumerLeadService, type ConsumerLeadResult } from "./public-consumer-lead-service";
+export { recordEvent } from "./analytics";
+export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";
+export { sendEmail, isEmailConfigured } from "./email";
 export type {
   StockStatus,
   PublicProductDTO,
