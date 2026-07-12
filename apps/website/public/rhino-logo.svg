@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" role="img" aria-label="Rhino Tires USA">
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8eaee"/>
+      <stop offset="0.5" stop-color="#b9bec7"/>
+      <stop offset="1" stop-color="#9aa0ab"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc61a"/>
+      <stop offset="1" stop-color="#e59d00"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7d8087"/>
+      <stop offset="0.55" stop-color="#5d6066"/>
+      <stop offset="1" stop-color="#43464b"/>
+    </linearGradient>
+    <linearGradient id="goldtxt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7bd16"/>
+      <stop offset="1" stop-color="#d99400"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield -->
+  <g>
+    <!-- outer silver border -->
+    <path d="M88 6 C118 14 148 14 172 8 L172 96 C172 144 140 178 88 196 C36 178 4 144 4 96 L4 8 C28 14 58 14 88 6 Z" fill="url(#silver)" stroke="#87909c" stroke-width="2"/>
+    <!-- inner field -->
+    <path d="M88 18 C114 24 140 24 162 19 L162 95 C162 138 134 168 88 184 C42 168 14 138 14 95 L14 19 C36 24 62 24 88 18 Z" fill="url(#gold)"/>
+    <!-- top band -->
+    <path d="M88 18 C114 24 140 24 162 19 L162 52 L14 52 L14 19 C36 24 62 24 88 18 Z" fill="url(#silver)"/>
+    <path d="M14 52 L162 52" stroke="#8d949e" stroke-width="2.5"/>
+    <!-- stars -->
+    <g fill="#8d949e">
+      <path d="M34 32 l2.6 5.5 6 .7 -4.4 4.1 1.2 5.9 -5.4 -3 -5.4 3 1.2 -5.9 -4.4 -4.1 6 -.7 Z"/>
+      <path d="M61 29 l2.6 5.5 6 .7 -4.4 4.1 1.2 5.9 -5.4 -3 -5.4 3 1.2 -5.9 -4.4 -4.1 6 -.7 Z"/>
+      <path d="M88 28 l2.6 5.5 6 .7 -4.4 4.1 1.2 5.9 -5.4 -3 -5.4 3 1.2 -5.9 -4.4 -4.1 6 -.7 Z"/>
+      <path d="M115 29 l2.6 5.5 6 .7 -4.4 4.1 1.2 5.9 -5.4 -3 -5.4 3 1.2 -5.9 -4.4 -4.1 6 -.7 Z"/>
+      <path d="M142 32 l2.6 5.5 6 .7 -4.4 4.1 1.2 5.9 -5.4 -3 -5.4 3 1.2 -5.9 -4.4 -4.1 6 -.7 Z"/>
+    </g>
+    <!-- rhino head silhouette, facing right: long snout, big nose horn, small rear horn, ear -->
+    <path fill="#151515" d="
+      M48 156
+      L47 108
+      C48 98 51 90 56 84
+      C57 76 58 68 60 63
+      C61 61 63 61 64 63
+      C65 68 66 74 68 79
+      C74 77 79 76 84 77
+      C92 80 100 83 108 86
+      C109 80 111 73 114 69
+      C115 67 117 67 118 69
+      C118 73 118 78 119 84
+      C121 85 123 86 125 88
+      C126 76 128 58 131 46
+      C133 43 136 44 137 47
+      C139 62 141 78 144 92
+      C148 96 151 101 152 106
+      C152 110 150 113 147 115
+      C141 117 135 118 130 119
+      C129 122 128 124 126 125
+      C124 128 122 130 118 131
+      C110 136 102 140 94 143
+      C82 148 68 153 58 156
+      Z"/>
+    <circle cx="92" cy="98" r="4" fill="url(#gold)"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g font-family="'Arial Black','Segoe UI',Arial,sans-serif" font-weight="900">
+    <text x="196" y="108" font-size="86" fill="url(#steel)" stroke="#ffffff" stroke-width="8" paint-order="stroke" letter-spacing="2">RHINO</text>
+    <text x="238" y="168" font-size="52" fill="url(#goldtxt)" stroke="#ffffff" stroke-width="6" paint-order="stroke" letter-spacing="4">TIRES USA</text>
+  </g>
+</svg>

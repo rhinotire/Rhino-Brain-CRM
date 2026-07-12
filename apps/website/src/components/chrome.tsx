@@ -18,7 +18,7 @@ export function Header({ brand }: { brand: Brand }) {
             <span className="text-lg font-black tracking-tight">EVERFLOW <span className="text-brand">TIRES</span></span>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/rhino-logo.png" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11" />
+            <img src="/rhino-logo.svg" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11" />
           )}
         </Link>
         <nav className="hidden gap-4 text-sm font-medium md:flex" aria-label="Main">
