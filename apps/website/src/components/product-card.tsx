@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PublicProductDTO } from "@rhino/services";
 import { STOCK_LABEL } from "@/lib/site";
+import { TireGraphic } from "@/components/graphics";
 
 export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"] }) {
   const style =
@@ -23,8 +24,8 @@ export function ProductCard({ p }: { p: PublicProductDTO }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={img.url} alt={img.alt} className="mb-3 h-32 w-full rounded-lg object-contain" loading="lazy" />
       ) : (
-        <div className="mb-3 flex h-32 items-center justify-center rounded-lg bg-slate-50 text-3xl" aria-hidden>
-          🛞
+        <div className="mb-3 flex h-32 items-center justify-center rounded-lg bg-slate-50" aria-hidden>
+          <TireGraphic className="h-24 w-24 opacity-90" />
         </div>
       )}
       <div className="text-sm font-bold leading-snug">{p.name}</div>

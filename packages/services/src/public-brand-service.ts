@@ -10,6 +10,7 @@ export type PublicBrandDTO = {
   networkName: string;
   locationId: string;
   logoUrl: string | null; // owner-uploaded logo (public brand-assets bucket)
+  heroImageUrl: string | null; // owner-uploaded homepage banner photo
   address: { streetAddress: string; addressLocality: string; addressRegion: string; postalCode?: string; addressCountry: string } | null;
 };
 
@@ -27,6 +28,7 @@ export const PublicBrandService = {
       networkName: row.networkName,
       locationId: row.locationId,
       logoUrl: row.logoPath && supabase ? `${supabase}/storage/v1/object/public/brand-assets/${row.logoPath}` : null,
+      heroImageUrl: row.heroImagePath && supabase ? `${supabase}/storage/v1/object/public/brand-assets/${row.heroImagePath}` : null,
       address: (row.addressJson as PublicBrandDTO["address"]) ?? null,
     };
   },

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { brandAssetUrl } from "@/lib/storage";
-import { BrandLogoUploader } from "@/components/brand-logo-uploader";
+import { BrandImageUploader } from "@/components/brand-logo-uploader";
 import { Badge } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +33,17 @@ export default async function WebsiteSettingsPage() {
           <div className="mt-1 text-xs text-slate-500">
             {b.phoneDisplay} · {b.networkName}
           </div>
-          <div className="mt-4">
-            <BrandLogoUploader brandKey={b.key} logoUrl={brandAssetUrl(b.logoPath)} />
+          <div className="mt-4 space-y-5">
+            <div>
+              <div className="text-sm font-bold text-slate-600">Header logo</div>
+              <BrandImageUploader brandKey={b.key} kind="logo" imageUrl={brandAssetUrl(b.logoPath)}
+                hint="PNG, JPG, WebP, or SVG · transparent background looks best" maxMb={5} />
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-sm font-bold text-slate-600">Homepage banner photo</div>
+              <BrandImageUploader brandKey={b.key} kind="hero" imageUrl={brandAssetUrl(b.heroImagePath)}
+                hint="Wide photo works best (warehouse, tire racks, storefront) — shown behind the homepage headline with a dark overlay" maxMb={8} />
+            </div>
           </div>
         </div>
       ))}

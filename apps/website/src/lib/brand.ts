@@ -15,6 +15,7 @@ export type Brand = {
   networkName: string;
   locationId: string;
   logoUrl: string | null; // owner-uploaded logo; null → built-in default
+  heroImageUrl: string | null; // owner-uploaded homepage banner photo; null → built-in graphic
   address: { streetAddress: string; addressLocality: string; addressRegion: string; postalCode?: string; addressCountry: string };
 };
 
@@ -29,6 +30,7 @@ const FALLBACK: Brand = {
   networkName: "RHINO Local Installer Network",
   locationId: "",
   logoUrl: null,
+  heroImageUrl: null,
   address: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
 };
 

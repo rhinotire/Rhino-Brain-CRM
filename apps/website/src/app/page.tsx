@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE, CATEGORY_SLUGS } from "@/lib/site";
 import { ARTICLES } from "@/lib/articles";
+import { getBrand } from "@/lib/brand";
+import { TireGraphic, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
 
 export const metadata: Metadata = {
   title: "Rhino Tire USA — Wholesale Tires, Wheels & Trailer Parts Distributor",
@@ -10,32 +12,60 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const brand = await getBrand();
   return (
-    <div className="space-y-14 pt-8">
-      {/* Hero */}
-      <section className="text-center">
-        <h1 className="mx-auto max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
-          Wholesale Tires, Wheels &amp; Trailer Parts — <span className="text-brand-dark">Dealer Pricing, Real Stock</span>
-        </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-slate-600">
-          {SITE.description}
-        </p>
-        {/* Size / SKU search above the fold */}
-        <form action="/tires" className="mx-auto mt-6 flex max-w-xl gap-2">
-          <label htmlFor="home-q" className="sr-only">Search by size or SKU</label>
-          <input
-            id="home-q"
-            name="q"
-            placeholder='Search size or SKU — e.g. "ST235/80R16"'
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm"
-          />
-          <button className="shrink-0 rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white">Search</button>
-        </form>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link href="/tires" className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold">Search Inventory</Link>
-          <Link href="/quote" className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink">Get Wholesale Quote</Link>
-          <Link href="/become-a-dealer" className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold">Become a Dealer</Link>
+    <div className="space-y-14">
+      {/* Hero — full-bleed dark banner: uploaded photo when set, tire graphics otherwise */}
+      <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-ink text-white">
+        {brand.heroImageUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={brand.heroImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-ink/70" />
+          </>
+        ) : (
+          <>
+            <TreadTexture className="absolute inset-0 h-full w-full text-white/[0.06]" />
+            <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-brand/20 blur-3xl" />
+          </>
+        )}
+        <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 py-12 sm:py-16 md:grid-cols-[1fr_minmax(260px,340px)]">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-widest text-brand">Wholesale tire &amp; wheel distributor · Orlando, FL</div>
+            <h1 className="mt-3 max-w-2xl text-3xl font-black leading-tight sm:text-5xl">
+              Tires, Wheels &amp; Trailer Parts <span className="text-brand">at Dealer Pricing</span>
+            </h1>
+            <p className="mt-4 max-w-xl text-slate-300">
+              {SITE.description}
+            </p>
+            <form action="/tires" className="mt-6 flex max-w-xl gap-2">
+              <label htmlFor="home-q" className="sr-only">Search by size or SKU</label>
+              <input
+                id="home-q"
+                name="q"
+                placeholder='Search size or SKU — e.g. "ST235/80R16"'
+                className="w-full rounded-lg border-0 bg-white px-4 py-3 text-sm text-ink"
+              />
+              <button className="shrink-0 rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink">Search</button>
+            </form>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/quote" className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink">Get Wholesale Quote</Link>
+              <Link href="/become-a-dealer" className="rounded-lg border border-white/30 px-5 py-3 text-sm font-bold text-white hover:border-brand">Become a Dealer</Link>
+              <Link href="/find-installation" className="rounded-lg border border-white/30 px-5 py-3 text-sm font-bold text-white hover:border-brand">Find Installation Near Me</Link>
+            </div>
+          </div>
+          {!brand.heroImageUrl && (
+            <TireGraphic className="mx-auto hidden w-full max-w-[340px] drop-shadow-2xl md:block" />
+          )}
+        </div>
+        {/* value-prop strip */}
+        <div className="relative border-t border-white/10 bg-black/30">
+          <div className="mx-auto grid max-w-6xl gap-2 px-4 py-3 text-xs font-semibold text-slate-200 sm:grid-cols-3 sm:text-sm">
+            <div className="flex items-center gap-2"><TruckIcon className="h-5 w-5 text-brand" /> Same-week delivery runs across Florida</div>
+            <div className="flex items-center gap-2"><TireIcon className="h-5 w-5 text-brand" /> 1,000+ tire &amp; wheel SKUs in stock</div>
+            <div className="flex items-center gap-2"><WheelIcon className="h-5 w-5 text-brand" /> Pallet &amp; container programs, mixed loads</div>
+          </div>
         </div>
       </section>
 
@@ -66,12 +96,32 @@ export default function HomePage() {
       <section>
         <h2 className="text-xl font-bold">Shop by Category</h2>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {Object.entries(CATEGORY_SLUGS).map(([slug, c]) => (
-            <Link key={slug} href={`/tires/${slug}`} className="rounded-xl border border-slate-200 p-5 font-bold hover:border-brand">
-              {c.label}
-              <div className="mt-1 text-xs font-normal text-slate-500">Wholesale pallet &amp; container pricing</div>
-            </Link>
-          ))}
+          {Object.entries(CATEGORY_SLUGS).map(([slug, c]) => {
+            const Icon = slug === "st-trailer" ? TrailerIcon : slug === "passenger" ? TireIcon : TruckIcon;
+            return (
+              <Link key={slug} href={`/tires/${slug}`} className="group rounded-xl border border-slate-200 p-5 font-bold transition hover:border-brand hover:shadow-sm">
+                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand/15 text-brand-dark transition group-hover:bg-brand group-hover:text-ink">
+                  <Icon className="h-6 w-6" />
+                </span>
+                {c.label}
+                <div className="mt-1 text-xs font-normal text-slate-500">Wholesale pallet &amp; container pricing</div>
+              </Link>
+            );
+          })}
+          <Link href="/wheels" className="group rounded-xl border border-slate-200 p-5 font-bold transition hover:border-brand hover:shadow-sm">
+            <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand/15 text-brand-dark transition group-hover:bg-brand group-hover:text-ink">
+              <WheelIcon className="h-6 w-6" />
+            </span>
+            Trailer Wheels
+            <div className="mt-1 text-xs font-normal text-slate-500">Steel spoke, mod &amp; galvanized</div>
+          </Link>
+          <Link href="/parts" className="group rounded-xl border border-slate-200 p-5 font-bold transition hover:border-brand hover:shadow-sm">
+            <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand/15 text-brand-dark transition group-hover:bg-brand group-hover:text-ink">
+              <TrailerIcon className="h-6 w-6" />
+            </span>
+            Trailer Parts
+            <div className="mt-1 text-xs font-normal text-slate-500">Hubs, axles &amp; accessories</div>
+          </Link>
         </div>
       </section>
 

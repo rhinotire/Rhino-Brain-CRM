@@ -879,6 +879,7 @@ model BrandConfig {
   addressJson  Json?
   networkName  String // "RHINO Local Installer Network"
   logoPath     String? // brand-assets public bucket path — uploaded by the owner in the CRM
+  heroImagePath String? // homepage hero banner photo (brand-assets bucket)
   locationId   String
   location     Location @relation(fields: [locationId], references: [id])
   active       Boolean  @default(true)
