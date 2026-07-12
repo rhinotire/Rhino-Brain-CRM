@@ -95,5 +95,19 @@ test("tire calculator accepts off-road flotation sizes (33X12.50R20)", async ({ 
   await page.locator('input[id="Current tire-q"]').fill("33/12.50R20");
   await page.locator('input[id="New tire-q"]').fill("37X13.50R24");
   await expect(page.getByText(/37X13.5R24 is 12.1% larger/)).toBeVisible();
-  await expect(page.getByText(/Off-road size active/).first()).toBeVisible();
+  // picker headers reflect the active off-road sizes
+  await expect(page.getByText(/— 33X12.5R20/).first()).toBeVisible();
+});
+
+test("tire calculator: digits-only shorthand and off-road dropdowns", async ({ page }) => {
+  await page.goto("/tools/tire-size-calculator");
+  // digits-only metric: 2055516 → 205/55R16
+  await page.locator('input[id="Current tire-q"]').fill("2055516");
+  await expect(page.getByText(/Current tire.*205\/55R16/i).first()).toBeVisible();
+  // digits-only flotation: 33125020 → 33X12.50R20
+  await page.locator('input[id="New tire-q"]').fill("33125020");
+  await expect(page.getByText(/New tire.*33X12.5R20/i).first()).toBeVisible();
+  // off-road tab switches dropdowns to diameter/width/rim inches
+  await page.getByRole("button", { name: /Off-Road/ }).first().click();
+  await expect(page.locator('select[id="Current tire-fd"]')).toBeVisible();
 });

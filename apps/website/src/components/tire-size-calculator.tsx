@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   calcTire, diameterDiffPct, actualSpeed, parseTireSize, formatTireSize,
-  COMMON_WIDTHS, COMMON_ASPECTS, COMMON_RIMS, type TireSpec,
+  COMMON_WIDTHS, COMMON_ASPECTS, COMMON_RIMS, FLOT_DIAMETERS, FLOT_WIDTHS, FLOT_RIMS, type TireSpec,
 } from "@/lib/tire-math";
 
 const sel = "rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-sm";
@@ -12,54 +12,90 @@ function TirePicker({ label, tire, onChange, accent }: { label: string; tire: Ti
   const [text, setText] = useState("");
   const [badInput, setBadInput] = useState(false);
   const metric = tire.kind === "metric" ? tire : null;
+  const flot = tire.kind === "flotation" ? tire : null;
 
   return (
     <div className={`rounded-2xl border-2 p-4 ${accent ? "border-brand" : "border-slate-300"}`}>
       <div className={`text-sm font-bold uppercase tracking-wide ${accent ? "text-brand-dark" : "text-slate-500"}`}>
         {label} <span className="ml-1 normal-case text-slate-400">— {formatTireSize(tire)}</span>
       </div>
-      <div className="mt-3 flex items-end gap-2">
-        <div>
-          <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-w`}>Width</label>
-          <select id={`${label}-w`} className={sel} value={metric?.width ?? ""} onChange={(e) => onChange({ kind: "metric", width: +e.target.value, aspect: metric?.aspect ?? 75, rim: metric?.rim ?? 16 })}>
-            {!metric && <option value="" disabled>—</option>}
-            {COMMON_WIDTHS.map((w) => <option key={w} value={w}>{w}</option>)}
-          </select>
-        </div>
-        <span className="pb-2 font-bold text-slate-400">/</span>
-        <div>
-          <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-a`}>Aspect</label>
-          <select id={`${label}-a`} className={sel} value={metric?.aspect ?? ""} onChange={(e) => onChange({ kind: "metric", width: metric?.width ?? 235, aspect: +e.target.value, rim: metric?.rim ?? 16 })}>
-            {!metric && <option value="" disabled>—</option>}
-            {COMMON_ASPECTS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-        <span className="pb-2 font-bold text-slate-400">R</span>
-        <div>
-          <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-r`}>Rim</label>
-          <select id={`${label}-r`} className={sel} value={metric?.rim ?? ""} onChange={(e) => onChange({ kind: "metric", width: metric?.width ?? 235, aspect: metric?.aspect ?? 75, rim: +e.target.value })}>
-            {!metric && <option value="" disabled>—</option>}
-            {COMMON_RIMS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
+
+      {/* sizing-system tabs */}
+      <div className="mt-3 inline-flex rounded-lg border border-slate-200 p-0.5 text-xs font-bold">
+        <button type="button"
+          className={`rounded-md px-3 py-1.5 ${metric ? "bg-ink text-white" : "text-slate-500"}`}
+          onClick={() => !metric && onChange({ kind: "metric", width: 235, aspect: 80, rim: 16 })}>
+          Metric (235/80R16)
+        </button>
+        <button type="button"
+          className={`rounded-md px-3 py-1.5 ${flot ? "bg-ink text-white" : "text-slate-500"}`}
+          onClick={() => !flot && onChange({ kind: "flotation", diameterIn: 33, widthIn: 12.5, rim: 20 })}>
+          Off-Road (33X12.50R20)
+        </button>
       </div>
+
+      {metric ? (
+        <div className="mt-3 flex items-end gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-w`}>Width</label>
+            <select id={`${label}-w`} className={sel} value={metric.width} onChange={(e) => onChange({ ...metric, width: +e.target.value })}>
+              {COMMON_WIDTHS.map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <span className="pb-2 font-bold text-slate-400">/</span>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-a`}>Aspect</label>
+            <select id={`${label}-a`} className={sel} value={metric.aspect} onChange={(e) => onChange({ ...metric, aspect: +e.target.value })}>
+              {COMMON_ASPECTS.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <span className="pb-2 font-bold text-slate-400">R</span>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-r`}>Rim</label>
+            <select id={`${label}-r`} className={sel} value={metric.rim} onChange={(e) => onChange({ ...metric, rim: +e.target.value })}>
+              {COMMON_RIMS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        </div>
+      ) : flot ? (
+        <div className="mt-3 flex items-end gap-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-fd`}>Diameter</label>
+            <select id={`${label}-fd`} className={sel} value={flot.diameterIn} onChange={(e) => onChange({ ...flot, diameterIn: +e.target.value })}>
+              {FLOT_DIAMETERS.map((d) => <option key={d} value={d}>{d}&quot;</option>)}
+            </select>
+          </div>
+          <span className="pb-2 font-bold text-slate-400">X</span>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-fw`}>Width</label>
+            <select id={`${label}-fw`} className={sel} value={flot.widthIn} onChange={(e) => onChange({ ...flot, widthIn: +e.target.value })}>
+              {FLOT_WIDTHS.map((w) => <option key={w} value={w}>{w}&quot;</option>)}
+            </select>
+          </div>
+          <span className="pb-2 font-bold text-slate-400">R</span>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-fr`}>Rim</label>
+            <select id={`${label}-fr`} className={sel} value={flot.rim} onChange={(e) => onChange({ ...flot, rim: +e.target.value })}>
+              {FLOT_RIMS.map((r) => <option key={r} value={r}>{r}&quot;</option>)}
+            </select>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-3">
-        <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-q`}>…or type any size (metric, ST/LT, or off-road)</label>
+        <label className="block text-xs font-semibold text-slate-500" htmlFor={`${label}-q`}>…or type any size — digits work too</label>
         <input
           id={`${label}-q`}
           value={text}
-          placeholder='e.g. "ST235/80R16" or "33X12.50R20"'
+          placeholder='"2055516" · "ST235/80R16" · "33125020"'
           className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm ${badInput ? "border-red-400" : "border-slate-300"}`}
           onChange={(e) => {
             setText(e.target.value);
-            const parsed = parseTireSize(e.target.value);
-            setBadInput(e.target.value.trim().length > 7 && !parsed);
+            const parsed = parseTireSize(e.target.value, tire.rim);
+            setBadInput(e.target.value.trim().length >= 6 && !parsed);
             if (parsed) onChange(parsed);
           }}
         />
-        {tire.kind === "flotation" && (
-          <p className="mt-1 text-xs font-semibold text-brand-dark">Off-road size active: {formatTireSize(tire)} (dropdowns are for metric sizes)</p>
-        )}
       </div>
     </div>
   );
