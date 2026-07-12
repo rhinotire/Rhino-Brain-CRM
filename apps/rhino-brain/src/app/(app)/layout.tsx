@@ -23,7 +23,6 @@ const managerNav = [
   { href: "/tasks", label: "Tasks", icon: "✓" },
   { href: "/activities", label: "Activities", icon: "☎" },
   { href: "/opportunities", label: "Opportunities", icon: "◎" },
-  { href: "/articles", label: "Knowledge Center", icon: "📝" },
   { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
   { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
 ];
@@ -31,7 +30,13 @@ const managerNav = [
 const adminNav = [
   { href: "/settings/users", label: "Users", icon: "⚙" },
   { href: "/settings/import", label: "Import / Export", icon: "⇅" },
-  { href: "/settings/website", label: "Website Brand", icon: "🌐" },
+];
+
+// Public-website content management — grows as the site grows (articles,
+// brand/banners; later: installers, coupons, tools)
+const websiteNav = [
+  { href: "/articles", label: "Knowledge Center", icon: "📝", adminOnly: false },
+  { href: "/settings/website", label: "Brand & Banners", icon: "🌐", adminOnly: true },
 ];
 
 const repNav = [
@@ -97,6 +102,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           ))}
           {manager && (
             <>
+              <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Website
+              </div>
+              {websiteNav.filter(item => !item.adminOnly || session.role === "ADMIN").map(item => (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
+                  <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
               <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 {session.role === "ADMIN" ? "Settings" : "Team"}
               </div>
