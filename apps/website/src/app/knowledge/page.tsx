@@ -21,7 +21,8 @@ export default async function KnowledgeHub() {
       </nav>
       <h1 className="mt-2 text-2xl font-black">Knowledge Center</h1>
       <p className="mt-2 max-w-2xl text-sm text-slate-600">
-        Written by our wholesale team from real distribution data — no filler.
+        Written by our wholesale team from real distribution data — no filler. Also try our{" "}
+        <Link href="/tools/tire-size-calculator" className="font-bold text-brand-dark">tire size calculator</Link>.
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {articles.map((a) => (

@@ -89,3 +89,11 @@ test("tire size calculator computes and warns", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
 });
+
+test("tire calculator accepts off-road flotation sizes (33X12.50R20)", async ({ page }) => {
+  await page.goto("/tools/tire-size-calculator");
+  await page.locator('input[id="Current tire-q"]').fill("33/12.50R20");
+  await page.locator('input[id="New tire-q"]').fill("37X13.50R24");
+  await expect(page.getByText(/37X13.5R24 is 12.1% larger/)).toBeVisible();
+  await expect(page.getByText(/Off-road size active/).first()).toBeVisible();
+});

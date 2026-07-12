@@ -142,6 +142,19 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Tools strip */}
+      <section className="rounded-2xl border-2 border-brand p-6 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Free Tire Size Calculator</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Compare any two sizes — diameter, revs per mile, speedometer error. Supports ST trailer and 33X12.50R20-style off-road sizes.
+          </p>
+        </div>
+        <Link href="/tools/tire-size-calculator" className="mt-4 inline-block shrink-0 rounded-lg bg-brand px-5 py-3 text-sm font-bold text-ink sm:mt-0">
+          Open Calculator →
+        </Link>
+      </section>
+
       {/* Knowledge teaser */}
       <section>
         <h2 className="text-xl font-bold">From the Knowledge Center</h2>
