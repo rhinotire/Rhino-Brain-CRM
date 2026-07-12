@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Inter, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "optional" });
+// display:"optional" — the headline never reflows after first paint (CLS-safe);
+// the font is same-origin and tiny, so it's used on virtually every view
+const barlow = Barlow_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-display", display: "optional" });
 import { Header, Footer, MobileBar } from "@/components/chrome";
 import { JsonLd } from "@/components/json-ld";
 import { SITE } from "@/lib/site";
@@ -25,8 +31,8 @@ const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const brand = await getBrand();
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-white">
+    <html lang="en" className={`${inter.variable} ${barlow.variable}`}>
+      <body className="min-h-screen bg-white font-sans">
         <JsonLd
           data={{
             "@context": "https://schema.org",

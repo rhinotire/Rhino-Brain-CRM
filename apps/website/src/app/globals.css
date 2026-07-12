@@ -8,3 +8,27 @@ html {
 body {
   @apply text-ink antialiased;
 }
+
+/* Accessible focus for keyboard users, brand-colored */
+:focus-visible {
+  outline: 2px solid #f0a500;
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn-gold {
+    @apply inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-navy-900 shadow-card transition hover:bg-brand-light focus-visible:outline-brand-dark;
+  }
+  .btn-navy {
+    @apply inline-block rounded-lg bg-navy-900 px-5 py-3 text-sm font-bold text-white shadow-card transition hover:bg-navy-700;
+  }
+  .btn-ghost {
+    @apply inline-block rounded-lg border border-steel-300 px-5 py-3 text-sm font-bold text-navy-900 transition hover:border-brand hover:text-brand-dark;
+  }
+  .btn-ghost-dark {
+    @apply inline-block rounded-lg border border-white/25 px-5 py-3 text-sm font-bold text-white transition hover:border-brand hover:text-brand-light;
+  }
+  .h-display {
+    @apply font-display font-bold uppercase leading-[0.95] tracking-tight;
+  }
+}

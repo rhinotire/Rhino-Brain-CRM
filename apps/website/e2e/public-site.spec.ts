@@ -52,13 +52,21 @@ test("find-installation: manual fallback outside radius", async ({ page }) => {
   await expect(page.locator('input[name="name"]')).toBeVisible(); // fallback lead form
 });
 
-test("dual-channel header shows both paths", async ({ page }) => {
+test("dual-channel paths reachable on all viewports", async ({ page, isMobile }) => {
   await page.goto("/");
-  const header = page.locator("header");
-  await expect(header.getByText("Buying for your business?")).toBeVisible();
-  await expect(header.getByText("Need tires installed?")).toBeVisible();
+  if (isMobile) {
+    // full nav + both journeys live in the hamburger menu on phones
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("link", { name: "Get Wholesale Quote" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Find Installation", exact: true }).first()).toBeVisible();
+  } else {
+    const header = page.locator("header");
+    await expect(header.getByText("Dealers:")).toBeVisible();
+    await expect(header.getByText("Consumers:")).toBeVisible();
+  }
   // and the homepage body repeats both paths (spec §7)
   await expect(page.getByRole("heading", { name: "Need Tires Installed?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Buying for Your Business?" })).toBeVisible();
 });
 
 test("consumer request page: bad token 404s", async ({ request }) => {

@@ -17,7 +17,7 @@ function TirePicker({ label, tire, onChange, accent }: { label: string; tire: Ti
   return (
     <div className={`rounded-2xl border-2 p-4 ${accent ? "border-brand" : "border-slate-300"}`}>
       <div className={`text-sm font-bold uppercase tracking-wide ${accent ? "text-brand-dark" : "text-slate-500"}`}>
-        {label} <span className="ml-1 normal-case text-slate-400">— {formatTireSize(tire)}</span>
+        {label} <span className="ml-1 normal-case text-steel-500">— {formatTireSize(tire)}</span>
       </div>
 
       {/* sizing-system tabs */}
@@ -161,7 +161,7 @@ export function TireSizeCalculator() {
             </tbody>
           </table>
 
-          <h3 className="mt-6 font-bold">Speedometer error</h3>
+          <h2 className="mt-6 text-base font-bold">Speedometer error</h2>
           <p className="mt-1 text-xs text-slate-500">If your speedometer was calibrated for {formatTireSize(a)} and you install {formatTireSize(b)}:</p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full border-collapse text-sm">
