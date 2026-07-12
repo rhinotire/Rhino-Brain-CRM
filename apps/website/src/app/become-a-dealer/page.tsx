@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DealerForm } from "@/components/lead-forms";
+import { getBrand } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: "Become a Dealer — Wholesale Account Application",
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/become-a-dealer" },
 };
 
-export default function DealerPage() {
+export default async function DealerPage() {
+  const brand = await getBrand();
   return (
     <div className="pt-8">
       <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
@@ -21,6 +23,12 @@ export default function DealerPage() {
         <li>Orlando &amp; Dallas warehouses — same-week Florida delivery runs</li>
         <li>Pallet and container programs, mixed loads welcome</li>
       </ul>
+      <p className="mt-3 max-w-xl text-sm text-slate-600">
+        Questions before applying? Call <a href={`tel:${brand.phone}`} className="font-bold">{brand.phoneDisplay}</a>
+        {brand.contactEmail && (
+          <> or email <a href={`mailto:${brand.contactEmail}`} className="font-bold text-brand-dark">{brand.contactEmail}</a></>
+        )}.
+      </p>
       <DealerForm />
     </div>
   );

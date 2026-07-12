@@ -12,6 +12,7 @@ export type Brand = {
   legalName: string;
   phone: string;
   phoneDisplay: string;
+  contactEmail: string | null;
   networkName: string;
   locationId: string;
   logoUrl: string | null; // owner-uploaded logo; null → built-in default
@@ -27,6 +28,7 @@ const FALLBACK: Brand = {
   legalName: "RHINO TIRE USA LLC",
   phone: "+14077775598",
   phoneDisplay: "(407) 777-5598",
+  contactEmail: "info@rhinotiresusa.com",
   networkName: "RHINO Local Installer Network",
   locationId: "",
   logoUrl: null,

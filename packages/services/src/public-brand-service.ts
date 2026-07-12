@@ -7,6 +7,7 @@ export type PublicBrandDTO = {
   legalName: string;
   phone: string;
   phoneDisplay: string;
+  contactEmail: string | null;
   networkName: string;
   locationId: string;
   logoUrl: string | null; // owner-uploaded logo (public brand-assets bucket)
@@ -25,6 +26,7 @@ export const PublicBrandService = {
       legalName: row.legalName,
       phone: row.phone,
       phoneDisplay: row.phoneDisplay,
+      contactEmail: row.contactEmail,
       networkName: row.networkName,
       locationId: row.locationId,
       logoUrl: row.logoPath && supabase ? `${supabase}/storage/v1/object/public/brand-assets/${row.logoPath}` : null,

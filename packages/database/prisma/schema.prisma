@@ -876,6 +876,7 @@ model BrandConfig {
   legalName    String
   phone        String // E.164-ish for tel: links
   phoneDisplay String
+  contactEmail String? // public contact email shown on the website
   addressJson  Json?
   networkName  String // "RHINO Local Installer Network"
   logoPath     String? // brand-assets public bucket path — uploaded by the owner in the CRM

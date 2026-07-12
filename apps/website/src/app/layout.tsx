@@ -37,6 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 legalName: brand.legalName,
                 url: SITE.url,
                 telephone: brand.phone,
+                ...(brand.contactEmail ? { email: brand.contactEmail } : {}),
                 address: { "@type": "PostalAddress", ...brand.address },
               },
               {

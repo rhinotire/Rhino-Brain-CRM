@@ -98,6 +98,14 @@ export function Footer({ brand }: { brand: Brand }) {
             <a href={`tel:${brand.phone}`} className="font-semibold">
               {brand.phoneDisplay}
             </a>
+            {brand.contactEmail && (
+              <>
+                <br />
+                <a href={`mailto:${brand.contactEmail}`} className="font-semibold text-brand-dark hover:underline">
+                  {brand.contactEmail}
+                </a>
+              </>
+            )}
           </p>
         </div>
         <div>
