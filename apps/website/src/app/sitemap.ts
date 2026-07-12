@@ -11,7 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     PublicArticleService.listPublished(BRAND_KEY),
   ]);
 
-  const staticPages = ["", "/tires", "/wheels", "/parts", "/quote", "/become-a-dealer", "/knowledge"].map((p) => ({
+  const staticPages = ["", "/tires", "/wheels", "/parts", "/quote", "/become-a-dealer", "/knowledge", "/tools", "/tools/tire-size-calculator", "/find-installation"].map((p) => ({
     url: `${SITE.url}${p}`,
     changeFrequency: "weekly" as const,
     priority: p === "" ? 1 : 0.7,

@@ -129,6 +129,7 @@ export function Footer({ brand }: { brand: Brand }) {
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/find-installation">Find Installation</Link></li>
             <li><Link href="/knowledge">Knowledge Center</Link></li>
+            <li><Link href="/tools/tire-size-calculator">Tire Size Calculator</Link></li>
           </ul>
           <p className="mt-3 text-xs text-slate-400">{brand.networkName}</p>
         </div>

@@ -77,3 +77,15 @@ test("send-to-installer page renders the 3-step form", async ({ page }) => {
 test("shop-request: guessed token 404s", async ({ request }) => {
   expect((await request.get("/shop-request/guessed-token-abc")).status()).toBe(404);
 });
+
+test("tire size calculator computes and warns", async ({ page }) => {
+  await page.goto("/tools/tire-size-calculator");
+  // defaults: 205/75R15 vs 235/80R16 → big diff, warning shown
+  await expect(page.getByText(/% larger in diameter/)).toBeVisible();
+  await expect(page.getByText(/More than 3%/)).toBeVisible();
+  // type a size into the second picker → same size as first → within 3%
+  await page.locator('input[id="New tire-q"]').fill("205/75R15");
+  await expect(page.getByText(/Within the ±3% rule/)).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
+});
