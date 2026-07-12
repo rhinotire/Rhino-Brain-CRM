@@ -9,6 +9,7 @@ export { PublicLeadService, rateLimited, type QuoteRequestInput, type DealerAppl
 export { PublicInstallerService, type PublicInstallerDTO, type InstallationOptions } from "./public-installer-service";
 export { PublicConsumerLeadService, type ConsumerLeadResult } from "./public-consumer-lead-service";
 export { PublicBrandService, type PublicBrandDTO } from "./public-brand-service";
+export { PublicArticleService, type PublicArticleDTO } from "./public-article-service";
 export { PublicReferralService, type SendToInstallerResult } from "./public-referral-service";
 export { matchInstallerReferral, phoneKey, domainKey, nameKey, type MatchResult } from "./referral-matching";
 export { runReferralMaintenance } from "./referral-maintenance";

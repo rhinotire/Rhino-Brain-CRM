@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE, CATEGORY_SLUGS } from "@/lib/site";
-import { ARTICLES } from "@/lib/articles";
-import { getBrand } from "@/lib/brand";
+import { PublicArticleService } from "@rhino/services";
+import { getBrand, BRAND_KEY } from "@/lib/brand";
 import { TireGraphic, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const brand = await getBrand();
+  const [brand, articles] = await Promise.all([getBrand(), PublicArticleService.listPublished(BRAND_KEY)]);
   return (
     <div className="space-y-14">
       {/* Hero — full-bleed dark banner: uploaded photo when set, tire graphics otherwise */}
@@ -146,7 +146,7 @@ export default async function HomePage() {
       <section>
         <h2 className="text-xl font-bold">From the Knowledge Center</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {ARTICLES.map((a) => (
+          {articles.slice(0, 4).map((a) => (
             <Link key={a.slug} href={`/knowledge/${a.slug}`} className="rounded-xl border border-slate-200 p-5 hover:border-brand">
               <div className="font-bold">{a.title}</div>
               <p className="mt-1 text-sm text-slate-600">{a.answer.slice(0, 120)}…</p>

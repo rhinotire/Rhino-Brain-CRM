@@ -1082,3 +1082,23 @@ model InstallerReferral {
 
   @@index([status, expiresAt])
 }
+
+// Knowledge Center articles — owner-publishable from the CRM (spec §22 GEO rules)
+model Article {
+  id          String  @id @default(cuid())
+  brandKey    String  @default("RHINO")
+  slug        String  @unique
+  title       String
+  description String // meta description (<=155 chars recommended)
+  answer      String // GEO: 2-3 sentence direct answer shown first
+  bodyMd      String // Markdown body (tables supported)
+  author      String  @default("Rhino Tire USA Wholesale Team")
+  reviewedBy  String?
+  published   Boolean @default(false)
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandKey, published, publishedAt])
+}

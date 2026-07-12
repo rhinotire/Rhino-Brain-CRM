@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ARTICLES } from "@/lib/articles";
+import { PublicArticleService } from "@rhino/services";
+import { BRAND_KEY } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: "Knowledge Center — Trailer & Commercial Tire Guides",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/knowledge" },
 };
 
-export default function KnowledgeHub() {
+export const revalidate = 300; // new articles published in the CRM appear within minutes
+
+export default async function KnowledgeHub() {
+  const articles = await PublicArticleService.listPublished(BRAND_KEY);
   return (
     <div className="pt-8">
       <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
@@ -20,13 +24,16 @@ export default function KnowledgeHub() {
         Written by our wholesale team from real distribution data — no filler.
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {ARTICLES.map((a) => (
+        {articles.map((a) => (
           <Link key={a.slug} href={`/knowledge/${a.slug}`} className="rounded-xl border border-slate-200 p-6 hover:border-brand">
             <div className="text-lg font-bold leading-snug">{a.title}</div>
             <p className="mt-2 text-sm text-slate-600">{a.answer.slice(0, 150)}…</p>
-            <div className="mt-3 text-xs text-slate-400">Updated {a.updated}</div>
+            <div className="mt-3 text-xs text-slate-400">Updated {a.updatedAt.toISOString().slice(0, 10)}</div>
           </Link>
         ))}
+        {articles.length === 0 && (
+          <p className="rounded-xl bg-slate-50 p-6 text-sm text-slate-600">Articles are on the way — check back soon.</p>
+        )}
       </div>
     </div>
   );

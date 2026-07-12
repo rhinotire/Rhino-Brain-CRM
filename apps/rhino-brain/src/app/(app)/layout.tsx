@@ -23,6 +23,7 @@ const managerNav = [
   { href: "/tasks", label: "Tasks", icon: "✓" },
   { href: "/activities", label: "Activities", icon: "☎" },
   { href: "/opportunities", label: "Opportunities", icon: "◎" },
+  { href: "/articles", label: "Knowledge Center", icon: "📝" },
   { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
   { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
 ];

@@ -1,12 +1,15 @@
 import type { MetadataRoute } from "next";
-import { PublicCatalogService } from "@rhino/services";
-import { ARTICLES } from "@/lib/articles";
+import { PublicCatalogService, PublicArticleService } from "@rhino/services";
+import { BRAND_KEY } from "@/lib/brand";
 import { CATEGORY_SLUGS, SITE, sizeToSlug } from "@/lib/site";
 
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const products = await PublicCatalogService.listPublished({ take: 200 });
+  const [products, articles] = await Promise.all([
+    PublicCatalogService.listPublished({ take: 200 }),
+    PublicArticleService.listPublished(BRAND_KEY),
+  ]);
 
   const staticPages = ["", "/tires", "/wheels", "/parts", "/quote", "/become-a-dealer", "/knowledge"].map((p) => ({
     url: `${SITE.url}${p}`,
@@ -38,9 +41,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  const articlePages = ARTICLES.map((a) => ({
+  const articlePages = articles.map((a) => ({
     url: `${SITE.url}/knowledge/${a.slug}`,
-    lastModified: a.updated,
+    lastModified: a.updatedAt,
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));
