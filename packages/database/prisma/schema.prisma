@@ -878,6 +878,7 @@ model BrandConfig {
   phoneDisplay String
   addressJson  Json?
   networkName  String // "RHINO Local Installer Network"
+  logoPath     String? // brand-assets public bucket path — uploaded by the owner in the CRM
   locationId   String
   location     Location @relation(fields: [locationId], references: [id])
   active       Boolean  @default(true)

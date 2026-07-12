@@ -14,7 +14,11 @@ export function Header({ brand }: { brand: Brand }) {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
         <Link href="/" className="shrink-0">
-          {brand.key === "EVERFLOW" ? (
+          {brand.logoUrl ? (
+            // owner-uploaded logo (CRM → Settings → Website Brand)
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={brand.logoUrl} alt={brand.name} className="h-10 w-auto max-w-[220px] object-contain sm:h-11" />
+          ) : brand.key === "EVERFLOW" ? (
             <span className="text-lg font-black tracking-tight">EVERFLOW <span className="text-brand">TIRES</span></span>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element

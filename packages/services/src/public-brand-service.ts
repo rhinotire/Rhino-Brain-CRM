@@ -9,6 +9,7 @@ export type PublicBrandDTO = {
   phoneDisplay: string;
   networkName: string;
   locationId: string;
+  logoUrl: string | null; // owner-uploaded logo (public brand-assets bucket)
   address: { streetAddress: string; addressLocality: string; addressRegion: string; postalCode?: string; addressCountry: string } | null;
 };
 
@@ -16,6 +17,7 @@ export const PublicBrandService = {
   async get(key: string): Promise<PublicBrandDTO | null> {
     const row = await db.brandConfig.findFirst({ where: { key, active: true } });
     if (!row) return null;
+    const supabase = process.env.SUPABASE_URL?.replace(/\/$/, "");
     return {
       key: row.key,
       name: row.name,
@@ -24,6 +26,7 @@ export const PublicBrandService = {
       phoneDisplay: row.phoneDisplay,
       networkName: row.networkName,
       locationId: row.locationId,
+      logoUrl: row.logoPath && supabase ? `${supabase}/storage/v1/object/public/brand-assets/${row.logoPath}` : null,
       address: (row.addressJson as PublicBrandDTO["address"]) ?? null,
     };
   },

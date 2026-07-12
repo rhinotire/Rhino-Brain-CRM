@@ -30,6 +30,7 @@ const managerNav = [
 const adminNav = [
   { href: "/settings/users", label: "Users", icon: "⚙" },
   { href: "/settings/import", label: "Import / Export", icon: "⇅" },
+  { href: "/settings/website", label: "Website Brand", icon: "🌐" },
 ];
 
 const repNav = [

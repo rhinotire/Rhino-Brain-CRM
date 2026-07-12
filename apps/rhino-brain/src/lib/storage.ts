@@ -106,6 +106,36 @@ export function productImageUrl(path: string | null | undefined): string | null 
   return `${url}/storage/v1/object/public/${PUBLIC_BUCKET}/${path}`;
 }
 
+// ---- Brand assets (public bucket): website logos uploaded by the owner ----
+const BRAND_BUCKET = "brand-assets";
+
+export async function uploadBrandAsset(path: string, data: ArrayBuffer, contentType: string): Promise<void> {
+  const c = config();
+  if (!c) throw new Error("Storage is not configured");
+  await ensureNamedPublicBucket(c, BRAND_BUCKET);
+  const res = await fetch(`${c.url}/storage/v1/object/${BRAND_BUCKET}/${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${c.key}`, "Content-Type": contentType, "x-upsert": "true" },
+    body: data,
+  });
+  if (!res.ok) throw new Error(`Logo upload failed: ${res.status}`);
+}
+
+export async function deleteBrandAsset(path: string): Promise<void> {
+  const c = config();
+  if (!c) return;
+  await fetch(`${c.url}/storage/v1/object/${BRAND_BUCKET}/${path}`, {
+    method: "DELETE", headers: { Authorization: `Bearer ${c.key}` },
+  }).catch(() => {});
+}
+
+export function brandAssetUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  if (!url) return null;
+  return `${url}/storage/v1/object/public/${BRAND_BUCKET}/${path}`;
+}
+
 // ---- Chat image attachments (public bucket) ----
 const CHAT_BUCKET = "chat-images";
 

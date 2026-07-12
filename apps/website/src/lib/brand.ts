@@ -14,6 +14,7 @@ export type Brand = {
   phoneDisplay: string;
   networkName: string;
   locationId: string;
+  logoUrl: string | null; // owner-uploaded logo; null → built-in default
   address: { streetAddress: string; addressLocality: string; addressRegion: string; postalCode?: string; addressCountry: string };
 };
 
@@ -27,6 +28,7 @@ const FALLBACK: Brand = {
   phoneDisplay: "(407) 777-5598",
   networkName: "RHINO Local Installer Network",
   locationId: "",
+  logoUrl: null,
   address: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
 };
 
