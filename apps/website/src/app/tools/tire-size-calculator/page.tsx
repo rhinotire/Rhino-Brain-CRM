@@ -35,13 +35,13 @@ export default function TireCalcPage() {
           that, your speedometer and odometer error becomes noticeable, gearing changes, and on trailers the tire can
           contact fenders or frame under load.
         </p>
-        <h2 className="text-lg font-bold">Why revolutions per mile matters for trailers</h2>
-        <p>
-          A smaller-diameter tire turns more times per mile, which runs hotter at highway speed — and heat is the
-          number-one killer of trailer tires in Florida. When upsizing from ST205/75R15 toward ST235/80R16, you gain
-          diameter and load capacity while lowering revs per mile, which is why 16&quot; load range E is our most
-          stocked trailer size.
-        </p>
+        <h2 className="text-lg font-bold">What each number affects</h2>
+        <ul className="list-disc space-y-1 pl-5">
+          <li><strong>Overall diameter</strong> — ground clearance, gearing, and whether the tire fits without rubbing.</li>
+          <li><strong>Speedometer error</strong> — a larger tire makes your speedometer read <em>low</em> (you&apos;re going faster than shown); a smaller tire reads high.</li>
+          <li><strong>Revolutions per mile</strong> — a smaller-diameter tire turns more times per mile and runs hotter at highway speed. This matters most on trailers, where heat is the number-one tire killer, but it also affects odometer accuracy and fuel-economy readings on any vehicle.</li>
+          <li><strong>Section width</strong> — wider tires may need a wider rim or extra fender clearance.</li>
+        </ul>
         <p className="rounded-xl bg-slate-50 p-4 text-sm">
           Need the tires once you&apos;ve picked a size?{" "}
           <Link href="/quote" className="font-bold text-brand-dark">Get a wholesale quote</Link> or{" "}
