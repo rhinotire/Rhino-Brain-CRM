@@ -1,18 +1,16 @@
 /** Inline SVG graphics — tire/wheel imagery so the site reads "tires" at a glance. */
 
 /**
- * Hero composition: a detailed tire on an alloy wheel, with a bare polished
- * rim behind it — tires AND wheels at a glance. Pure SVG so it ships free,
- * stays sharp at any size and never causes layout shift.
+ * Hero graphic: a single detailed tire on an alloy wheel. Pure SVG so it
+ * ships free, stays sharp at any size and never causes layout shift.
  */
 export function HeroTireWheel({ className }: { className?: string }) {
   const blocks = Array.from({ length: 26 }, (_, i) => i * (360 / 26));
   const grooves = [166, 156, 147];
   const spokes = Array.from({ length: 6 }, (_, i) => i * 60);
-  const backSpokes = Array.from({ length: 8 }, (_, i) => i * 45);
   const lugs = Array.from({ length: 6 }, (_, i) => i * 60 + 30);
   return (
-    <svg viewBox="0 0 560 470" className={className} aria-hidden="true">
+    <svg viewBox="0 0 440 440" className={className} aria-hidden="true">
       <defs>
         <radialGradient id="hRubber" cx="0.38" cy="0.34">
           <stop offset="0.55" stopColor="#2b313c" />
@@ -39,22 +37,8 @@ export function HeroTireWheel({ className }: { className?: string }) {
         </radialGradient>
       </defs>
 
-      {/* ---- bare polished rim, tucked behind (says "wheels") ---- */}
-      <g transform="translate(128 316)">
-        <circle r={124} fill="url(#hAlloy)" />
-        <circle r={124} fill="none" stroke="#F0A500" strokeWidth={3} />
-        <circle r={108} fill="url(#hBarrel)" />
-        {backSpokes.map((a) => (
-          <path key={a} d="M -10 -18 L -17 -100 Q 0 -110 17 -100 L 10 -18 Q 0 -12 -10 -18 Z"
-            fill="url(#hAlloyDeep)" transform={`rotate(${a})`} />
-        ))}
-        <circle r={34} fill="url(#hAlloy)" />
-        <circle r={20} fill="#1c2430" />
-        <circle r={20} fill="none" stroke="#F0A500" strokeWidth={2} />
-      </g>
-
-      {/* ---- main tire on alloy wheel ---- */}
-      <g transform="translate(346 240)">
+      {/* ---- tire on alloy wheel ---- */}
+      <g transform="translate(220 220)">
         {/* tread blocks — chunky, slightly rounded, with a sipe cut */}
         {blocks.map((a) => (
           <g key={a} transform={`rotate(${a})`}>
