@@ -1,4 +1,5 @@
 import { db, Prisma } from "@rhino/database";
+import { sizeNeedles } from "./size-normalize";
 import type {
   PublicPartSpecDTO,
   PublicProductDTO,
@@ -116,21 +117,26 @@ const PUBLISHED_INCLUDE = {
 export const PublicCatalogService = {
   async listPublished(params: { category?: string; query?: string; take?: number; skip?: number } = {}): Promise<PublicProductDTO[]> {
     const q = params.query?.trim();
+    // Normalized size search first (spec §1A): "2256517", "225 65 17",
+    // "11R225" etc. all resolve to the same canonical needles.
+    const needles = q ? sizeNeedles(q) : [];
     const rows = await db.product.findMany({
       where: {
         ...PUBLISHED_WHERE,
         ...(params.category ? { category: params.category as PublishedRow["category"] } : {}),
-        ...(q && q.length >= 2
-          ? {
-              OR: [
-                { sizeSpec: { contains: q, mode: "insensitive" } },
-                { sku: { contains: q, mode: "insensitive" } },
-                { brand: { contains: q, mode: "insensitive" } },
-                { name: { contains: q, mode: "insensitive" } },
-                { description: { contains: q, mode: "insensitive" } },
-              ],
-            }
-          : {}),
+        ...(needles.length
+          ? { OR: needles.map((n) => ({ sizeSpec: { contains: n, mode: "insensitive" as const } })) }
+          : q && q.length >= 2
+            ? {
+                OR: [
+                  { sizeSpec: { contains: q, mode: "insensitive" } },
+                  { sku: { contains: q, mode: "insensitive" } },
+                  { brand: { contains: q, mode: "insensitive" } },
+                  { name: { contains: q, mode: "insensitive" } },
+                  { description: { contains: q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
       },
       include: PUBLISHED_INCLUDE,
       orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],

@@ -234,6 +234,7 @@ model User {
   chatReceived   ChatMessage[] @relation("ChatRecipient")
   installers     Installer[]
   consumerLeads  ConsumerLead[]
+  specReviews    SpecProposal[]
 
   // "Assistant" access: this user can also see the customers of everyone in `assists`.
   assists    User[] @relation("RepAssists")
@@ -589,6 +590,11 @@ model Product {
   warrantySummary String?
   featuresJson    Json? // bullet features for product page
 
+  // Merchandising flags (tire-discovery Phase 0)
+  bestSeller   Boolean @default(false)
+  specialOffer Boolean @default(false)
+  featured     Boolean @default(false)
+
   inventory  InventorySnapshot[]
   orderItems OrderItem[]
 
@@ -600,6 +606,7 @@ model Product {
   relations ProductRelation[] @relation("ProductRelations")
   relatedTo ProductRelation[] @relation("RelatedProduct")
   consumerLeads ConsumerLead[]
+  specProposal  SpecProposal?
 
   @@index([category])
   @@index([sizeSpec])
@@ -630,7 +637,23 @@ model TireSpec {
   overallDiameterIn Decimal? @db.Decimal(5, 2)
   sectionWidthIn    Decimal? @db.Decimal(5, 2)
 
+  // Tire-discovery attributes (Phase 0, 2026-07-13) — filled by the
+  // rules/AI/review enrichment pipeline
+  shoulderType         String? // closed / open / semi-open (commercial drive)
+  treadType            String? // highway / all-terrain / rugged-terrain / mud-terrain / touring / rib …
+  utqg                 String?
+  mileageWarrantyMiles Int?
+  threePMSF            Boolean @default(false) // 3-peak mountain snowflake
+  smartWay             Boolean @default(false)
+  regroovable          Boolean @default(false)
+  retreadable          Boolean @default(false)
+  runFlat              Boolean @default(false)
+  evCompatible         Boolean @default(false)
+  sidewallStyle        String? // BSW / RWL / OWL
+
   @@index([loadRange]) // highest-frequency B2B filter
+  @@index([position])
+  @@index([treadType])
 }
 
 model WheelSpec {
@@ -731,6 +754,10 @@ model InventorySnapshot {
   locationId String
   location   Location @relation(fields: [locationId], references: [id])
   quantity   Int
+  // Incoming stock (tire-discovery Phase 0) — manually maintained in the CRM
+  reservedQty Int       @default(0)
+  incomingQty Int       @default(0)
+  incomingEta DateTime?
   snapshotAt DateTime @default(now())
 
   @@unique([productId, locationId]) // full-overwrite upsert on re-import
@@ -1101,4 +1128,32 @@ model Article {
   updatedAt DateTime @updatedAt
 
   @@index([brandKey, published, publishedAt])
+}
+
+// ---------- Spec enrichment pipeline (tire-discovery Phase 0) ----------
+
+enum SpecProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// AI-extracted spec attributes wait HERE until a human approves them in the
+// CRM Spec Review queue. Rule-derived facts (size math, PR→LR table) write
+// straight to TireSpec; AI inferences never reach the public site unreviewed.
+model SpecProposal {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // { loadRange: { value: "E", confidence: "high" }, ... } — proposed fields only
+  fieldsJson Json
+  status     SpecProposalStatus @default(PENDING)
+
+  createdAt    DateTime  @default(now())
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?     @relation(fields: [reviewedById], references: [id])
+
+  @@index([status])
 }
