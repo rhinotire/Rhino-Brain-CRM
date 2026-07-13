@@ -14,3 +14,4 @@ import-ar-xlsx.ts
 mark-disc.ts
 update-customers.ts
 import-everflow.ts
+.playwright-mcp
