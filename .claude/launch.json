@@ -12,6 +12,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/rhino-brain", "dev"],
       "port": 3000
+    },
+    {
+      "name": "website-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/website", "dev", "--port", "3002"],
+      "port": 3002
     }
   ]
 }

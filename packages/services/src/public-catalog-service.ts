@@ -13,6 +13,16 @@ const LIMITED_THRESHOLD = 20;
 
 const num = (d: Prisma.Decimal | null): number | null => (d === null ? null : Number(d));
 
+// CRM single-photo uploads land in Product.imagePath (public "product-images"
+// bucket) rather than the ProductImage gallery relation. The public DTO folds
+// that photo in as the primary image when no gallery rows exist.
+const PRODUCT_IMG_BUCKET = "product-images";
+const imagePathUrl = (path: string | null): string | null => {
+  if (!path) return null;
+  const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  return base ? `${base}/storage/v1/object/public/${PRODUCT_IMG_BUCKET}/${path}` : null;
+};
+
 const toStockStatus = (totalUnits: number): StockStatus =>
   totalUnits <= 0 ? "CONTACT_FOR_AVAILABILITY" : totalUnits < LIMITED_THRESHOLD ? "LIMITED" : "IN_STOCK";
 
@@ -86,10 +96,15 @@ function toPublicDTO(p: PublishedRow): PublicProductDTO {
     warrantySummary: p.warrantySummary,
     features: Array.isArray(p.featuresJson) ? (p.featuresJson as unknown[]).map(String) : [],
     stockStatus: toStockStatus(p.inventory.reduce((sum, i) => sum + i.quantity, 0)),
-    images: p.images
-      .slice()
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((i) => ({ url: i.url, alt: i.alt, isPrimary: i.isPrimary, sortOrder: i.sortOrder })),
+    images: p.images.length
+      ? p.images
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((i) => ({ url: i.url, alt: i.alt, isPrimary: i.isPrimary, sortOrder: i.sortOrder }))
+      : (() => {
+          const url = imagePathUrl(p.imagePath);
+          return url ? [{ url, alt: p.name ?? p.description, isPrimary: true, sortOrder: 0 }] : [];
+        })(),
     tireSpec: tire,
     wheelSpec: wheel,
     partSpec: part,
