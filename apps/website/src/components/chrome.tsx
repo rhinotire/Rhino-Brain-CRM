@@ -4,7 +4,7 @@ import { MobileMenu } from "@/components/mobile-menu";
 import { MAIN_NAV, TIRES_MEGA } from "@/lib/site";
 
 const navLink =
-  "border-b-2 border-transparent py-1 text-sm font-semibold text-navy-800 transition hover:border-brand hover:text-navy-900";
+  "whitespace-nowrap border-b-2 border-transparent py-1 text-sm font-semibold text-navy-800 transition hover:border-brand hover:text-navy-900";
 
 /** CSS-only mega menu — opens on hover and keyboard focus, no JS required. */
 function TiresMega() {
@@ -62,15 +62,16 @@ export function Header({ brand }: { brand: Brand }) {
         <Link href="/" className="shrink-0" aria-label={`${brand.name} home`}>
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={brand.logoUrl} alt={brand.name} width={200} height={44} className="h-10 w-auto max-w-[210px] object-contain sm:h-11" />
+            <img src={brand.logoUrl} alt={brand.name} width={200} height={44} className="h-10 w-auto max-w-[210px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[210px]" />
           ) : brand.key === "EVERFLOW" ? (
             <span className="h-display text-2xl text-navy-900">EVERFLOW <span className="text-brand-dark">TIRES</span></span>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/rhino-logo.svg" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11" />
+            <img src="/rhino-logo.svg" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[200px]" />
           )}
         </Link>
-        <nav className="hidden items-center gap-5 md:flex" aria-label="Main">
+        {/* nine items need real room — full nav from xl (1280), hamburger below */}
+        <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
           {MAIN_NAV.map((n) =>
             n.mega ? (
               <TiresMega key={n.href} />
@@ -82,7 +83,7 @@ export function Header({ brand }: { brand: Brand }) {
           )}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <Link href="/quote" className="btn-gold hidden !py-2.5 md:inline-block">Get Quote</Link>
+          <Link href="/quote" className="btn-gold hidden !py-2.5 sm:inline-block">Get Quote</Link>
           <MobileMenu nav={MAIN_NAV} tiresMega={TIRES_MEGA} phone={brand.phone} phoneDisplay={brand.phoneDisplay} />
         </div>
       </div>

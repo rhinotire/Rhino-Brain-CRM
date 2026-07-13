@@ -13,7 +13,7 @@ export function MobileMenu({ nav, tiresMega, phone, phoneDisplay }: {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
-    <div className="md:hidden">
+    <div className="xl:hidden">
       <button
         type="button"
         aria-label={open ? "Close menu" : "Open menu"}

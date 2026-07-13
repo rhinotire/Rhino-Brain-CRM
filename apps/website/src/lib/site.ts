@@ -41,6 +41,8 @@ export const MAIN_NAV: { href: string; label: string; mega?: boolean }[] = [
   { href: "/parts", label: "Trailer Parts" },
   { href: "/brands", label: "Brands" },
   { href: "/deals", label: "Deals" },
+  { href: "/tools", label: "Tools" },
+  { href: "/knowledge", label: "Knowledge Center" },
   { href: "/dealer/login", label: "Dealer Login" },
 ];
 
@@ -68,8 +70,6 @@ export const TIRES_MEGA: { title: string; items: { href: string; label: string; 
     items: [
       { href: "/brands", label: "Shop All Brands" },
       { href: "/dealer/quick-order", label: "Dealer Quick Order", blurb: "Paste your list, get a quote" },
-      { href: "/tools/tire-size-calculator", label: "Tire Size Calculator", blurb: "Compare any two sizes" },
-      { href: "/knowledge", label: "Knowledge Center", blurb: "Guides & industry know-how" },
     ],
   },
 ];
