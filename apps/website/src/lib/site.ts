@@ -27,6 +27,51 @@ export const CATEGORY_SLUGS: Record<string, { db: string; label: string; parent:
   "commercial-truck": { db: "TBR_TIRES", label: "Commercial Truck Tires", parent: "tires" },
 };
 
+/** TireSpec.application values that count as "specialty" (ATV, golf, ag…). */
+export const SPECIALTY_APPLICATIONS = ["atv-utv", "golf-cart", "lawn-garden", "industrial", "agricultural"];
+
+/**
+ * Owner-approved main navigation (2026-07-13). Keep it merchandising-led;
+ * technical filters belong on category and search-result pages, not here.
+ */
+export const MAIN_NAV: { href: string; label: string; mega?: boolean }[] = [
+  { href: "/tires", label: "Tires", mega: true },
+  { href: "/wheels", label: "Wheels" },
+  { href: "/packages", label: "Tire & Wheel Packages" },
+  { href: "/parts", label: "Trailer Parts" },
+  { href: "/brands", label: "Brands" },
+  { href: "/deals", label: "Deals" },
+  { href: "/dealer/login", label: "Dealer Login" },
+];
+
+/** The Tires mega menu, grouped into columns. */
+export const TIRES_MEGA: { title: string; items: { href: string; label: string; blurb?: string }[] }[] = [
+  {
+    title: "Find Your Tires",
+    items: [
+      { href: "/tires/by-size", label: "Search by Tire Size", blurb: "Any format — 2256517 works too" },
+      { href: "/tires/by-vehicle", label: "Search by Vehicle", blurb: "Find the size your vehicle takes" },
+    ],
+  },
+  {
+    title: "Shop by Category",
+    items: [
+      { href: "/tires/passenger", label: "Passenger & CUV Tires" },
+      { href: "/tires/light-truck", label: "Light Truck & SUV Tires" },
+      { href: "/tires/commercial-truck", label: "Commercial Truck Tires" },
+      { href: "/tires/st-trailer", label: "Trailer Tires" },
+      { href: "/tires/specialty", label: "Specialty Tires" },
+    ],
+  },
+  {
+    title: "More",
+    items: [
+      { href: "/brands", label: "Shop All Brands" },
+      { href: "/dealer/quick-order", label: "Dealer Quick Order", blurb: "Paste your list, get a quote" },
+    ],
+  },
+];
+
 /** "ST235/80R16" → "st235-80r16" (URL slug) */
 export const sizeToSlug = (size: string) => size.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 /** loose compare: strips everything non-alphanumeric */

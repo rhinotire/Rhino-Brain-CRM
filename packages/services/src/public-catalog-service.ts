@@ -130,7 +130,9 @@ const PUBLISHED_INCLUDE = {
  * Whitelist reads: published products, coarse stock buckets. No pricing.
  */
 export const PublicCatalogService = {
-  async listPublished(params: { category?: string; query?: string; take?: number; skip?: number } = {}): Promise<PublicProductDTO[]> {
+  async listPublished(
+    params: { category?: string; query?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[] } = {}
+  ): Promise<PublicProductDTO[]> {
     const q = params.query?.trim();
     // Normalized size search first (spec §1A): "2256517", "225 65 17",
     // "11R225" etc. all resolve to the same canonical needles.
@@ -139,6 +141,8 @@ export const PublicCatalogService = {
       where: {
         ...PUBLISHED_WHERE,
         ...(params.category ? { category: params.category as PublishedRow["category"] } : {}),
+        ...(params.specialOffer ? { specialOffer: true } : {}),
+        ...(params.applications?.length ? { tireSpec: { application: { in: params.applications } } } : {}),
         ...(needles.length
           ? { OR: needles.map((n) => ({ sizeSpec: { contains: n, mode: "insensitive" as const } })) }
           : q && q.length >= 2
@@ -168,5 +172,18 @@ export const PublicCatalogService = {
       include: PUBLISHED_INCLUDE,
     });
     return row ? toPublicDTO(row) : null;
+  },
+
+  /** Brands with at least one published product — powers /brands. Name + count only. */
+  async listPublishedBrands(): Promise<{ brand: string; count: number }[]> {
+    const rows = await db.product.groupBy({
+      by: ["brand"],
+      where: { ...PUBLISHED_WHERE, brand: { not: null } },
+      _count: { _all: true },
+    });
+    return rows
+      .filter((r): r is typeof r & { brand: string } => !!r.brand)
+      .map((r) => ({ brand: r.brand, count: r._count._all }))
+      .sort((a, b) => b.count - a.count || a.brand.localeCompare(b.brand));
   },
 };

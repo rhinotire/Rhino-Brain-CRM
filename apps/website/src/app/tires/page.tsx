@@ -61,20 +61,32 @@ export default async function TiresHub({ searchParams }: { searchParams: { q?: s
           </div>
         )
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {Object.entries(CATEGORY_SLUGS).map(([slug, c]) => (
-            <Link key={slug} href={`/tires/${slug}`}
+        <>
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {Object.entries(CATEGORY_SLUGS).map(([slug, c]) => (
+              <Link key={slug} href={`/tires/${slug}`}
+                className="group rounded-2xl border border-steel-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
+                <div className="font-display text-2xl font-bold uppercase text-navy-900">{c.label}</div>
+                <div className="mt-1 text-xs text-steel-500">Dealer pricing · pallet &amp; container programs</div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {(POPULAR[slug] ?? []).map((s) => (
+                    <span key={s} className="rounded-md bg-steel-100 px-2 py-1 text-xs font-semibold text-navy-800 group-hover:bg-brand/15">{s}</span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+            <Link href="/tires/specialty"
               className="group rounded-2xl border border-steel-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
-              <div className="font-display text-2xl font-bold uppercase text-navy-900">{c.label}</div>
-              <div className="mt-1 text-xs text-steel-500">Dealer pricing · pallet &amp; container programs</div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {(POPULAR[slug] ?? []).map((s) => (
-                  <span key={s} className="rounded-md bg-steel-100 px-2 py-1 text-xs font-semibold text-navy-800 group-hover:bg-brand/15">{s}</span>
-                ))}
-              </div>
+              <div className="font-display text-2xl font-bold uppercase text-navy-900">Specialty Tires</div>
+              <div className="mt-1 text-xs text-steel-500">ATV/UTV · golf cart · lawn &amp; garden · industrial · ag</div>
             </Link>
-          ))}
-        </div>
+            <Link href="/tires/by-vehicle"
+              className="group rounded-2xl border border-steel-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
+              <div className="font-display text-2xl font-bold uppercase text-navy-900">Not Sure What Fits?</div>
+              <div className="mt-1 text-xs text-steel-500">Find the size your vehicle or trailer takes →</div>
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );
