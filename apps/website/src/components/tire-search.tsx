@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const TABS = ["Size", "Brand", "Category", "Application"] as const;
@@ -30,15 +29,14 @@ const chip = "rounded-lg border border-steel-200 bg-white px-3.5 py-2.5 text-sm 
 /** One-tap searches for the sizes dealers ask for most. */
 const POPULAR_SIZES = ["ST205/75R15", "ST225/75R15", "ST235/80R16", "225/65R17", "11R22.5"];
 
-/** Multi-path tire search: size / brand / category / application (spec §6). */
+/**
+ * Multi-path tire search: size / brand / category / application (spec §6).
+ * The forms are native GET forms (uncontrolled inputs) on purpose: they keep
+ * working even when hydration is broken by browser extensions such as page
+ * translators — a real dealer-desktop scenario. Only the tab switcher needs JS.
+ */
 export function TireSearch() {
   const [tab, setTab] = useState<Tab>("Size");
-  const [q, setQ] = useState("");
-  const router = useRouter();
-  const go = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (q.trim()) router.push(`/tires?q=${encodeURIComponent(q.trim())}`);
-  };
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-lift sm:p-5">
@@ -53,9 +51,9 @@ export function TireSearch() {
       <div className="pt-4">
         {tab === "Size" && (
           <div>
-            <form onSubmit={go} className="flex gap-2">
+            <form action="/tires" method="get" className="flex gap-2">
               <label htmlFor="ts-size" className="sr-only">Tire size</label>
-              <input id="ts-size" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off"
+              <input id="ts-size" name="q" autoComplete="off"
                 placeholder='Type a size any way — "ST225/75R15", "2256517", "33X12.50R20"'
                 className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm" />
               <button className="btn-gold shrink-0">Search</button>
@@ -72,9 +70,9 @@ export function TireSearch() {
           </div>
         )}
         {tab === "Brand" && (
-          <form onSubmit={go} className="flex gap-2">
+          <form action="/tires" method="get" className="flex gap-2">
             <label htmlFor="ts-brand" className="sr-only">Brand</label>
-            <input id="ts-brand" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off"
+            <input id="ts-brand" name="q" autoComplete="off"
               placeholder='e.g. "Transeagle", "Kapsen", "Haida"'
               className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm" />
             <button className="btn-gold shrink-0">Search</button>
