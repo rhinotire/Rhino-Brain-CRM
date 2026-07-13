@@ -5,6 +5,7 @@ import {
   calcTire, diameterDiffPct, actualSpeed, parseTireSize, formatTireSize,
   COMMON_WIDTHS, COMMON_ASPECTS, COMMON_RIMS, FLOT_DIAMETERS, FLOT_WIDTHS, FLOT_RIMS, type TireSpec,
 } from "@/lib/tire-math";
+import { TireCompareVisual } from "@/components/tire-compare-visual";
 
 const sel = "rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-sm";
 
@@ -119,9 +120,6 @@ export function TireSizeCalculator() {
     ["Revolutions per mile", ca.revsPerMile, cb.revsPerMile, 0],
   ];
 
-  const maxD = Math.max(ca.diameterIn, cb.diameterIn);
-  const scale = 130 / maxD;
-
   return (
     <div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -136,7 +134,11 @@ export function TireSizeCalculator() {
           : " Within the ±3% rule of thumb — generally acceptable."}
       </div>
 
-      <div className="mt-6 grid items-start gap-6 md:grid-cols-[1fr_280px]">
+      <div className="mt-6">
+        <TireCompareVisual ca={ca} cb={cb} rimA={a.rim} rimB={b.rim} la={formatTireSize(a)} lb={formatTireSize(b)} />
+      </div>
+
+      <div className="mt-6">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -182,16 +184,6 @@ export function TireSizeCalculator() {
             </table>
           </div>
         </div>
-
-        {/* visual comparison */}
-        <svg viewBox="0 0 300 170" className="mx-auto w-full max-w-[300px]" aria-label="Visual size comparison">
-          <circle cx={80} cy={160 - ca.diameterIn * scale / 2} r={ca.diameterIn * scale / 2} fill="none" stroke="#334155" strokeWidth="8" />
-          <circle cx={80} cy={160 - ca.diameterIn * scale / 2} r={(ca.rim * scale) / 2} fill="none" stroke="#94a3b8" strokeWidth="3" />
-          <circle cx={210} cy={160 - cb.diameterIn * scale / 2} r={cb.diameterIn * scale / 2} fill="none" stroke="#e5a50a" strokeWidth="8" />
-          <circle cx={210} cy={160 - cb.diameterIn * scale / 2} r={(cb.rim * scale) / 2} fill="none" stroke="#d4a017" strokeWidth="3" />
-          <text x={80} y={166} textAnchor="middle" fontSize="10" fill="#64748b" fontWeight="bold">{formatTireSize(a)}</text>
-          <text x={210} y={166} textAnchor="middle" fontSize="10" fill="#b8850a" fontWeight="bold">{formatTireSize(b)}</text>
-        </svg>
       </div>
     </div>
   );
