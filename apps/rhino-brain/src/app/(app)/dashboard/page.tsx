@@ -27,9 +27,11 @@ export default async function DashboardPage() {
   const today = startOfDay(now);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
 
+  const CONSUMER_OPEN = ["SUBMITTED", "INSTALLER_NEEDED", "INSTALLER_CONTACTED", "INSTALLATION_REQUESTED", "INSTALLATION_SCHEDULED", "MANUAL_ASSISTANCE_REQUIRED"] as const;
   const [
     followUpsToday, overdueFollowUps, newLeadsThisWeek, activeCustomers, inactiveCustomers,
     quotesSentThisWeek, sentQuotes, callsToday, reps, attentionCustomers, overdueTasks, tasksToday,
+    consumerOpen, consumerWeek,
   ] = await Promise.all([
     db.task.count({ where: { ...loc, status: "OPEN", dueDate: { gte: today, lt: new Date(today.getTime() + 86400000) } } }),
     db.task.count({ where: { ...loc, status: "OPEN", dueDate: { lt: today } } }),
@@ -72,6 +74,9 @@ export default async function DashboardPage() {
       orderBy: { dueDate: "asc" }, take: 8,
       include: { assignee: { select: { name: true } }, customer: { select: { companyName: true } } },
     }),
+    // Website consumer requests (installation / send-to-installer funnel)
+    db.consumerLead.count({ where: { ...loc, status: { in: [...CONSUMER_OPEN] } } }),
+    db.consumerLead.count({ where: { ...loc, createdAt: { gte: weekStart } } }),
   ]);
 
   const quotesPendingFollowUp = sentQuotes.filter(q => quoteNeedsFollowUp(q, now));
@@ -126,6 +131,12 @@ export default async function DashboardPage() {
         <StatCard label="Quotes Sent (Wk)" value={quotesSentThisWeek} />
         <StatCard label="Quotes Need F/U" value={quotesPendingFollowUp.length} tone={quotesPendingFollowUp.length > 0 ? "warn" : "good"} />
         <StatCard label="Contacts Today" value={callsToday} />
+        <Link href="/consumer-leads?status=open" className="contents">
+          <StatCard label="Open Web Requests" value={consumerOpen} tone={consumerOpen > 0 ? "warn" : "good"} />
+        </Link>
+        <Link href="/consumer-leads" className="contents">
+          <StatCard label="Consumer Leads (Wk)" value={consumerWeek} />
+        </Link>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">

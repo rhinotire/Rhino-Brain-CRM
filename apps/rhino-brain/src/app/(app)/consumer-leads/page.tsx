@@ -69,7 +69,9 @@ export default async function ConsumerLeadsPage({ searchParams }: { searchParams
             <tr key={l.id} className={`border-b border-slate-50 hover:bg-slate-50 ${searchParams.focus === l.id ? "bg-amber-50" : ""}`}>
               <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{l.createdAt.toLocaleDateString()} {l.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
               <td className="px-3 py-2"><Badge>{KIND_LABEL[l.kind] ?? l.kind}</Badge></td>
-              <td className="px-3 py-2 font-medium">{l.name}</td>
+              <td className="px-3 py-2 font-medium">
+                <Link href={`/consumer-leads/${l.id}`} className="text-blue-700 hover:underline">{l.name}</Link>
+              </td>
               <td className="whitespace-nowrap px-3 py-2"><a href={`tel:${l.phone}`} className="text-blue-700 hover:underline">{l.phone}</a></td>
               <td className="px-3 py-2">{l.zip}</td>
               <td className="px-3 py-2 text-slate-600">{l.product ? `${l.product.name ?? l.product.description} (${l.product.sku})` : l.tireSize ?? "—"}</td>

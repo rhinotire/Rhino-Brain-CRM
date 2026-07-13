@@ -6,61 +6,87 @@ import { logout } from "@/actions/auth";
 import { roleLabels } from "@/lib/domain";
 import { NotificationBell } from "@/components/notification-bell";
 import { ResponsiveShell } from "@/components/responsive-shell";
+import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 
-const managerNav = [
-  { href: "/dashboard", label: "Dashboard", icon: "▦" },
-  { href: "/chat", label: "Team Chat", icon: "💬" },
-  { href: "/assistant", label: "AI Assistant", icon: "🤖" },
-  { href: "/flyers", label: "Special Flyers", icon: "📣" },
-  { href: "/products", label: "Products & Stock", icon: "📦" },
-  { href: "/lost-sales", label: "Lost Sales", icon: "💸" },
-  { href: "/ar", label: "A/R Aging", icon: "💰" },
-  { href: "/customers", label: "Customers", icon: "🏬" },
-  { href: "/pipeline", label: "Lead Pipeline", icon: "⇉" },
-  { href: "/leads", label: "Leads List", icon: "☰" },
-  { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
-  { href: "/quotes", label: "Quotes", icon: "＄" },
-  { href: "/tasks", label: "Tasks", icon: "✓" },
-  { href: "/activities", label: "Activities", icon: "☎" },
-  { href: "/opportunities", label: "Opportunities", icon: "◎" },
-  { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
-  { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
+// Grouped navigation (owner-approved layout, 2026-07-13). AI Assistant is
+// pinned at the bottom — it's a tool, not a page in the daily flow.
+const managerGroups: NavGroup[] = [
+  { items: [
+    { href: "/dashboard", label: "Dashboard", icon: "▦" },
+    { href: "/my-work", label: "My Work Today", icon: "★" },
+  ]},
+  { title: "Sales", items: [
+    { href: "/customers", label: "Customers", icon: "🏬" },
+    { href: "/pipeline", label: "Lead Pipeline", icon: "⇉" },
+    { href: "/leads", label: "Leads List", icon: "☰" },
+    { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
+    { href: "/quotes", label: "Quotes", icon: "＄" },
+    { href: "/opportunities", label: "Opportunities", icon: "◎" },
+  ]},
+  { title: "Daily Work", items: [
+    { href: "/tasks", label: "Tasks", icon: "✓" },
+    { href: "/activities", label: "Activities", icon: "☎" },
+    { href: "/chat", label: "Team Chat", icon: "💬" },
+  ]},
+  { title: "Products", items: [
+    { href: "/products", label: "Products & Stock", icon: "📦" },
+    { href: "/lost-sales", label: "Lost Sales", icon: "💸" },
+    { href: "/flyers", label: "Special Flyers", icon: "📣" },
+  ]},
+  { title: "Finance & Reports", items: [
+    { href: "/ar", label: "A/R Aging", icon: "💰" },
+    { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
+    { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
+  ]},
 ];
 
-const adminNav = [
-  { href: "/settings/users", label: "Users", icon: "⚙" },
-  { href: "/settings/import", label: "Import / Export", icon: "⇅" },
-];
+const websiteGroup = (isAdmin: boolean): NavGroup => ({
+  title: "Website",
+  items: [
+    { href: "/articles", label: "Knowledge Center", icon: "📝" },
+    ...(isAdmin ? [{ href: "/settings/website", label: "Brand & Banners", icon: "🌐" }] : []),
+  ],
+});
 
-// Public-website content management — grows as the site grows (articles,
-// brand/banners; later: installers, coupons, tools)
-const websiteNav = [
-  { href: "/articles", label: "Knowledge Center", icon: "📝", adminOnly: false },
-  { href: "/settings/website", label: "Brand & Banners", icon: "🌐", adminOnly: true },
-];
+const settingsGroup = (isAdmin: boolean): NavGroup => ({
+  title: "Settings",
+  items: [
+    ...(isAdmin ? [{ href: "/settings/users", label: "Users", icon: "⚙" }] : []),
+    { href: "/settings/import", label: "Import / Export", icon: "⇅" },
+  ],
+});
 
-const repNav = [
-  { href: "/my-work", label: "My Work Today", icon: "★" },
-  { href: "/chat", label: "Team Chat", icon: "💬" },
-  { href: "/assistant", label: "AI Assistant", icon: "🤖" },
-  { href: "/products", label: "Products & Stock", icon: "📦" },
-  { href: "/lost-sales", label: "My Lost Sales", icon: "💸" },
-  { href: "/ar", label: "My A/R", icon: "💰" },
-  { href: "/customers", label: "My Customers", icon: "🏬" },
-  { href: "/pipeline", label: "My Leads", icon: "⇉" },
-  { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
-  { href: "/quotes", label: "My Quotes", icon: "＄" },
-  { href: "/tasks", label: "My Tasks", icon: "✓" },
-  { href: "/activities", label: "My Activities", icon: "☎" },
-  { href: "/opportunities", label: "Opportunities", icon: "◎" },
+const repGroups: NavGroup[] = [
+  { items: [{ href: "/my-work", label: "My Work Today", icon: "★" }] },
+  { title: "Sales", items: [
+    { href: "/customers", label: "My Customers", icon: "🏬" },
+    { href: "/pipeline", label: "My Leads", icon: "⇉" },
+    { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
+    { href: "/quotes", label: "My Quotes", icon: "＄" },
+    { href: "/opportunities", label: "Opportunities", icon: "◎" },
+  ]},
+  { title: "Daily Work", items: [
+    { href: "/tasks", label: "My Tasks", icon: "✓" },
+    { href: "/activities", label: "My Activities", icon: "☎" },
+    { href: "/chat", label: "Team Chat", icon: "💬" },
+  ]},
+  { title: "Products", items: [
+    { href: "/products", label: "Products & Stock", icon: "📦" },
+    { href: "/lost-sales", label: "My Lost Sales", icon: "💸" },
+    { href: "/ar", label: "My A/R", icon: "💰" },
+  ]},
 ];
 
 // Accounting: A/R-focused, read-only, cross-company.
-const accountingNav = [
-  { href: "/ar", label: "A/R Aging", icon: "💰" },
-  { href: "/customers", label: "Customers", icon: "🏬" },
-  { href: "/chat", label: "Team Chat", icon: "💬" },
+const accountingGroups: NavGroup[] = [
+  { items: [
+    { href: "/ar", label: "A/R Aging", icon: "💰" },
+    { href: "/customers", label: "Customers", icon: "🏬" },
+    { href: "/chat", label: "Team Chat", icon: "💬" },
+  ]},
 ];
+
+const AI_ITEM = { href: "/assistant", label: "AI Assistant", icon: "🤖" };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -70,7 +96,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [];
   const currentLoc = showSwitcher ? adminLocFilter() : null;
   const manager = isManager(session);
-  const nav = session.role === "ACCOUNTING" ? accountingNav : manager ? managerNav : repNav;
+  const groups: NavGroup[] =
+    session.role === "ACCOUNTING"
+      ? accountingGroups
+      : manager
+        ? [...managerGroups, websiteGroup(session.role === "ADMIN"), settingsGroup(session.role === "ADMIN")]
+        : repGroups;
 
   const notifications = await db.notification.findMany({
     where: { userId: session.userId },
@@ -92,48 +123,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {showSwitcher && locations.length > 0 && (
           <LocationSwitcher locations={locations} current={currentLoc} />
         )}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2">
-          {nav.map(item => (
-            <Link key={item.href} href={item.href}
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
-              <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-          {manager && (
-            <>
-              <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Website
-              </div>
-              {websiteNav.filter(item => !item.adminOnly || session.role === "ADMIN").map(item => (
-                <Link key={item.href} href={item.href}
-                  className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
-                  <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
-                  {item.label}
-                </Link>
-              ))}
-              <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                {session.role === "ADMIN" ? "Settings" : "Team"}
-              </div>
-              {session.role === "ADMIN" && adminNav.map(item => (
-                <Link key={item.href} href={item.href}
-                  className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
-                  <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
-                  {item.label}
-                </Link>
-              ))}
-              {session.role === "MANAGER" && (
-                <Link href="/settings/import"
-                  className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
-                  <span className="w-4 text-center text-xs opacity-70">⇅</span> Import / Export
-                </Link>
-              )}
-              <Link href="/my-work"
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-ink-800 hover:text-white">
-                <span className="w-4 text-center text-xs opacity-70">★</span> My Work Today
-              </Link>
-            </>
-          )}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
+          <SidebarNav groups={groups} pinned={AI_ITEM} />
         </nav>
         <div className="border-t border-ink-700 p-3">
           <div className="mb-2 px-1">
