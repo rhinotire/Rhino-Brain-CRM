@@ -37,6 +37,17 @@ const parseRim = (s: string): number => {
 };
 
 export function normalizeSizeInput(raw: string): NormalizedSize | null {
+  const direct = parseSize(raw);
+  if (direct) return direct;
+  // Dealers often type the full supplier spec with a ply suffix
+  // ("ST225/75R15-10PR", "11R22.5 16PR", "235/75R17.5-16P") — strip it and retry.
+  const v = raw.trim().toUpperCase();
+  const m = v.match(/^(.*\d(?:LT|C)?)\s*[-\s]\s*\d{1,2}\s*(?:PR|P)?\s*$/);
+  if (m) return parseSize(m[1]);
+  return null;
+}
+
+function parseSize(raw: string): NormalizedSize | null {
   let v = raw.trim().toUpperCase();
   if (!v || v.length < 4) return null;
   // unify separators: spaces / dashes / dots-between-groups → single space

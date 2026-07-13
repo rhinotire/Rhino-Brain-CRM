@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SITE, CATEGORY_SLUGS } from "@/lib/site";
 import { PublicArticleService } from "@rhino/services";
 import { getBrand, BRAND_KEY } from "@/lib/brand";
-import { TireGraphic, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
+import { HeroTireWheel, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
 import { TireSearch } from "@/components/tire-search";
 
 export const metadata: Metadata = {
@@ -33,7 +33,7 @@ export default async function HomePage() {
             <div className="absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-steel-400/10 blur-3xl" />
           </>
         )}
-        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-14 pt-12 sm:pt-16 md:grid-cols-[1fr_minmax(240px,320px)]">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-14 pt-12 sm:pt-16 md:grid-cols-[1fr_minmax(260px,400px)]">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-light">
               Wholesale tire &amp; wheel distributor · Orlando FL · Dallas TX
@@ -55,7 +55,7 @@ export default async function HomePage() {
             </div>
           </div>
           {!brand.heroImageUrl && (
-            <TireGraphic className="mx-auto hidden w-full max-w-[320px] drop-shadow-2xl md:block" />
+            <HeroTireWheel className="mx-auto hidden w-full max-w-[400px] drop-shadow-2xl md:block" />
           )}
         </div>
         {/* metallic stat band */}

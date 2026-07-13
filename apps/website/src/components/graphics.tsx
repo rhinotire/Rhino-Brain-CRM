@@ -1,5 +1,111 @@
 /** Inline SVG graphics — tire/wheel imagery so the site reads "tires" at a glance. */
 
+/**
+ * Hero composition: a detailed tire on an alloy wheel, with a bare polished
+ * rim behind it — tires AND wheels at a glance. Pure SVG so it ships free,
+ * stays sharp at any size and never causes layout shift.
+ */
+export function HeroTireWheel({ className }: { className?: string }) {
+  const blocks = Array.from({ length: 26 }, (_, i) => i * (360 / 26));
+  const grooves = [166, 156, 147];
+  const spokes = Array.from({ length: 6 }, (_, i) => i * 60);
+  const backSpokes = Array.from({ length: 8 }, (_, i) => i * 45);
+  const lugs = Array.from({ length: 6 }, (_, i) => i * 60 + 30);
+  return (
+    <svg viewBox="0 0 560 470" className={className} aria-hidden="true">
+      <defs>
+        <radialGradient id="hRubber" cx="0.38" cy="0.34">
+          <stop offset="0.55" stopColor="#2b313c" />
+          <stop offset="0.82" stopColor="#171c26" />
+          <stop offset="1" stopColor="#0a0d13" />
+        </radialGradient>
+        <linearGradient id="hAlloy" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f1f5f9" />
+          <stop offset="0.45" stopColor="#aab4c0" />
+          <stop offset="0.7" stopColor="#7d8a99" />
+          <stop offset="1" stopColor="#5c6878" />
+        </linearGradient>
+        <linearGradient id="hAlloyDeep" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#cbd5e1" />
+          <stop offset="1" stopColor="#64748b" />
+        </linearGradient>
+        <radialGradient id="hBarrel">
+          <stop offset="0.7" stopColor="#1c2430" />
+          <stop offset="1" stopColor="#2e3947" />
+        </radialGradient>
+        <radialGradient id="hLug">
+          <stop offset="0.3" stopColor="#e2e8f0" />
+          <stop offset="1" stopColor="#475569" />
+        </radialGradient>
+      </defs>
+
+      {/* ---- bare polished rim, tucked behind (says "wheels") ---- */}
+      <g transform="translate(128 316)">
+        <circle r={124} fill="url(#hAlloy)" />
+        <circle r={124} fill="none" stroke="#F0A500" strokeWidth={3} />
+        <circle r={108} fill="url(#hBarrel)" />
+        {backSpokes.map((a) => (
+          <path key={a} d="M -10 -18 L -17 -100 Q 0 -110 17 -100 L 10 -18 Q 0 -12 -10 -18 Z"
+            fill="url(#hAlloyDeep)" transform={`rotate(${a})`} />
+        ))}
+        <circle r={34} fill="url(#hAlloy)" />
+        <circle r={20} fill="#1c2430" />
+        <circle r={20} fill="none" stroke="#F0A500" strokeWidth={2} />
+      </g>
+
+      {/* ---- main tire on alloy wheel ---- */}
+      <g transform="translate(346 240)">
+        {/* tread blocks — chunky, slightly rounded, with a sipe cut */}
+        {blocks.map((a) => (
+          <g key={a} transform={`rotate(${a})`}>
+            <rect x={-13} y={-208} width={26} height={38} rx={6} fill="#10141b" />
+            <rect x={-2} y={-206} width={4} height={34} rx={2} fill="#1f2630" />
+          </g>
+        ))}
+        {/* rubber body + shoulder */}
+        <circle r={192} fill="url(#hRubber)" />
+        <circle r={192} fill="none" stroke="#05070b" strokeWidth={3} />
+        {/* sidewall grooves */}
+        {grooves.map((r) => (
+          <circle key={r} r={r} fill="none" stroke="#39404d" strokeWidth={1.5} opacity={0.7} />
+        ))}
+        {/* embossed brand lettering on the sidewall */}
+        <path id="hArc" d="M -138 0 A 138 138 0 0 1 138 0" fill="none" />
+        <text fontFamily="'Barlow Condensed','Arial Narrow',sans-serif" fontWeight={700} fontSize={30}
+          letterSpacing={7} fill="#454d5b">
+          <textPath href="#hArc" startOffset="50%" textAnchor="middle">RHINO TIRES USA</textPath>
+        </text>
+        <path id="hArcB" d="M 138 0 A 138 138 0 0 1 -138 0" fill="none" />
+        <text fontFamily="'Barlow Condensed','Arial Narrow',sans-serif" fontWeight={600} fontSize={20}
+          letterSpacing={6} fill="#3b424f">
+          <textPath href="#hArcB" startOffset="50%" textAnchor="middle">WHOLESALE · TIRES · WHEELS</textPath>
+        </text>
+        {/* specular highlight */}
+        <path d="M -150 -95 A 178 178 0 0 1 -20 -177" fill="none" stroke="#ffffff" strokeWidth={20} strokeLinecap="round" opacity={0.06} />
+        {/* gold pinstripe + machined lip */}
+        <circle r={117} fill="none" stroke="#F0A500" strokeWidth={3.5} />
+        <circle r={110} fill="url(#hAlloy)" />
+        <circle r={97} fill="url(#hBarrel)" />
+        {/* six tapered twin spokes */}
+        {spokes.map((a) => (
+          <g key={a} transform={`rotate(${a})`}>
+            <path d="M -20 -30 L -30 -94 Q -16 -102 -4 -100 L -4 -34 Q -12 -30 -20 -30 Z" fill="url(#hAlloyDeep)" />
+            <path d="M 20 -30 L 30 -94 Q 16 -102 4 -100 L 4 -34 Q 12 -30 20 -30 Z" fill="url(#hAlloy)" />
+          </g>
+        ))}
+        {/* hub: lugs + gold-ringed center cap */}
+        <circle r={44} fill="url(#hAlloy)" />
+        {lugs.map((a) => (
+          <circle key={a} cx={0} cy={-33} r={6.5} fill="url(#hLug)" transform={`rotate(${a})`} />
+        ))}
+        <circle r={19} fill="#141a24" />
+        <circle r={19} fill="none" stroke="#F0A500" strokeWidth={2.5} />
+        <circle r={7} fill="#39404d" />
+      </g>
+    </svg>
+  );
+}
+
 export function TireGraphic({ className }: { className?: string }) {
   const treads = Array.from({ length: 30 }, (_, i) => i * 12);
   const spokes = Array.from({ length: 7 }, (_, i) => i * (360 / 7));

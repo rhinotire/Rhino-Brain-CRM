@@ -29,8 +29,12 @@ export function ProductCard({ p }: { p: PublicProductDTO }) {
           <TireGraphic className="h-28 w-28" />
         )}
         {p.tireSpec?.loadRange && (
-          <span className="absolute right-2 top-2 rounded-md bg-navy-900 px-2 py-0.5 text-[11px] font-bold text-brand-light">
-            LR {p.tireSpec.loadRange}
+          <span
+            title={`Load Range ${p.tireSpec.loadRange}${p.tireSpec.plyRating ? ` (${p.tireSpec.plyRating}-ply rating)` : ""} — the tire's load-carrying strength class`}
+            className="absolute right-2 top-2 rounded-md bg-navy-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-light"
+          >
+            Load Range {p.tireSpec.loadRange}
+            {p.tireSpec.plyRating ? ` · ${p.tireSpec.plyRating} Ply` : ""}
           </span>
         )}
       </div>

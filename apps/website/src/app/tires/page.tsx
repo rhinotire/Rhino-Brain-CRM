@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PublicCatalogService } from "@rhino/services";
+import { PublicCatalogService, sizeSuggestion } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { CATEGORY_SLUGS } from "@/lib/site";
 
@@ -50,10 +50,15 @@ export default async function TiresHub({ searchParams }: { searchParams: { q?: s
             ))}
           </div>
         ) : (
-          <p className="mt-8 rounded-2xl bg-steel-100 p-6 text-sm text-steel-500">
-            No published products match “{q}”. Call us — our warehouse stocks more than the site shows, or{" "}
-            <Link href="/quote" className="font-bold text-brand-dark">request a quote</Link>.
-          </p>
+          <div className="mt-8 rounded-2xl bg-steel-100 p-6 text-sm text-steel-500">
+            {sizeSuggestion(q ?? "") && (
+              <p className="mb-2 font-semibold text-navy-900">{sizeSuggestion(q ?? "")}</p>
+            )}
+            <p>
+              No published products match “{q}”. Call us — our warehouse stocks more than the site shows, or{" "}
+              <Link href="/quote" className="font-bold text-brand-dark">request a quote</Link>.
+            </p>
+          </div>
         )
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">

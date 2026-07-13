@@ -32,6 +32,13 @@ describe("normalizeSizeInput — equivalence classes", () => {
     same(["33X12.50R20", "33 12.50 20", "33x12.5r20"], "33X12.5R20");
   });
 
+  it("tolerates ply suffixes dealers type from supplier specs", () => {
+    same(["ST225/75R15-10PR", "ST225/75R15 10PR", "ST225/75R15-10P"], "ST225/75R15");
+    same(["11R22.5 16PR", "11R22.5-16PR"], "11R22.5");
+    same(["235/75R17.5-16P"], "235/75R17.5");
+    same(["LT31X10.50R15-6"], "31X10.5R15");
+  });
+
   it("ZR and euro-C suffixes normalize to plain metric", () => {
     same(["205/45ZR16", "205/45R16", "2054516"], "205/45R16");
     same(["225/70R15C", "225/70R15"], "225/70R15");
