@@ -15,6 +15,17 @@ body {
   outline-offset: 2px;
 }
 
+/* Preflight makes form controls inherit color; inside dark text-white
+   sections that turns typed text white-on-white (invisible). All our
+   inputs render on white fields, so pin a dark text color globally. */
+@layer base {
+  input,
+  select,
+  textarea {
+    @apply text-navy-900;
+  }
+}
+
 @layer components {
   .btn-gold {
     @apply inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-navy-900 shadow-card transition hover:bg-brand-light focus-visible:outline-brand-dark;

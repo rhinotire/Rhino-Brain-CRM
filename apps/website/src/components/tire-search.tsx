@@ -53,9 +53,11 @@ export function TireSearch() {
           <div>
             <form action="/tires" method="get" className="flex gap-2">
               <label htmlFor="ts-size" className="sr-only">Tire size</label>
+              {/* text-navy-900 is load-bearing: the hero section is text-white and
+                  preflight makes inputs inherit color — white-on-white otherwise */}
               <input id="ts-size" name="q" autoComplete="off"
                 placeholder='Type a size any way — "ST225/75R15", "2256517", "33X12.50R20"'
-                className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm" />
+                className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm text-navy-900" />
               <button className="btn-gold shrink-0">Search</button>
             </form>
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -74,7 +76,7 @@ export function TireSearch() {
             <label htmlFor="ts-brand" className="sr-only">Brand</label>
             <input id="ts-brand" name="q" autoComplete="off"
               placeholder='e.g. "Transeagle", "Kapsen", "Haida"'
-              className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm" />
+              className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm text-navy-900" />
             <button className="btn-gold shrink-0">Search</button>
           </form>
         )}
