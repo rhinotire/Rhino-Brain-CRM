@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setLocationFilter } from "@/actions/auth";
 
 export function LocationSwitcher({
@@ -10,6 +11,7 @@ export function LocationSwitcher({
   current: string | null;
 }) {
   const [pending, start] = useTransition();
+  const router = useRouter();
   return (
     <div className="px-3 pb-2">
       <label className="mb-1 block px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -21,7 +23,12 @@ export function LocationSwitcher({
         onChange={e => {
           const fd = new FormData();
           fd.set("locationId", e.target.value);
-          start(() => setLocationFilter(fd));
+          start(async () => {
+            await setLocationFilter(fd);
+            // URL is unchanged (only a cookie changed), so force the current route
+            // to refetch from the server with the new location filter.
+            router.refresh();
+          });
         }}
         className="w-full rounded-md border border-ink-700 bg-ink-800 px-2 py-1.5 text-xs text-white"
       >
