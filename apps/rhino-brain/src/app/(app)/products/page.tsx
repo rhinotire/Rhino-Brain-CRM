@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireSession, isManager, seesAllLocations } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
+import { ShopifySyncButton } from "@/components/shopify-sync-button";
 import { ProductsFilter } from "@/components/products-filter";
 import { DiscontinuedToggle } from "@/components/discontinued-toggle";
 import { WebPublishToggle } from "@/components/web-publish-toggle";
@@ -60,7 +61,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Products &amp; Stock <span className="text-sm font-normal text-slate-400">({totalCount} SKUs)</span></h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl font-bold">Products &amp; Stock <span className="text-sm font-normal text-slate-400">({totalCount} SKUs)</span></h1>
+        {session.role === "ADMIN" && <ShopifySyncButton />}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatCard label="Active SKUs" value={totalCount} />
