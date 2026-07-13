@@ -9,6 +9,11 @@ export const metadata: Metadata = {
 
 const TOOLS = [
   {
+    href: "/tools/trailer-load-calculator",
+    name: "Trailer Tire Load Calculator",
+    blurb: "GVWR + axles + hitch type → the per-tire capacity and load index you need, with the 20% heat reserve.",
+  },
+  {
     href: "/tools/tire-size-calculator",
     name: "Tire Size Calculator & Comparison",
     blurb: "Compare two sizes: diameter, sidewall, revs per mile, speedometer error — with a visual.",
