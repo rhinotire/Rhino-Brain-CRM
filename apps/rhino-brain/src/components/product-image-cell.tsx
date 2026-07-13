@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { uploadProductPhoto, clearProductPhoto } from "@/actions/products";
+import { PatternPhotoShare } from "@/components/pattern-photo-share";
 import { useToast } from "@/components/ui/toast";
 
 export function ProductImageCell({ productId, imageUrl, storageReady }: {
@@ -33,6 +34,7 @@ export function ProductImageCell({ productId, imageUrl, storageReady }: {
             onChange={e => { if (e.target.form && e.target.files?.length) e.target.form.requestSubmit(); }} />
         </label>
       </form>
+      {url && <PatternPhotoShare productId={productId} imageUrl={url} />}
       {url && (
         <button type="button" className="text-xs text-red-400 hover:underline" disabled={pending}
           onClick={() => start(async () => { await clearProductPhoto(productId); setUrl(null); toast("Photo removed"); })}>
