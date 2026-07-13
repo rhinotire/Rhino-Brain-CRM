@@ -42,8 +42,8 @@ export function normalizeSizeInput(raw: string): NormalizedSize | null {
   // unify separators: spaces / dashes / dots-between-groups → single space
   v = v.replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
 
-  // ---- flotation: 33X12.50R20 / 33 12.50 20 / 33X12.5R20 ----
-  let m = v.replace(/\s/g, "").match(/^(\d{2}(?:\.\d)?)[X/](\d{1,2}(?:\.\d{1,2})?)(?:R|D|B)?(\d{2}(?:\.\d)?)$/);
+  // ---- flotation: 33X12.50R20 / 33 12.50 20 / LT31X10.50R15 / 30X9.50R15LT ----
+  let m = v.replace(/\s/g, "").match(/^(?:LT)?(\d{2}(?:\.\d)?)[X/](\d{1,2}(?:\.\d{1,2})?)(?:R|D|B)?(\d{2}(?:\.\d)?)(?:LT)?$/);
   if (m) return flotation(Number(m[1]), Number(m[2]), parseRim(m[3]));
   m = v.match(/^(\d{2}(?:\.\d)?) (\d{1,2}\.\d{1,2}) (?:R ?)?(\d{2}(?:\.\d)?)$/);
   if (m) return flotation(Number(m[1]), Number(m[2]), parseRim(m[3]));
@@ -57,8 +57,8 @@ export function normalizeSizeInput(raw: string): NormalizedSize | null {
     if (t) return t;
   }
 
-  // ---- metric with letters: ST235/80R16 / ST23580R16 / LT285 70 R17 / 225 65 17 ----
-  m = compact.match(/^(ST|LT|P)?(\d{3})(?:\/?(\d{2}))(?:R|D|B)?(\d{2,3}(?:\.\d)?)$/);
+  // ---- metric with letters: ST235/80R16 / 205/45ZR16 / 225/70R15C / 225 65 17 ----
+  m = compact.match(/^(ST|LT|P)?(\d{3})(?:\/?(\d{2}))(?:ZR|R|D|B)?(\d{2,3}(?:\.\d)?)C?$/);
   if (m) {
     const parsed = metric(m[1] ?? "", Number(m[2]), Number(m[3]), parseRim(m[4]));
     if (parsed) return parsed;

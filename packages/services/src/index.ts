@@ -14,6 +14,7 @@ export { PublicReferralService, type SendToInstallerResult } from "./public-refe
 export { matchInstallerReferral, phoneKey, domainKey, nameKey, type MatchResult } from "./referral-matching";
 export { runReferralMaintenance } from "./referral-maintenance";
 export { normalizeSizeInput, sizeNeedles, sizeSuggestion, type NormalizedSize } from "./size-normalize";
+export { deriveSpecFromProduct, specGaps, type RuleSpec } from "./spec-rules";
 export { uploadDealerDoc, signDealerDocUrl, isDealerStorageConfigured } from "./storage";
 export { recordEvent } from "./analytics";
 export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";

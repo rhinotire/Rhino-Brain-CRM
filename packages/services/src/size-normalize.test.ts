@@ -32,6 +32,16 @@ describe("normalizeSizeInput — equivalence classes", () => {
     same(["33X12.50R20", "33 12.50 20", "33x12.5r20"], "33X12.5R20");
   });
 
+  it("ZR and euro-C suffixes normalize to plain metric", () => {
+    same(["205/45ZR16", "205/45R16", "2054516"], "205/45R16");
+    same(["225/70R15C", "225/70R15"], "225/70R15");
+  });
+
+  it("LT-tagged flotation sizes", () => {
+    same(["LT31X10.50R15", "31X10.50R15", "31 10.50 15"], "31X10.5R15");
+    same(["30X9.50R15LT", "30X9.50R15"], "30X9.5R15");
+  });
+
   it("rejects junk", () => {
     expect(normalizeSizeInput("hello")).toBeNull();
     expect(normalizeSizeInput("99/99R99")).toBeNull();
