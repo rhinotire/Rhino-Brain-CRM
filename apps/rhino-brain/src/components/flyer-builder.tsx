@@ -220,7 +220,7 @@ export function FlyerBuilder({ categories, brands }: { categories?: string[]; br
                     ? <img src={logo} alt="Company logo" className="mx-auto mb-3 max-h-24 w-auto max-w-full" />
                     : <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-14 w-14 rounded-lg" />
+                        <img src="/rhino-brain-logo.png" alt="Rhino" className="mx-auto h-14 w-auto rounded-lg" />
                         <div className="mt-1 text-lg font-black tracking-tight text-white">RHINO <span className="text-brand-500">TIRE USA</span></div>
                       </>}
                   <div className="text-3xl font-black uppercase leading-tight tracking-tight text-white">

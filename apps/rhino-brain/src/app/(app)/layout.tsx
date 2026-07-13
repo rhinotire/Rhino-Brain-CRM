@@ -112,13 +112,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const sidebar = (
     <>
-      <div className="px-4 py-5">
-          <Link href="/" className="flex items-center gap-2.5">
+      <div className="px-3 py-4">
+          <Link href="/" className="block">
+            {/* full logo includes the wordmark + tagline; black bg blends with the sidebar */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/rhino-brain-logo.png" alt="Rhino Brain" className="h-9 w-9 rounded" />
-            <span className="text-base font-black leading-tight tracking-tight text-white">RHINO <span className="text-brand-500">BRAIN</span></span>
+            <img src="/rhino-brain-logo.png" alt="Rhino Brain — AI Business Command Center" className="w-full rounded-lg" />
           </Link>
-          <div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">AI Business Command Center</div>
         </div>
         {showSwitcher && locations.length > 0 && (
           <LocationSwitcher locations={locations} current={currentLoc} />
