@@ -30,13 +30,13 @@ const LR_TO_PR: Record<string, number> = { B: 4, C: 6, D: 8, E: 10, F: 12, G: 14
 
 /**
  * Supplier sizeSpec strings carry a ply suffix and/or a trailing LT that the
- * size parser doesn't know: "ST205/75R14-8PR", "235/75R17.5-16P",
+ * size parser doesn't know: "ST205/75R14-8PR", "235/75R17.5-16P", "11R22.5 16PR",
  * "LT31X10.50R15-6", "30x9.50R15LT-6P", "33X12.50R15LT". Split those off —
  * the ply digits only count if the remainder still parses as a real size.
  */
 function splitSizeSuffix(raw: string): { size: string; ply?: number } {
   const v = raw.trim().toUpperCase();
-  const m = v.match(/^(.*\d(?:LT|C)?)\s*-\s*(\d{1,2})\s*(?:PR|P)?\s*$/);
+  const m = v.match(/^(.*\d(?:LT|C)?)\s*[-\s]\s*(\d{1,2})\s*(?:PR|P)?\s*$/);
   if (m) {
     const rest = m[1].replace(/LT$/, "");
     const ply = Number(m[2]);
@@ -153,4 +153,35 @@ export function specGaps(existing: Record<string, unknown>, ruled: RuleSpec): st
     const cur = existing[f] ?? (ruled as Record<string, unknown>)[f];
     return cur === null || cur === undefined || cur === "";
   });
+}
+
+// ---- controlled vocabulary shared by the AI proposal script, the CRM review
+// ---- queue, and the CSV import. Untrusted values must pass this gate.
+export const SPEC_FIELD_VOCAB: Record<string, readonly string[]> = {
+  treadType: ["mud-terrain", "rugged-terrain", "all-terrain", "highway", "touring", "all-season", "winter", "high-performance", "ultra-high-performance", "rib", "trailer"],
+  position: ["steer", "drive", "trailer", "all-position"],
+  application: ["passenger", "light-truck", "commercial", "trailer", "atv-utv", "golf-cart", "lawn-garden", "industrial", "agricultural"],
+  construction: ["R", "D"],
+  loadRange: ["B", "C", "D", "E", "F", "G", "H", "J", "L"],
+};
+
+/** Validate an enrichment value for a TireSpec field. Returns the normalized value or null. */
+export function validateSpecField(field: string, value: unknown): string | number | null {
+  const v = String(value ?? "").trim();
+  if (!v) return null;
+  if (field in SPEC_FIELD_VOCAB) {
+    const cased = field === "construction" || field === "loadRange" ? v.toUpperCase() : v.toLowerCase();
+    return SPEC_FIELD_VOCAB[field].includes(cased) ? cased : null;
+  }
+  if (field === "plyRating") {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 4 && n <= 24 && n % 2 === 0 ? n : null;
+  }
+  if (field === "loadIndex") return /^\d{2,3}(\/\d{2,3})?$/.test(v) ? v : null;
+  if (field === "speedRating") return /^[H-NP-WYZ]$/i.test(v) ? v.toUpperCase() : null;
+  if (field === "mileageWarrantyMiles") {
+    const n = Number(v.replace(/[,\s]/g, ""));
+    return Number.isInteger(n) && n >= 10000 && n <= 120000 ? n : null;
+  }
+  return null;
 }

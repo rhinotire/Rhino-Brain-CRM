@@ -60,6 +60,11 @@ describe("deriveSpecFromProduct — deterministic layer", () => {
     expect(s).toMatchObject({ width: 205, aspectRatio: 45, rimDiameter: 16, construction: "R", speedRating: "Z" });
   });
 
+  it("space-separated ply suffix: 11R22.5 16PR", () => {
+    const s = deriveSpecFromProduct({ sizeSpec: "11R22.5 16PR", description: "KINBLI KS205 146/146M A/P" });
+    expect(s).toMatchObject({ rimDiameter: 22.5, plyRating: 16, loadRange: "H", construction: "R", position: "all-position", loadIndex: "146/146", speedRating: "M" });
+  });
+
   it("euro commercial C suffix: 195/75R16C-8PR", () => {
     const s = deriveSpecFromProduct({ sizeSpec: "195/75R16C-8PR", description: "" });
     expect(s).toMatchObject({ width: 195, aspectRatio: 75, rimDiameter: 16, plyRating: 8, loadRange: "D" });

@@ -30,6 +30,7 @@ const managerGroups: NavGroup[] = [
   ]},
   { title: "Products", items: [
     { href: "/products", label: "Products & Stock", icon: "📦" },
+    { href: "/spec-review", label: "Spec Review", icon: "🔍" },
     { href: "/lost-sales", label: "Lost Sales", icon: "💸" },
     { href: "/flyers", label: "Special Flyers", icon: "📣" },
   ]},
