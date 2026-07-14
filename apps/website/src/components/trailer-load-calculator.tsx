@@ -15,7 +15,9 @@ export function TrailerLoadCalculator() {
   const result = calcTrailerLoad(gvwr, axles, hitch);
 
   return (
-    <div>
+    // translate="no"/notranslate: page-translator extensions rewrite DOM text
+    // and crash React updates — keep the interactive widget untouched
+    <div translate="no" className="notranslate">
       {/* inputs */}
       <div className="grid gap-4 rounded-2xl border-2 border-brand p-5 sm:grid-cols-3">
         <div>

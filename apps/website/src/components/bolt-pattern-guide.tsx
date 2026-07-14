@@ -89,7 +89,9 @@ export function BoltPatternGuide() {
   const match = bcd ? KNOWN_BCD.find((k) => k.lugs === lugs && Math.abs(k.bcd - bcd) <= 0.15) : null;
 
   return (
-    <div>
+    // translate="no"/notranslate: page-translator extensions rewrite DOM text
+    // and crash React updates — keep the interactive widget untouched
+    <div translate="no" className="notranslate">
       {/* how to measure */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-steel-200 bg-white p-5 text-center shadow-card">

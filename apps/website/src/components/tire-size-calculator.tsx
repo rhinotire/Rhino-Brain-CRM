@@ -121,7 +121,9 @@ export function TireSizeCalculator() {
   ];
 
   return (
-    <div>
+    // translate="no"/notranslate: page-translator extensions rewrite DOM text
+    // and crash React updates — keep the interactive widget untouched
+    <div translate="no" className="notranslate">
       <div className="grid gap-4 sm:grid-cols-2">
         <TirePicker label="Current tire" tire={a} onChange={setA} accent={false} />
         <TirePicker label="New tire" tire={b} onChange={setB} accent />

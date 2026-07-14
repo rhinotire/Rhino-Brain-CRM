@@ -39,7 +39,7 @@ export function TireSearch() {
   const [tab, setTab] = useState<Tab>("Size");
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-lift sm:p-5">
+    <div translate="no" className="notranslate rounded-2xl bg-white p-4 shadow-lift sm:p-5">
       <div className="flex flex-wrap gap-1 border-b border-steel-200" role="tablist" aria-label="Search tires by">
         {TABS.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
