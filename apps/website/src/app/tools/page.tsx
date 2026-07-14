@@ -38,6 +38,11 @@ const TOOLS = [
     name: "DOT Date Code Decoder",
     blurb: "How old are your tires? Decode the sidewall date stamp and get industry age guidance.",
   },
+  {
+    href: "/tools/gear-ratio-calculator",
+    name: "Gear Ratio & RPM Calculator",
+    blurb: "Bigger tires? See your new cruise RPM, effective gearing, and the re-gear that restores stock feel.",
+  },
 ];
 
 export default function ToolsPage() {
