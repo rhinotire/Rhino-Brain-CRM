@@ -13,7 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticPages = [
     "", "/tires", "/wheels", "/parts", "/quote", "/become-a-dealer", "/knowledge", "/tools",
-    "/tools/tire-size-calculator", "/tools/trailer-load-calculator", "/tools/bolt-pattern-guide", "/find-installation",
+    "/tools/tire-size-calculator", "/tools/trailer-load-calculator", "/tools/bolt-pattern-guide", "/tools/tire-size-converter", "/find-installation",
     "/tires/by-size", "/tires/by-vehicle", "/tires/specialty", "/brands", "/deals", "/packages", "/dealer/quick-order",
   ].map((p) => ({
     url: `${SITE.url}${p}`,

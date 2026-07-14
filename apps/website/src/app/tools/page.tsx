@@ -23,6 +23,11 @@ const TOOLS = [
     name: "Bolt Pattern Guide & Calculator",
     blurb: "How to measure lug patterns (even and 5-lug), an exact calculator, and the standard trailer patterns.",
   },
+  {
+    href: "/tools/tire-size-converter",
+    name: "Metric ↔ Inch Size Converter",
+    blurb: "33X12.50R20 in metric? Real dimensions plus the closest standard equivalents on your rim.",
+  },
 ];
 
 export default function ToolsPage() {
