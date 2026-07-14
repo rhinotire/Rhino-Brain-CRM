@@ -28,6 +28,11 @@ const TOOLS = [
     name: "Metric ↔ Inch Size Converter",
     blurb: "33X12.50R20 in metric? Real dimensions plus the closest standard equivalents on your rim.",
   },
+  {
+    href: "/tools/cost-per-mile-calculator",
+    name: "Tire Cost per Mile Calculator",
+    blurb: "Price ÷ tread life — the number fleets buy on. Compare two tires and see the annual fleet impact.",
+  },
 ];
 
 export default function ToolsPage() {
