@@ -43,6 +43,11 @@ const TOOLS = [
     name: "Gear Ratio & RPM Calculator",
     blurb: "Bigger tires? See your new cruise RPM, effective gearing, and the re-gear that restores stock feel.",
   },
+  {
+    href: "/tools/offset-backspacing-calculator",
+    name: "Offset ↔ Backspacing Calculator",
+    blurb: "Convert between the two wheel-fitment numbers with a live cross-section diagram.",
+  },
 ];
 
 export default function ToolsPage() {
