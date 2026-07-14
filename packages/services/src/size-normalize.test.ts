@@ -32,6 +32,17 @@ describe("normalizeSizeInput — equivalence classes", () => {
     same(["33X12.50R20", "33 12.50 20", "33x12.5r20"], "33X12.5R20");
   });
 
+  it("flotation with slash separators and digit-form width (owner-reported)", () => {
+    same(["33/1250/20", "33x1250x20", "33 1250 20", "33/12.50/20"], "33X12.5R20");
+    same(["30/950/15", "30 950 15"], "30X9.5R15");
+  });
+
+  it("flotation needles cover both X and slash catalog notations", () => {
+    const needles = sizeNeedles("33125020");
+    expect(needles).toContain("33X12.50R20"); // 33X12.50R20 stored form
+    expect(needles).toContain("33/12.50R20"); // LT33/12.50R20-12PR stored form
+  });
+
   it("tolerates ply suffixes dealers type from supplier specs", () => {
     same(["ST225/75R15-10PR", "ST225/75R15 10PR", "ST225/75R15-10P"], "ST225/75R15");
     same(["11R22.5 16PR", "11R22.5-16PR"], "11R22.5");

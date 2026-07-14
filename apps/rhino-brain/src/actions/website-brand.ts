@@ -68,3 +68,48 @@ export async function removeBrandImage(brandKey: string, kind: Kind): Promise<{ 
   revalidatePath("/settings/website");
   return { ok: true };
 }
+
+// ---- product-brand logos (Grandforce, Miletrip …) shown on the public /brands wall ----
+
+/** Owner uploads a logo for a tire/wheel brand we distribute. */
+export async function uploadProductBrandLogo(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") return { error: "Admin only." };
+  if (!isStorageConfigured()) return { error: "Image storage is not configured." };
+
+  const name = String(formData.get("brandName") ?? "").trim();
+  if (!name || name.length > 60) return { error: "Invalid brand name." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image file." };
+  if (file.size > MAX) return { error: "Image too large (max 5 MB)." };
+  const ext = MIME[file.type];
+  if (!ext) return { error: "Use a PNG, JPG, WebP, or SVG file." };
+
+  const path = `brand-logos/${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}.${ext}`;
+  try {
+    await uploadBrandAsset(path, await file.arrayBuffer(), file.type);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Upload failed." };
+  }
+  const old = await db.productBrandLogo.findUnique({ where: { name } });
+  if (old) await deleteBrandAsset(old.logoPath);
+  await db.productBrandLogo.upsert({
+    where: { name },
+    update: { logoPath: path },
+    create: { name, logoPath: path },
+  });
+  revalidatePath("/settings/website");
+  return { ok: true };
+}
+
+export async function removeProductBrandLogo(name: string): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") return { error: "Admin only." };
+  const row = await db.productBrandLogo.findUnique({ where: { name } });
+  if (!row) return { error: "No logo saved for this brand." };
+  await deleteBrandAsset(row.logoPath);
+  await db.productBrandLogo.delete({ where: { name } });
+  revalidatePath("/settings/website");
+  return { ok: true };
+}

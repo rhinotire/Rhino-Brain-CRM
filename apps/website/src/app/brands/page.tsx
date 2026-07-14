@@ -30,8 +30,17 @@ export default async function BrandsPage() {
           {brands.map((b) => (
             <Link key={b.brand} href={`/tires?q=${encodeURIComponent(b.brand)}`}
               className="group rounded-2xl border border-steel-200 bg-white p-6 text-center shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
-              <div className="font-display text-xl font-bold uppercase text-navy-900 group-hover:text-brand-dark">{b.brand}</div>
-              <div className="mt-1 text-xs text-steel-500">{b.count} product{b.count === 1 ? "" : "s"} online</div>
+              {b.logoUrl ? (
+                <div className="flex h-14 items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={b.logoUrl} alt={b.brand} className="max-h-14 w-auto max-w-full object-contain" loading="lazy" />
+                </div>
+              ) : (
+                <div className="flex h-14 items-center justify-center font-display text-xl font-bold uppercase text-navy-900 group-hover:text-brand-dark">
+                  {b.brand}
+                </div>
+              )}
+              <div className="mt-2 text-xs text-steel-500">{b.count} product{b.count === 1 ? "" : "s"} online</div>
             </Link>
           ))}
         </div>

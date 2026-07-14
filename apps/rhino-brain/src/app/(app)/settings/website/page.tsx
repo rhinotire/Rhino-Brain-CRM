@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { brandAssetUrl } from "@/lib/storage";
 import { BrandImageUploader } from "@/components/brand-logo-uploader";
+import { ProductBrandLogoRow } from "@/components/product-brand-logo-uploader";
 import { Badge } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,16 @@ export default async function WebsiteSettingsPage() {
   if (session.role !== "ADMIN") redirect("/dashboard");
 
   const brands = await db.brandConfig.findMany({ orderBy: { key: "asc" } });
+
+  // tire/wheel brands we distribute — grouped from the catalog, joined to uploaded logos
+  const [brandCounts, brandLogos] = await Promise.all([
+    db.product.groupBy({ by: ["brand"], where: { active: true, brand: { not: null } }, _count: { _all: true } }),
+    db.productBrandLogo.findMany(),
+  ]);
+  const logoByName = new Map(brandLogos.map((l) => [l.name.toLowerCase(), l.logoPath]));
+  const productBrands = brandCounts
+    .filter((b): b is typeof b & { brand: string } => !!b.brand)
+    .sort((a, b) => b._count._all - a._count._all || a.brand.localeCompare(b.brand));
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -47,6 +58,21 @@ export default async function WebsiteSettingsPage() {
           </div>
         </div>
       ))}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-bold">Tire &amp; Wheel Brand Logos</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Logos for the brands you distribute — shown on the website&apos;s <span className="font-mono">/brands</span> wall
+          and brand cards. Brands without a logo show as text. Transparent PNG or SVG looks best.
+        </p>
+        <div className="mt-3">
+          {productBrands.map((b) => (
+            <ProductBrandLogoRow key={b.brand} name={b.brand} productCount={b._count._all}
+              logoUrl={brandAssetUrl(logoByName.get(b.brand.toLowerCase()) ?? null)} />
+          ))}
+          {productBrands.length === 0 && <p className="text-sm text-slate-400">No branded products in the catalog yet.</p>}
+        </div>
+      </div>
     </div>
   );
 }

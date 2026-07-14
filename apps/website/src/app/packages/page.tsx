@@ -28,6 +28,14 @@ export default function PackagesPage() {
         dealers. Spoke, mod and galvanized wheels in white, black and silver.
       </p>
 
+      <form action="/tires" method="get" className="mt-4 flex max-w-lg gap-2">
+        <label htmlFor="pkg-q" className="sr-only">Search assemblies by tire size</label>
+        <input id="pkg-q" name="q" autoComplete="off"
+          placeholder='Search assemblies by tire size — "ST205/75R15", "2057515"'
+          className="w-full rounded-lg border border-steel-300 px-4 py-3 text-sm text-navy-900" />
+        <button className="btn-gold shrink-0">Search</button>
+      </form>
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {POPULAR_ASSEMBLIES.map(([label, href]) => (
           <Link key={label} href={href}

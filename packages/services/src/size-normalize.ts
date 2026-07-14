@@ -58,6 +58,11 @@ function parseSize(raw: string): NormalizedSize | null {
   if (m) return flotation(Number(m[1]), Number(m[2]), parseRim(m[3]));
   m = v.match(/^(\d{2}(?:\.\d)?) (\d{1,2}\.\d{1,2}) (?:R ?)?(\d{2}(?:\.\d)?)$/);
   if (m) return flotation(Number(m[1]), Number(m[2]), parseRim(m[3]));
+  // three groups with any separators, digit-form width: 33/1250/20, 33x1250x20,
+  // 33 1250 20 → 33X12.5R20 (a 3–4 digit middle group can only be a flotation
+  // width ×100 — metric aspects are 2 digits)
+  m = v.replace(/\//g, " ").replace(/X/g, " ").replace(/\s+/g, " ").match(/^(\d{2}) (\d{3,4}|\d{1,2}\.\d{1,2}) R?(\d{2}(?:\.\d)?)$/);
+  if (m) return flotation(Number(m[1]), m[2].includes(".") ? Number(m[2]) : Number(m[2]) / 100, parseRim(m[3]));
 
   const compact = v.replace(/[\s/]/g, "");
 
@@ -68,22 +73,26 @@ function parseSize(raw: string): NormalizedSize | null {
     if (t) return t;
   }
 
+  // ---- digits only (checked before the metric regex, which would happily
+  // read "33125020" as a 331mm metric): 2256517 / 29575225 / 33125020 ----
+  if (/^\d{6,8}$/.test(compact)) {
+    if (compact.length === 7) return metric("", +compact.slice(0, 3), +compact.slice(3, 5), +compact.slice(5, 7));
+    if (compact.length === 8) {
+      // metric widths always end in 5 (205, 285 …) — "33125020" can only be
+      // the flotation 33X12.50R20, never a 331mm-wide metric tire
+      const mw = +compact.slice(0, 3);
+      const asMetric = () => metric("", mw, +compact.slice(3, 5), parseRim(compact.slice(5, 8)));
+      const asFlotation = () => flotation(+compact.slice(0, 2), +compact.slice(2, 6) / 100, +compact.slice(6, 8));
+      return mw % 10 === 5 ? (asMetric() ?? asFlotation()) : (asFlotation() ?? asMetric());
+    }
+    return null;
+  }
+
   // ---- metric with letters: ST235/80R16 / 205/45ZR16 / 225/70R15C / 225 65 17 ----
   m = compact.match(/^(ST|LT|P)?(\d{3})(?:\/?(\d{2}))(?:ZR|R|D|B)?(\d{2,3}(?:\.\d)?)C?$/);
   if (m) {
     const parsed = metric(m[1] ?? "", Number(m[2]), Number(m[3]), parseRim(m[4]));
     if (parsed) return parsed;
-  }
-
-  // ---- digits only: 2256517 (7) / 29575225 (8, .5 rim) / 33125020 (8, flotation) ----
-  if (/^\d{6,8}$/.test(compact)) {
-    if (compact.length === 7) return metric("", +compact.slice(0, 3), +compact.slice(3, 5), +compact.slice(5, 7));
-    if (compact.length === 8) {
-      return (
-        metric("", +compact.slice(0, 3), +compact.slice(3, 5), parseRim(compact.slice(5, 8))) ??
-        flotation(+compact.slice(0, 2), +compact.slice(2, 6) / 100, +compact.slice(6, 8))
-      );
-    }
   }
   return null;
 }
@@ -101,8 +110,10 @@ export function sizeNeedles(raw: string): string[] {
     const alt = Number.isInteger(n.rim) ? [] : [`${n.width}R${String(n.rim).replace(".", "")}`]; // 11R225 storage variant
     return [`${n.width}R${n.rim}`, ...alt];
   }
-  const w2 = n.width.toFixed(2).replace(/0$/, ""); // 12.50 → 12.5
-  const variants = new Set([`${n.diameter}X${n.width.toFixed(2)}R${n.rim}`, `${n.diameter}X${w2}R${n.rim}`, `${n.diameter}X${n.width}R${n.rim}`]);
+  // catalogs store flotation sizes with X or slash: 33X12.50R20, LT33/12.50R20-12PR
+  const widths = new Set([n.width.toFixed(2), n.width.toFixed(2).replace(/0$/, ""), String(n.width)]);
+  const variants = new Set<string>();
+  for (const sep of ["X", "/"]) for (const w of widths) variants.add(`${n.diameter}${sep}${w}R${n.rim}`);
   return [...variants];
 }
 

@@ -894,6 +894,16 @@ enum ConsumerLeadStatus {
   MANUAL_ASSISTANCE_REQUIRED
 }
 
+// Logos for the tire/wheel brands we distribute (Grandforce, Miletrip …) —
+// owner uploads them in CRM; the public /brands wall shows them. Keyed by the
+// exact Product.brand string.
+model ProductBrandLogo {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  logoPath  String // object path in the public brand-assets bucket
+  updatedAt DateTime @updatedAt
+}
+
 // Web-facing brand identity per company (addendum #1/#3). Operational tenant stays Location.
 model BrandConfig {
   id           String  @id @default(cuid())

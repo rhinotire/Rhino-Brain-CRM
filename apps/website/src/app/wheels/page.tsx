@@ -12,21 +12,57 @@ export const metadata: Metadata = {
 
 export const revalidate = 300;
 
-export default async function WheelsPage() {
-  const products = await PublicCatalogService.listPublished({ category: "WHEELS", take: 200 });
+const POPULAR = ["15X5", "15X6", "5x4.5", "6x5.5", "spoke", "mod"];
+
+export default async function WheelsPage({ searchParams }: { searchParams: { q?: string } }) {
+  const q = searchParams.q?.trim();
+  const products = await PublicCatalogService.listPublished({ category: "WHEELS", query: q || undefined, take: 200 });
+
   return (
-    <div className="pt-8">
-      <nav aria-label="Breadcrumb" className="text-xs text-slate-500"><Link href="/">Home</Link> / Wheels</nav>
-      <h1 className="mt-2 text-2xl font-black">Trailer Wheels</h1>
+    <div>
+      {/* page header band with search — same pattern as /tires */}
+      <div className="relative left-1/2 w-screen -translate-x-1/2 bg-navy-900 text-white">
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <nav aria-label="Breadcrumb" className="text-xs text-steel-400">
+            <Link href="/" className="hover:text-white">Home</Link> / Wheels
+          </nav>
+          <h1 className="h-display mt-2 text-4xl">{q ? `Wheels: “${q}”` : "Trailer Wheels"}</h1>
+          <form action="/wheels" method="get" className="mt-4 flex max-w-lg gap-2">
+            <label htmlFor="wheels-q" className="sr-only">Search wheels</label>
+            <input id="wheels-q" name="q" defaultValue={q} autoComplete="off"
+              placeholder='Size, bolt pattern or style — "15X6", "6x5.5", "spoke"'
+              className="w-full rounded-lg border-0 px-4 py-3 text-sm text-navy-900" />
+            <button className="btn-gold shrink-0">Search</button>
+          </form>
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-steel-400">Popular:</span>
+            {POPULAR.map((s) => (
+              <Link key={s} href={`/wheels?q=${encodeURIComponent(s)}`}
+                className="rounded-md bg-white/10 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand hover:text-navy-900">
+                {s}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {products.length ? (
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
           {products.map((p) => <ProductCard key={p.sku} p={p} />)}
         </div>
       ) : (
-        <p className="mt-6 rounded-xl bg-slate-50 p-6 text-sm text-slate-600">
-          Wheel catalog is being published. Call {SITE.phoneDisplay} or <Link href="/quote" className="font-bold text-brand-dark">request a quote</Link>.
+        <p className="mt-8 rounded-xl bg-slate-50 p-6 text-sm text-slate-600">
+          {q ? <>No published wheels match “{q}”. </> : <>Wheel catalog is being published. </>}
+          Call {SITE.phoneDisplay} or <Link href="/quote" className="font-bold text-brand-dark">request a quote</Link> — we
+          stock more than the site shows.
         </p>
       )}
+
+      <p className="mt-8 text-sm text-steel-500">
+        Not sure about your pattern? Use the{" "}
+        <Link href="/tools/bolt-pattern-guide" className="font-bold text-brand-dark">bolt pattern guide</Link> or the{" "}
+        <Link href="/tools/offset-backspacing-calculator" className="font-bold text-brand-dark">offset ↔ backspacing calculator</Link>.
+      </p>
     </div>
   );
 }

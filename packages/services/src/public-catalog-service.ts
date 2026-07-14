@@ -174,16 +174,28 @@ export const PublicCatalogService = {
     return row ? toPublicDTO(row) : null;
   },
 
-  /** Brands with at least one published product — powers /brands. Name + count only. */
-  async listPublishedBrands(): Promise<{ brand: string; count: number }[]> {
-    const rows = await db.product.groupBy({
-      by: ["brand"],
-      where: { ...PUBLISHED_WHERE, brand: { not: null } },
-      _count: { _all: true },
-    });
+  /** Brands with at least one published product — powers /brands. Name, count and owner-uploaded logo. */
+  async listPublishedBrands(): Promise<{ brand: string; count: number; logoUrl: string | null }[]> {
+    const [rows, logos] = await Promise.all([
+      db.product.groupBy({
+        by: ["brand"],
+        where: { ...PUBLISHED_WHERE, brand: { not: null } },
+        _count: { _all: true },
+      }),
+      db.productBrandLogo.findMany(),
+    ]);
+    const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
+    const logoMap = new Map(logos.map((l) => [l.name.toLowerCase(), l.logoPath]));
     return rows
       .filter((r): r is typeof r & { brand: string } => !!r.brand)
-      .map((r) => ({ brand: r.brand, count: r._count._all }))
+      .map((r) => {
+        const path = logoMap.get(r.brand.toLowerCase());
+        return {
+          brand: r.brand,
+          count: r._count._all,
+          logoUrl: path && base ? `${base}/storage/v1/object/public/brand-assets/${path}` : null,
+        };
+      })
       .sort((a, b) => b.count - a.count || a.brand.localeCompare(b.brand));
   },
 };
