@@ -48,6 +48,16 @@ const TOOLS = [
     name: "Offset ↔ Backspacing Calculator",
     blurb: "Convert between the two wheel-fitment numbers with a live cross-section diagram.",
   },
+  {
+    href: "/tools/tread-depth-guide",
+    name: "Tread Depth Guide",
+    blurb: "Penny test, quarter test, and a live gauge showing exactly how much usable tread is left.",
+  },
+  {
+    href: "/tools/temperature-pressure-calculator",
+    name: "Temperature & Pressure Calculator",
+    blurb: "How much PSI the cold takes away — real gas-law math with a seasonal table.",
+  },
 ];
 
 export default function ToolsPage() {
