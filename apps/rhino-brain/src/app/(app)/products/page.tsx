@@ -21,12 +21,24 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const where: Prisma.ProductWhereInput = { active: true };
   const q = searchParams.q?.trim();
   if (q) {
-    where.OR = [
+    const or: Prisma.ProductWhereInput[] = [
       { sku: { contains: q, mode: "insensitive" } },
       { sizeSpec: { contains: q, mode: "insensitive" } },
       { brand: { contains: q, mode: "insensitive" } },
       { description: { contains: q, mode: "insensitive" } },
     ];
+    // Digit-normalized size match: "2057515" should find "ST205/75R15-8PR".
+    // Plain contains can't bridge the ST / R / -8PR separators, so strip the stored
+    // size down to digits only and compare against the digits the user typed.
+    const qDigits = q.replace(/[^0-9]/g, "");
+    if (qDigits.length >= 4) {
+      const like = `%${qDigits}%`;
+      const rows = await db.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Product"
+        WHERE regexp_replace(coalesce("sizeSpec", ''), '[^0-9]', '', 'g') LIKE ${like}`;
+      if (rows.length) or.push({ id: { in: rows.map(r => r.id) } });
+    }
+    where.OR = or;
   }
   if (searchParams.cat) where.rawCategory = searchParams.cat;
   // Reps/managers only ever see their own location's stock; admins & accounting see all.
