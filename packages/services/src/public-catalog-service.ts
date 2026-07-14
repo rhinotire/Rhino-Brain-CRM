@@ -131,7 +131,7 @@ const PUBLISHED_INCLUDE = {
  */
 export const PublicCatalogService = {
   async listPublished(
-    params: { category?: string; query?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[] } = {}
+    params: { category?: string; query?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[]; assemblies?: boolean } = {}
   ): Promise<PublicProductDTO[]> {
     const q = params.query?.trim();
     // Normalized size search first (spec §1A): "2256517", "225 65 17",
@@ -143,6 +143,9 @@ export const PublicCatalogService = {
         ...(params.category ? { category: params.category as PublishedRow["category"] } : {}),
         ...(params.specialOffer ? { specialOffer: true } : {}),
         ...(params.applications?.length ? { tireSpec: { application: { in: params.applications } } } : {}),
+        // mounted tire-and-wheel assemblies follow the catalog convention
+        // "BRAND On WHEEL…" in the description
+        ...(params.assemblies ? { description: { contains: " On ", mode: "insensitive" as const } } : {}),
         ...(needles.length
           ? { OR: needles.map((n) => ({ sizeSpec: { contains: n, mode: "insensitive" as const } })) }
           : q && q.length >= 2
