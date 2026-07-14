@@ -18,6 +18,11 @@ const TOOLS = [
     name: "Tire Size Calculator & Comparison",
     blurb: "Compare two sizes: diameter, sidewall, revs per mile, speedometer error — with a visual.",
   },
+  {
+    href: "/tools/bolt-pattern-guide",
+    name: "Bolt Pattern Guide & Calculator",
+    blurb: "How to measure lug patterns (even and 5-lug), an exact calculator, and the standard trailer patterns.",
+  },
 ];
 
 export default function ToolsPage() {
