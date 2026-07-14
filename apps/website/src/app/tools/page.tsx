@@ -33,6 +33,11 @@ const TOOLS = [
     name: "Tire Cost per Mile Calculator",
     blurb: "Price ÷ tread life — the number fleets buy on. Compare two tires and see the annual fleet impact.",
   },
+  {
+    href: "/tools/dot-date-decoder",
+    name: "DOT Date Code Decoder",
+    blurb: "How old are your tires? Decode the sidewall date stamp and get industry age guidance.",
+  },
 ];
 
 export default function ToolsPage() {
