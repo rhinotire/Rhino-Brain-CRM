@@ -68,6 +68,12 @@ export default async function ProductPage({ params }: { params: Params }) {
           )}
         </div>
         <div>
+          {p.brandLogoUrl && (
+            <div className="mb-2 flex h-8 items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.brandLogoUrl} alt={p.brand ?? ""} className="max-h-8 w-auto max-w-[160px] object-contain" />
+            </div>
+          )}
           <h1 className="text-2xl font-black">{p.name}</h1>
           <div className="mt-1 text-sm text-slate-500">
             SKU {p.sku} {p.brand ? `· ${p.brand}` : ""} {p.sizeSpec ? `· ${p.sizeSpec}` : ""}

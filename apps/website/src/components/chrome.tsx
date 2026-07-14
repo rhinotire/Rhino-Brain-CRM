@@ -70,8 +70,8 @@ export function Header({ brand }: { brand: Brand }) {
             <img src="/rhino-logo.svg" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[200px]" />
           )}
         </Link>
-        {/* nine items need real room — full nav from xl (1280), hamburger below */}
-        <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
+        {/* ten items need real room — full nav from xl (1280, compact gaps), hamburger below */}
+        <nav className="hidden items-center gap-3.5 2xl:gap-5 xl:flex" aria-label="Main">
           {MAIN_NAV.map((n) =>
             n.mega ? (
               <TiresMega key={n.href} />
@@ -83,7 +83,7 @@ export function Header({ brand }: { brand: Brand }) {
           )}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <Link href="/quote" className="btn-gold hidden !py-2.5 sm:inline-block">Get Quote</Link>
+          <Link href="/quote" className="btn-gold hidden whitespace-nowrap !py-2.5 sm:inline-block">Get Quote</Link>
           <MobileMenu nav={MAIN_NAV} tiresMega={TIRES_MEGA} phone={brand.phone} phoneDisplay={brand.phoneDisplay} />
         </div>
       </div>

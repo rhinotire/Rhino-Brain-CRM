@@ -49,7 +49,10 @@ const findMany = vi.fn();
 const findFirst = vi.fn();
 
 vi.mock("@rhino/database", () => ({
-  db: { product: { findMany: (...a: unknown[]) => findMany(...a), findFirst: (...a: unknown[]) => findFirst(...a) } },
+  db: {
+    product: { findMany: (...a: unknown[]) => findMany(...a), findFirst: (...a: unknown[]) => findFirst(...a) },
+    productBrandLogo: { findMany: async () => [] },
+  },
 }));
 
 import { PublicCatalogService } from "./public-catalog-service";

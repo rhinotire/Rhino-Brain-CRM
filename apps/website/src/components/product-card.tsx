@@ -38,7 +38,14 @@ export function ProductCard({ p }: { p: PublicProductDTO }) {
           </span>
         )}
       </div>
-      {p.brand && <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-steel-500">{p.brand}</div>}
+      {p.brandLogoUrl ? (
+        <div className="flex h-6 items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p.brandLogoUrl} alt={p.brand ?? ""} className="max-h-6 w-auto max-w-[120px] object-contain" loading="lazy" />
+        </div>
+      ) : (
+        p.brand && <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-steel-500">{p.brand}</div>
+      )}
       <div className="font-display text-lg font-bold uppercase leading-tight text-navy-900">{p.sizeSpec ?? p.name}</div>
       <div className="mt-0.5 line-clamp-2 text-xs text-steel-500">{p.name}</div>
       <div className="mt-1 text-[11px] text-steel-400">SKU {p.sku}</div>

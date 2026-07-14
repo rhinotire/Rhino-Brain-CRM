@@ -23,6 +23,18 @@ const imagePathUrl = (path: string | null): string | null => {
   return base ? `${base}/storage/v1/object/public/${PRODUCT_IMG_BUCKET}/${path}` : null;
 };
 
+const brandAssetPublicUrl = (path: string | null | undefined): string | null => {
+  if (!path) return null;
+  const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  return base ? `${base}/storage/v1/object/public/brand-assets/${path}` : null;
+};
+
+/** brand name (lowercased) → logo path. Tiny table; fetched per request. */
+async function brandLogoMap(): Promise<Map<string, string>> {
+  const logos = await db.productBrandLogo.findMany();
+  return new Map(logos.map((l) => [l.name.toLowerCase(), l.logoPath]));
+}
+
 const toStockStatus = (totalUnits: number): StockStatus =>
   totalUnits <= 0 ? "CONTACT_FOR_AVAILABILITY" : totalUnits < LIMITED_THRESHOLD ? "LIMITED" : "IN_STOCK";
 
@@ -34,7 +46,7 @@ type PublishedRow = Prisma.ProductGetPayload<{
  * Explicit field-by-field mapping — NEVER spread the Prisma row. cost and
  * priceA–D must not reach the anonymous tier (docs/architecture.md hard rule).
  */
-function toPublicDTO(p: PublishedRow): PublicProductDTO {
+function toPublicDTO(p: PublishedRow, logos?: Map<string, string>): PublicProductDTO {
   const tire: PublicTireSpecDTO | null = p.tireSpec
     ? {
         width: p.tireSpec.width,
@@ -87,6 +99,7 @@ function toPublicDTO(p: PublishedRow): PublicProductDTO {
     sku: p.sku,
     name: p.name ?? p.description,
     brand: p.brand,
+    brandLogoUrl: brandAssetPublicUrl(p.brand ? logos?.get(p.brand.toLowerCase()) : null),
     pattern: p.pattern,
     category: p.category,
     sizeSpec: p.sizeSpec,
@@ -165,7 +178,8 @@ export const PublicCatalogService = {
       take: Math.min(params.take ?? 60, 200),
       skip: params.skip ?? 0,
     });
-    return rows.map(toPublicDTO);
+    const logos = await brandLogoMap();
+    return rows.map((r) => toPublicDTO(r, logos));
   },
 
   async getBySlug(slug: string): Promise<PublicProductDTO | null> {
@@ -174,7 +188,7 @@ export const PublicCatalogService = {
       where: { ...PUBLISHED_WHERE, slug },
       include: PUBLISHED_INCLUDE,
     });
-    return row ? toPublicDTO(row) : null;
+    return row ? toPublicDTO(row, await brandLogoMap()) : null;
   },
 
   /** Brands with at least one published product — powers /brands. Name, count and owner-uploaded logo. */

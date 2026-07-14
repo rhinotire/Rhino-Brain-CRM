@@ -40,6 +40,7 @@ export const MAIN_NAV: { href: string; label: string; mega?: boolean }[] = [
   { href: "/packages", label: "Tire & Wheel Packages" },
   { href: "/parts", label: "Trailer Parts" },
   { href: "/brands", label: "Brands" },
+  { href: "/supplies", label: "Oil & Supplies" },
   { href: "/deals", label: "Deals" },
   { href: "/tools", label: "Tools" },
   { href: "/knowledge", label: "Knowledge Center" },

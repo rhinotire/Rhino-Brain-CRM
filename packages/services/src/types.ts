@@ -66,6 +66,7 @@ export type PublicProductDTO = {
   sku: string;
   name: string;
   brand: string | null;
+  brandLogoUrl: string | null; // owner-uploaded brand logo (public brand-assets bucket)
   pattern: string | null;
   category: ProductCategory;
   sizeSpec: string | null;
