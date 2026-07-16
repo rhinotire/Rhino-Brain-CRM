@@ -128,12 +128,18 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 ["Credit limit", customer.creditLimit ? fmtMoney(Number(customer.creditLimit)) : null],
                 ["Payment terms", customer.paymentTerms],
                 ["Next follow-up", customer.nextFollowUpAt ? fmtDate(customer.nextFollowUpAt) : null],
-              ].map(([k, v]) => (
-                <div key={k as string} className="flex justify-between gap-3">
-                  <dt className="text-slate-400">{k}</dt>
-                  <dd className="text-right font-medium text-slate-700">{v || "—"}</dd>
-                </div>
-              ))}
+              ].map(([k, v]) => {
+                // Nudge reps to fill these — highlight in red when empty.
+                const nudge = (k === "Contact cell" || k === "Email") && !v;
+                return (
+                  <div key={k as string} className="flex justify-between gap-3">
+                    <dt className={nudge ? "font-medium text-red-600" : "text-slate-400"}>{k}</dt>
+                    <dd className={`text-right font-medium ${nudge ? "text-red-600" : "text-slate-700"}`}>
+                      {nudge ? "⚠ Add this" : (v || "—")}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
             {customer.tags.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
