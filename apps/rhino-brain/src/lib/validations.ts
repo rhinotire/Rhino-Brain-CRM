@@ -59,7 +59,7 @@ export const activitySchema = z.object({
   type: z.enum(["CALL","EMAIL","TEXT","WHATSAPP","QUOTE","ORDER","PAYMENT","VISIT","COMPLAINT","INTERNAL_NOTE","NO_ANSWER","VOICEMAIL"]),
   subject: z.string().trim().min(1, "Subject is required").max(200),
   notes: z.string().max(5000).optional().or(z.literal("")).transform(v => v || undefined),
-  outcome: z.enum(["","POSITIVE","LOST_NO_STOCK","LOST_PRICE","LOST_OTHER"]).default("").transform(v => v || undefined),
+  outcome: z.enum(["","POSITIVE","QUOTE_SENT","CALLBACK","LOST_NO_STOCK","LOST_PRICE","LOST_OTHER","NO_NEED","NOT_INTERESTED","COMPLAINT","PAYMENT"]).default("").transform(v => v || undefined),
   lostItem: optionalStr,
   lostQty: optionalNum,
   lostValue: optionalNum,

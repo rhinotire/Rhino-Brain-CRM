@@ -33,9 +33,15 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
 
   const OUTCOME_LABELS: Record<string, string> = {
     POSITIVE: "Positive — order / quote coming",
+    QUOTE_SENT: "Quote sent — awaiting decision",
+    CALLBACK: "Callback scheduled / thinking it over",
     LOST_NO_STOCK: "Lost sale — no stock",
     LOST_PRICE: "Lost sale — competitor price",
     LOST_OTHER: "Lost sale — other reason",
+    NO_NEED: "No current need",
+    NOT_INTERESTED: "Not interested / do not contact",
+    COMPLAINT: "Complaint / issue raised",
+    PAYMENT: "Payment / collection discussed",
   };
 
   const activity = await db.activity.create({

@@ -12,6 +12,12 @@ import { activityTypeLabels } from "@/lib/domain";
 
 export type CustomerOption = { id: string; companyName: string };
 
+/** One-tap common subjects — click to fill, still fully editable. */
+const SUBJECT_PRESETS = [
+  "Restock pricing", "New order", "Follow up on quote", "Check stock",
+  "Payment reminder", "New product intro", "Check-in", "Price negotiation",
+];
+
 /**
  * Quick "Log Call / Add Note / …" button + modal.
  * Pass a fixed customerId/leadId (customer page) or a customers list (My Work page).
@@ -29,6 +35,7 @@ export function QuickLogButton({
 }) {
   const [open, setOpen] = useState(false);
   const [outcome, setOutcome] = useState("");
+  const [subject, setSubject] = useState("");
   const [pickedCustomerId, setPickedCustomerId] = useState("");
   const [lostItem, setLostItem] = useState("");
   const [lostStockNote, setLostStockNote] = useState("");
@@ -37,7 +44,7 @@ export function QuickLogButton({
   const isLost = outcome.startsWith("LOST");
 
   useEffect(() => {
-    if (state?.ok) { toast("Activity logged"); setOpen(false); }
+    if (state?.ok) { toast("Activity logged"); setOpen(false); setSubject(""); setOutcome(""); setLostItem(""); setLostStockNote(""); }
     if (state?.error) toast(state.error, "error");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -76,15 +83,38 @@ export function QuickLogButton({
             </Field>
           </div>
           <Field label="Subject *">
-            <Input name="subject" required placeholder="e.g. Called about TBR restock pricing" />
+            <>
+              <div className="mb-1.5 flex flex-wrap gap-1.5">
+                {SUBJECT_PRESETS.map(s => (
+                  <button key={s} type="button" onClick={() => setSubject(s)}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs text-slate-600 hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <Input name="subject" required value={subject} onChange={e => setSubject(e.target.value)}
+                placeholder="e.g. Called about TBR restock pricing" />
+            </>
           </Field>
           <Field label="Outcome">
             <Select name="outcome" value={outcome} onChange={e => setOutcome(e.target.value)}>
               <option value="">— normal conversation —</option>
-              <option value="POSITIVE">✅ Positive — order / quote coming</option>
-              <option value="LOST_NO_STOCK">❌ Lost sale — we had NO STOCK</option>
-              <option value="LOST_PRICE">❌ Lost sale — competitor PRICE</option>
-              <option value="LOST_OTHER">❌ Lost sale — other reason</option>
+              <optgroup label="Positive">
+                <option value="POSITIVE">✅ Positive — order / quote coming</option>
+                <option value="QUOTE_SENT">📝 Quote sent — awaiting decision</option>
+                <option value="CALLBACK">📅 Callback scheduled / thinking it over</option>
+              </optgroup>
+              <optgroup label="Lost sale">
+                <option value="LOST_NO_STOCK">❌ Lost — we had NO STOCK</option>
+                <option value="LOST_PRICE">❌ Lost — competitor PRICE</option>
+                <option value="LOST_OTHER">❌ Lost — other reason</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="NO_NEED">💤 No current need</option>
+                <option value="NOT_INTERESTED">🚫 Not interested / do not contact</option>
+                <option value="COMPLAINT">⚠️ Complaint / issue raised</option>
+                <option value="PAYMENT">💰 Payment / collection discussed</option>
+              </optgroup>
             </Select>
           </Field>
           {isLost && (
