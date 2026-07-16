@@ -5,7 +5,7 @@ import { subDays } from "date-fns";
 import { db } from "@/lib/db";
 import { requireSession, defaultLocationId } from "@/lib/auth";
 import { activitySchema } from "@/lib/validations";
-import { computeCustomerScore } from "@/lib/domain";
+import { computeCustomerScore, outcomeLabels } from "@/lib/domain";
 import type { ActionResult } from "./auth";
 
 const CONTACT_TYPES = ["CALL","EMAIL","TEXT","WHATSAPP","QUOTE","ORDER","PAYMENT","VISIT","COMPLAINT"] as const;
@@ -31,18 +31,6 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
   else if (d.leadId) locId = (await db.lead.findUnique({ where: { id: d.leadId }, select: { locationId: true } }))?.locationId ?? null;
   if (!locId) locId = defaultLocationId(session, null);
 
-  const OUTCOME_LABELS: Record<string, string> = {
-    POSITIVE: "Positive — order / quote coming",
-    QUOTE_SENT: "Quote sent — awaiting decision",
-    CALLBACK: "Callback scheduled / thinking it over",
-    LOST_NO_STOCK: "Lost sale — no stock",
-    LOST_PRICE: "Lost sale — competitor price",
-    LOST_OTHER: "Lost sale — other reason",
-    NO_NEED: "No current need",
-    NOT_INTERESTED: "Not interested / do not contact",
-    COMPLAINT: "Complaint / issue raised",
-    PAYMENT: "Payment / collection discussed",
-  };
 
   const activity = await db.activity.create({
     data: {
@@ -50,7 +38,7 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
       type: d.type,
       subject: d.subject,
       notes: d.notes,
-      outcome: d.outcome ? OUTCOME_LABELS[d.outcome] ?? d.outcome : undefined,
+      outcome: d.outcome ? outcomeLabels[d.outcome] ?? d.outcome : undefined,
       meaningful,
       followUpRequired: d.followUpRequired,
       nextFollowUpAt: d.nextFollowUpAt,

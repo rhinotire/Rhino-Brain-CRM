@@ -2,13 +2,13 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, repScope, locationScope } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, Select, Input, Button, Card, StatCard } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
-import { activityTypeLabels, fmtDateTime, fmtDate, daysSince, temperatureClasses, temperatureLabels, customerTemperature, etDayStart } from "@/lib/domain";
+import { activityTypeLabels, outcomeLabels, outcomeGroups, fmtDateTime, fmtDate, daysSince, temperatureClasses, temperatureLabels, customerTemperature, etDayStart } from "@/lib/domain";
 import Link from "next/link";
 import type { Prisma, ActivityType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-type Search = { type?: string; rep?: string; from?: string; to?: string; untouched?: string };
+type Search = { type?: string; rep?: string; from?: string; to?: string; untouched?: string; outcome?: string };
 
 // Classify an activity into an outcome so the list is scannable at a glance.
 type Outcome = { key: "won" | "lost" | "noanswer" | "quote" | "normal"; label: string; cls: string };
@@ -36,19 +36,26 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: S
   if (searchParams.from) where.occurredAt = { gte: new Date(searchParams.from) };
   if (searchParams.to) where.occurredAt = { ...(where.occurredAt as object), lte: new Date(searchParams.to + "T23:59:59") };
 
+  // Outcome filter: the stored value is the label, so map the selected code → its label.
+  const selectedOutcome = searchParams.outcome && outcomeLabels[searchParams.outcome] ? searchParams.outcome : "";
+  const listWhere: Prisma.ActivityWhereInput = selectedOutcome ? { ...where, outcome: outcomeLabels[selectedOutcome] } : where;
+  const labelToCode = Object.fromEntries(Object.entries(outcomeLabels).map(([c, l]) => [l, c]));
+
   const untouchedDays = Number(searchParams.untouched ?? 0) || 0;
   const untouchedCutoff = new Date(now.getTime() - untouchedDays * 86400000);
   const filteredToOneRep = !!(manager && searchParams.rep);
 
-  const [activities, customers, reps, untouched] = await Promise.all([
+  const [activities, outcomeCounts, customers, reps, untouched] = await Promise.all([
     db.activity.findMany({
-      where, orderBy: { occurredAt: "desc" }, take: 200,
+      where: listWhere, orderBy: { occurredAt: "desc" }, take: 200,
       include: {
         rep: { select: { name: true } },
         customer: { select: { id: true, companyName: true } },
         lead: { select: { id: true, companyName: true } },
       },
     }),
+    // Outcome distribution for the current type/rep/date filter (independent of the outcome filter itself).
+    db.activity.groupBy({ by: ["outcome"], where, _count: { _all: true } }),
     db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
     manager ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true } }) : Promise.resolve([]),
     untouchedDays > 0
@@ -78,6 +85,18 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: S
     meaningful: todayRows.filter(x => x.a.meaningful).length,
   };
 
+  // Outcome breakdown (respects the type/rep/date filter) — click a chip to drill in.
+  const breakdown = outcomeCounts
+    .filter(o => o.outcome)
+    .map(o => ({ label: o.outcome as string, code: labelToCode[o.outcome as string] ?? "", count: o._count._all }))
+    .sort((a, b) => b.count - a.count);
+  const linkWith = (patch: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries({ ...searchParams, ...patch })) if (v) p.set(k, String(v));
+    const qs = p.toString();
+    return qs ? `/activities?${qs}` : "/activities";
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -97,10 +116,35 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: S
         <StatCard label="Meaningful convos" value={stat.meaningful} />
       </div>
 
+      {/* Outcome breakdown — click to filter the list */}
+      {breakdown.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Outcome breakdown</span>
+          <Link href={linkWith({ outcome: undefined })}
+            className={`rounded-full border px-2.5 py-1 text-xs ${!selectedOutcome ? "border-brand-400 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+            All
+          </Link>
+          {breakdown.map(b => (
+            <Link key={b.label} href={b.code ? linkWith({ outcome: b.code }) : linkWith({})}
+              className={`rounded-full border px-2.5 py-1 text-xs ${selectedOutcome && selectedOutcome === b.code ? "border-brand-400 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+              {b.label} <span className="font-semibold tabular-nums">{b.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
         <Select name="type" defaultValue={searchParams.type ?? ""} className="w-40">
           <option value="">All types</option>
           {Object.entries(activityTypeLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </Select>
+        <Select name="outcome" defaultValue={selectedOutcome} className="w-52">
+          <option value="">All outcomes</option>
+          {outcomeGroups.map(g => (
+            <optgroup key={g.label} label={g.label}>
+              {g.codes.map(c => <option key={c} value={c}>{outcomeLabels[c]}</option>)}
+            </optgroup>
+          ))}
         </Select>
         {manager && (
           <Select name="rep" defaultValue={searchParams.rep ?? ""} className="w-40">

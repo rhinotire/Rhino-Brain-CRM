@@ -101,6 +101,27 @@ export const activityTypeLabels: Record<ActivityType, string> = {
   VOICEMAIL: "Left Voicemail",
 };
 
+/** Activity outcome codes → stored/display label. Single source used by the form, the action, and filters/reports. */
+export const outcomeLabels: Record<string, string> = {
+  POSITIVE: "Positive — order / quote coming",
+  QUOTE_SENT: "Quote sent — awaiting decision",
+  CALLBACK: "Callback scheduled / thinking it over",
+  LOST_NO_STOCK: "Lost sale — no stock",
+  LOST_PRICE: "Lost sale — competitor price",
+  LOST_OTHER: "Lost sale — other reason",
+  NO_NEED: "No current need",
+  NOT_INTERESTED: "Not interested / do not contact",
+  COMPLAINT: "Complaint / issue raised",
+  PAYMENT: "Payment / collection discussed",
+};
+
+/** Outcome codes grouped for filters, in the same order the Log Activity form shows them. */
+export const outcomeGroups: { label: string; codes: string[] }[] = [
+  { label: "Positive", codes: ["POSITIVE", "QUOTE_SENT", "CALLBACK"] },
+  { label: "Lost sale", codes: ["LOST_NO_STOCK", "LOST_PRICE", "LOST_OTHER"] },
+  { label: "Other", codes: ["NO_NEED", "NOT_INTERESTED", "COMPLAINT", "PAYMENT"] },
+];
+
 export const taskPriorityLabels: Record<TaskPriority, string> = {
   LOW: "Low", MEDIUM: "Medium", HIGH: "High", URGENT: "Urgent",
 };
