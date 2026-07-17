@@ -99,6 +99,9 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
               <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
                 <td className="px-3 py-2">
                   <Link href={`/customers/${c.id}`} className="font-medium text-brand-700 hover:underline">{c.companyName}</Link>
+                  {(!c.contactCell || !c.email) && (
+                    <span className="ml-1.5 align-middle text-red-500" title={`Missing ${[!c.contactCell && "cell", !c.email && "email"].filter(Boolean).join(" & ")}`}>⚠</span>
+                  )}
                   <div className="text-xs text-slate-400">{c.city}{c.city && c.state ? ", " : ""}{c.state}</div>
                 </td>
                 {showLocCol && (

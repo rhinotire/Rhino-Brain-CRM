@@ -74,7 +74,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
           {leads.map(l => (
             <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50">
               <td className="px-3 py-2">
-                <div className="font-medium text-slate-800">{l.companyName}</div>
+                <div className="font-medium text-slate-800">
+                  {l.companyName}
+                  {(!l.phone || !l.email) && (
+                    <span className="ml-1.5 align-middle text-red-500" title={`Missing ${[!l.phone && "phone", !l.email && "email"].filter(Boolean).join(" & ")}`}>⚠</span>
+                  )}
+                </div>
                 {leadNeedsFirstContact(l, now) && <Badge className="mt-0.5 bg-amber-100 text-amber-800">Needs First Contact</Badge>}
               </td>
               <td className="px-3 py-2 text-slate-600">

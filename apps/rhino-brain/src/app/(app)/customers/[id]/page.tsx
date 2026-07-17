@@ -112,6 +112,30 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         {/* Left: profile */}
         <div className="space-y-5">
           <Card title="Profile">
+            {(() => {
+              const keyFields: [string, unknown][] = [
+                ["Contact", customer.contactPerson],
+                ["Company phone", customer.phone],
+                ["Contact cell", customer.contactCell],
+                ["Email", customer.email],
+                ["Address", customer.address || customer.city],
+              ];
+              const filled = keyFields.filter(([, v]) => v).length;
+              const pct = Math.round((filled / keyFields.length) * 100);
+              const missing = keyFields.filter(([, v]) => !v).map(([k]) => k);
+              return (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-500">Profile completeness</span>
+                    <span className={pct === 100 ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>{pct}%</span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100">
+                    <div className={`h-1.5 rounded-full ${pct === 100 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  {missing.length > 0 && <p className="mt-1.5 text-xs text-red-500">Missing: {missing.join(", ")}</p>}
+                </div>
+              );
+            })()}
             <dl className="space-y-2 text-sm">
               {[
                 ["Contact", customer.contactPerson],
