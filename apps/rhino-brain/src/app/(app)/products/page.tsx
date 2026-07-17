@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireSession, isManager, seesAllLocations } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
@@ -96,8 +97,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
               {manager && storageReady && (
                 <td className="px-3 py-2"><ProductImageCell key={p.imagePath ?? "none"} productId={p.id} imageUrl={productImageUrl(p.imagePath)} storageReady={storageReady} /></td>
               )}
-              <td className="px-3 py-2 font-mono text-xs text-slate-700 whitespace-nowrap">
-                {p.sku}
+              <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
+                {manager ? (
+                  <Link href={`/products/${p.id}/specs`} title="Edit specs (UTQG, warranty, load index…)"
+                    className="text-blue-700 hover:underline">{p.sku}</Link>
+                ) : (
+                  <span className="text-slate-700">{p.sku}</span>
+                )}
                 {p.discontinued && <Badge className="ml-1.5 bg-red-100 text-red-700">DISC</Badge>}
               </td>
               <td className="px-3 py-2">{p.brand ?? "—"}</td>
