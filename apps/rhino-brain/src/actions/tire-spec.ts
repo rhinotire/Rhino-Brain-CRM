@@ -57,6 +57,8 @@ export async function saveTireSpec(_prev: unknown, formData: FormData): Promise<
   const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, brand: true, pattern: true, category: true } });
   if (!product) return { error: "Product not found." };
 
+  const patternName = String(formData.get("pattern") ?? "").trim().slice(0, 60) || null;
+
   const patternData: Record<string, string | number | boolean | null> = {};
   const sizeData: Record<string, string | number | boolean | null> = {};
   for (const f of PATTERN_FIELDS) {
@@ -70,20 +72,32 @@ export async function saveTireSpec(_prev: unknown, formData: FormData): Promise<
     sizeData[f] = parsed.value;
   }
 
+  await db.product.update({ where: { id: productId }, data: { pattern: patternName } });
   await db.tireSpec.upsert({
     where: { productId },
     update: { ...patternData, ...sizeData },
     create: { productId, ...patternData, ...sizeData },
   });
 
-  // optionally push the pattern-level fields to every size of this pattern
+  // optionally push the pattern-level fields (and the pattern name itself) to
+  // every size of this pattern — matched by pattern column or, for ungrouped
+  // rows, by the pattern name appearing in the description
   let appliedToPattern = 0;
-  if (formData.get("applyToPattern") === "on" && product.pattern && product.brand) {
+  if (formData.get("applyToPattern") === "on" && patternName && product.brand) {
     const siblings = await db.product.findMany({
-      where: { active: true, brand: product.brand, pattern: product.pattern, NOT: { id: productId } },
+      where: {
+        active: true,
+        brand: product.brand,
+        NOT: { id: productId },
+        OR: [
+          { pattern: patternName },
+          { pattern: null, description: { contains: patternName, mode: "insensitive" } },
+        ],
+      },
       select: { id: true },
     });
     for (const s of siblings) {
+      await db.product.update({ where: { id: s.id }, data: { pattern: patternName } });
       await db.tireSpec.upsert({
         where: { productId: s.id },
         update: patternData,

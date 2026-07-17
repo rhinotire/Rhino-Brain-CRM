@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { saveTireSpec } from "@/actions/tire-spec";
 
@@ -41,14 +42,21 @@ export function TireSpecEditor({ productId, pattern, patternCount, spec, vocab }
   productId: string; pattern: string | null; patternCount: number; spec: SpecValues; vocab: SpecVocab;
 }) {
   const [state, action] = useFormState(saveTireSpec, {} as { ok?: boolean; appliedToPattern?: number; error?: string });
+  const [patternText, setPatternText] = useState(pattern ?? "");
 
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="productId" value={productId} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="text-base font-bold">Pattern specs {pattern && <span className="ml-1 rounded bg-slate-100 px-2 py-0.5 font-mono text-xs">{pattern}</span>}</h2>
+        <h2 className="text-base font-bold">Pattern specs</h2>
         <p className="mt-1 text-xs text-slate-500">Properties of the tread design — the same for every size of this pattern.</p>
+        <div className="mt-4 max-w-xs">
+          <label className={label} htmlFor="ts-pattern">Pattern name</label>
+          <input id="ts-pattern" name="pattern" value={patternText} onChange={(e) => setPatternText(e.target.value)}
+            placeholder='e.g. "F22", "ST-007"' className={input} />
+          <p className="mt-1 text-[11px] text-slate-500">Groups all sizes of this tread design — enables the one-save apply below.</p>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div><span className={label}>Tread Type</span><Select name="treadType" value={spec.treadType} options={vocab.treadType} /></div>
           <div><span className={label}>Application</span><Select name="application" value={spec.application} options={vocab.application} /></div>
@@ -80,10 +88,12 @@ export function TireSpecEditor({ productId, pattern, patternCount, spec, vocab }
             </label>
           </div>
         </div>
-        {pattern && patternCount > 0 && (
+        {patternText.trim() && (
           <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
             <input type="checkbox" name="applyToPattern" defaultChecked className="h-4 w-4" />
-            Apply these pattern specs to all {patternCount} other {pattern} sizes
+            {patternCount > 0 && patternText.trim() === (pattern ?? "")
+              ? `Apply these pattern specs to all ${patternCount} other ${pattern} sizes`
+              : `Apply to every ${patternText.trim()} size of this brand (matched by pattern or description)`}
           </label>
         )}
       </section>
