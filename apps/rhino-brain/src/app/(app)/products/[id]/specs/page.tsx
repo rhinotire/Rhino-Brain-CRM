@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireManager } from "@/lib/auth";
+import { SPEC_FIELD_VOCAB } from "@rhino/services";
 import { TireSpecEditor, type SpecValues } from "@/components/tire-spec-editor";
 import { Badge } from "@/components/ui/primitives";
 
@@ -55,7 +56,18 @@ export default async function ProductSpecsPage({ params }: { params: { id: strin
       </div>
       <p className="text-sm text-slate-500">{product.description}</p>
 
-      <TireSpecEditor productId={product.id} pattern={product.pattern} patternCount={patternCount} spec={spec} />
+      <TireSpecEditor
+        productId={product.id}
+        pattern={product.pattern}
+        patternCount={patternCount}
+        spec={spec}
+        vocab={{
+          treadType: [...SPEC_FIELD_VOCAB.treadType],
+          application: [...SPEC_FIELD_VOCAB.application],
+          position: [...SPEC_FIELD_VOCAB.position],
+          loadRange: [...SPEC_FIELD_VOCAB.loadRange],
+        }}
+      />
 
       <p className="text-xs text-slate-400">
         Values are validated against the same vocabulary the enrichment pipeline uses. Fields left empty simply don&apos;t

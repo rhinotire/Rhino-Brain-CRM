@@ -2,7 +2,9 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { saveTireSpec } from "@/actions/tire-spec";
-import { SPEC_FIELD_VOCAB } from "@rhino/services";
+
+/** Vocab lists come from the server page — @rhino/services is server-only. */
+export type SpecVocab = { treadType: string[]; application: string[]; position: string[]; loadRange: string[] };
 
 const input = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm";
 const label = "block text-xs font-bold uppercase tracking-wide text-slate-500";
@@ -35,8 +37,8 @@ export type SpecValues = {
   threePMSF: boolean; runFlat: boolean;
 };
 
-export function TireSpecEditor({ productId, pattern, patternCount, spec }: {
-  productId: string; pattern: string | null; patternCount: number; spec: SpecValues;
+export function TireSpecEditor({ productId, pattern, patternCount, spec, vocab }: {
+  productId: string; pattern: string | null; patternCount: number; spec: SpecValues; vocab: SpecVocab;
 }) {
   const [state, action] = useFormState(saveTireSpec, {} as { ok?: boolean; appliedToPattern?: number; error?: string });
 
@@ -48,9 +50,9 @@ export function TireSpecEditor({ productId, pattern, patternCount, spec }: {
         <h2 className="text-base font-bold">Pattern specs {pattern && <span className="ml-1 rounded bg-slate-100 px-2 py-0.5 font-mono text-xs">{pattern}</span>}</h2>
         <p className="mt-1 text-xs text-slate-500">Properties of the tread design — the same for every size of this pattern.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div><span className={label}>Tread Type</span><Select name="treadType" value={spec.treadType} options={SPEC_FIELD_VOCAB.treadType} /></div>
-          <div><span className={label}>Application</span><Select name="application" value={spec.application} options={SPEC_FIELD_VOCAB.application} /></div>
-          <div><span className={label}>Position</span><Select name="position" value={spec.position} options={SPEC_FIELD_VOCAB.position} /></div>
+          <div><span className={label}>Tread Type</span><Select name="treadType" value={spec.treadType} options={vocab.treadType} /></div>
+          <div><span className={label}>Application</span><Select name="application" value={spec.application} options={vocab.application} /></div>
+          <div><span className={label}>Position</span><Select name="position" value={spec.position} options={vocab.position} /></div>
           <div>
             <span className={label}>Construction</span>
             <select name="construction" defaultValue={spec.construction ?? ""} className={input}>
@@ -102,7 +104,7 @@ export function TireSpecEditor({ productId, pattern, patternCount, spec }: {
             <span className={label}>Load Range</span>
             <select name="loadRange" defaultValue={spec.loadRange ?? ""} className={input}>
               <option value="">—</option>
-              {SPEC_FIELD_VOCAB.loadRange.map((o) => <option key={o} value={o}>{o}</option>)}
+              {vocab.loadRange.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <div>
