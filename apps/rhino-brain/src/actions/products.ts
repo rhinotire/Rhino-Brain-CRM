@@ -70,12 +70,36 @@ export async function clearProductPhoto(productId: string): Promise<{ ok?: boole
   return { ok: true };
 }
 
-export type PatternCandidate = { id: string; sku: string; sizeSpec: string | null; description: string; hasPhoto: boolean };
-
-/** Same-brand products that could share this product's photo (same tread pattern). */
-export async function listPatternCandidates(productId: string): Promise<{ candidates?: PatternCandidate[]; pattern?: string | null; error?: string }> {
+/** Set/clear a product's public reference price (MSRP). Never touches tier pricing. */
+export async function setMsrp(productId: string, value: string): Promise<{ ok?: boolean; msrp?: number | null; error?: string }> {
   await requireManager();
-  const source = await db.product.findUnique({ where: { id: productId }, select: { brand: true, category: true, pattern: true, imagePath: true } });
+  const trimmed = value.replace(/[$,\s]/g, "");
+  if (trimmed === "") {
+    await db.product.update({ where: { id: productId }, data: { msrp: null } });
+    revalidatePath("/products");
+    return { ok: true, msrp: null };
+  }
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0 || n >= 10000) return { error: "Enter a price between 0 and 10,000 (or leave empty to clear)." };
+  const rounded = Math.round(n * 100) / 100;
+  await db.product.update({ where: { id: productId }, data: { msrp: rounded } });
+  revalidatePath("/products");
+  return { ok: true, msrp: rounded };
+}
+
+export type PatternCandidate = { id: string; sku: string; sizeSpec: string | null; description: string; hasPhoto: boolean; samePattern: boolean };
+
+/**
+ * Same-brand products that could share this product's photo. When the source
+ * has a pattern (or its description names one), the list narrows to matching
+ * products; `showAll` widens it back to the whole brand.
+ */
+export async function listPatternCandidates(
+  productId: string,
+  showAll = false
+): Promise<{ candidates?: PatternCandidate[]; pattern?: string | null; narrowed?: boolean; error?: string }> {
+  await requireManager();
+  const source = await db.product.findUnique({ where: { id: productId }, select: { brand: true, category: true, pattern: true, imagePath: true, description: true } });
   if (!source) return { error: "Product not found." };
   if (!source.imagePath) return { error: "Upload a photo on this product first." };
   const rows = await db.product.findMany({
@@ -89,11 +113,20 @@ export async function listPatternCandidates(productId: string): Promise<{ candid
     orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
     take: 200,
   });
-  // same-pattern products first (once patterns exist), then the rest
-  const candidates = rows
-    .sort((a, b) => Number(!!b.pattern && b.pattern === source.pattern) - Number(!!a.pattern && a.pattern === source.pattern))
-    .map((r) => ({ id: r.id, sku: r.sku, sizeSpec: r.sizeSpec, description: r.description, hasPhoto: !!r.imagePath }));
-  return { candidates, pattern: source.pattern };
+
+  const patternKey = source.pattern?.trim().toLowerCase() || null;
+  const matches = (r: (typeof rows)[number]) =>
+    !!patternKey &&
+    ((r.pattern ?? "").trim().toLowerCase() === patternKey ||
+      (!r.pattern && r.description.toLowerCase().includes(patternKey)));
+
+  const all = rows.map((r) => ({
+    id: r.id, sku: r.sku, sizeSpec: r.sizeSpec, description: r.description, hasPhoto: !!r.imagePath, samePattern: matches(r),
+  }));
+  const narrowed = !showAll && !!patternKey && all.some((c) => c.samePattern);
+  const candidates = (narrowed ? all.filter((c) => c.samePattern) : all)
+    .sort((a, b) => Number(b.samePattern) - Number(a.samePattern));
+  return { candidates, pattern: source.pattern, narrowed };
 }
 
 /**
@@ -105,8 +138,9 @@ export async function listPatternCandidates(productId: string): Promise<{ candid
 export async function applyPhotoToPattern(
   productId: string,
   targetIds: string[],
-  pattern?: string
-): Promise<{ ok?: boolean; applied?: number; error?: string }> {
+  pattern?: string,
+  publish = false
+): Promise<{ ok?: boolean; applied?: number; published?: number; publishErrors?: number; error?: string }> {
   await requireManager();
   const source = await db.product.findUnique({ where: { id: productId }, select: { imagePath: true, brand: true } });
   if (!source?.imagePath) return { error: "Source product has no photo." };
@@ -121,8 +155,23 @@ export async function applyPhotoToPattern(
   if (patternName) {
     await db.product.update({ where: { id: productId }, data: { pattern: patternName } });
   }
+
+  // one-click publish for the whole pattern (source + selected sizes)
+  let published = 0;
+  let publishErrors = 0;
+  if (publish) {
+    for (const id of [productId, ...targetIds]) {
+      try {
+        await ProductService.setPublished(id, true);
+        published++;
+      } catch {
+        publishErrors++;
+      }
+    }
+  }
+
   revalidatePath("/products");
-  return { ok: true, applied: result.count };
+  return { ok: true, applied: result.count, published, publishErrors };
 }
 
 export type ProductHit = {

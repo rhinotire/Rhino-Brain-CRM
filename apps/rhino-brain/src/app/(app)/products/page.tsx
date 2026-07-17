@@ -6,6 +6,7 @@ import { ProductsFilter } from "@/components/products-filter";
 import { DiscontinuedToggle } from "@/components/discontinued-toggle";
 import { WebPublishToggle } from "@/components/web-publish-toggle";
 import { ProductImageCell } from "@/components/product-image-cell";
+import { MsrpCell } from "@/components/msrp-cell";
 import { productImageUrl, isStorageConfigured } from "@/lib/storage";
 import { fmtMoney } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
@@ -88,12 +89,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
       <ProductsFilter categories={categories.map(c => c.rawCategory!).filter(Boolean)} />
 
       <Table>
-        <THead cols={[...(manager && storageReady ? ["Photo"] : []), "SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost"] : []), ...locations.map(l => `${l.shortTag} Stock`), ...(manager ? ["Disc.", "Web"] : [])]} />
+        <THead cols={[...(manager && storageReady ? ["Photo"] : []), "SKU", "Brand", "Category", "Size", "Description", ...(manager ? ["Cost", "MSRP"] : []), ...locations.map(l => `${l.shortTag} Stock`), ...(manager ? ["Disc.", "Web"] : [])]} />
         <tbody>
           {rows.map(({ p, stocks }) => (
             <tr key={p.id} className={`border-b border-slate-50 hover:bg-slate-50 ${p.discontinued ? "opacity-70" : ""}`}>
               {manager && storageReady && (
-                <td className="px-3 py-2"><ProductImageCell productId={p.id} imageUrl={productImageUrl(p.imagePath)} storageReady={storageReady} /></td>
+                <td className="px-3 py-2"><ProductImageCell key={p.imagePath ?? "none"} productId={p.id} imageUrl={productImageUrl(p.imagePath)} storageReady={storageReady} /></td>
               )}
               <td className="px-3 py-2 font-mono text-xs text-slate-700 whitespace-nowrap">
                 {p.sku}
@@ -104,6 +105,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
               <td className="px-3 py-2 font-medium whitespace-nowrap">{p.sizeSpec ?? "—"}</td>
               <td className="px-3 py-2 text-slate-600">{p.description}</td>
               {manager && <td className="px-3 py-2 tabular-nums">{p.cost === null ? "—" : fmtMoney(Number(p.cost))}</td>}
+              {manager && <td className="px-3 py-2"><MsrpCell productId={p.id} msrp={p.msrp === null ? null : Number(p.msrp)} /></td>}
               {stocks.map((s, i) => (
                 <td key={i} className="px-3 py-2 tabular-nums">
                   {s === null ? <span className="text-slate-300">—</span>
@@ -113,10 +115,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                 </td>
               ))}
               {manager && <td className="px-3 py-2"><DiscontinuedToggle productId={p.id} value={p.discontinued} /></td>}
-              {manager && <td className="px-3 py-2"><WebPublishToggle productId={p.id} published={p.visibility === "PUBLIC"} /></td>}
+              {manager && <td className="px-3 py-2"><WebPublishToggle key={p.visibility} productId={p.id} published={p.visibility === "PUBLIC"} /></td>}
             </tr>
           ))}
-          {rows.length === 0 && <EmptyRow colSpan={7 + locations.length} message="No products match your search." />}
+          {rows.length === 0 && <EmptyRow colSpan={8 + locations.length} message="No products match your search." />}
         </tbody>
       </Table>
       {totalCount > 200 && <p className="text-xs text-slate-400">Showing first 200 of {totalCount} — refine your search to narrow down.</p>}

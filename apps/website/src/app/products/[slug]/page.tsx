@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
 import { StockBadge } from "@/components/product-card";
+import { TireSpecs } from "@/components/tire-specs";
 import { JsonLd } from "@/components/json-ld";
 import { SITE, STOCK_LABEL } from "@/lib/site";
 
@@ -121,26 +122,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
       <section className="mt-10">
         <h2 className="text-lg font-bold">Specifications</h2>
-        {p.tireSpec && (
-          <SpecTable
-            rows={[
-              ["Size", p.sizeSpec],
-              ["Load Range", p.tireSpec.loadRange],
-              ["Ply Rating", p.tireSpec.plyRating],
-              ["Load Index", p.tireSpec.loadIndex],
-              ["Speed Rating", p.tireSpec.speedRating],
-              ["Max Load (lbs)", p.tireSpec.maxLoadLbs],
-              ["Max Pressure (PSI)", p.tireSpec.maxPressurePsi],
-              ["Tread Depth (32nds)", p.tireSpec.treadDepth32nds],
-              ["Rim Width Range", p.tireSpec.rimWidthRange],
-              ["Overall Diameter (in)", p.tireSpec.overallDiameterIn],
-              ["Position", p.tireSpec.position],
-              ["Application", p.tireSpec.application],
-              ["Country of Origin", p.countryOfOrigin],
-              ["Warranty", p.warrantySummary],
-            ]}
-          />
-        )}
+        {p.tireSpec && <TireSpecs p={p} />}
         {p.wheelSpec && (
           <SpecTable
             rows={[

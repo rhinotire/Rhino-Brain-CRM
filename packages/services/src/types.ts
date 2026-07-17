@@ -23,6 +23,12 @@ export type PublicTireSpecDTO = {
   rimWidthRange: string | null;
   overallDiameterIn: number | null;
   sectionWidthIn: number | null;
+  treadType: string | null;
+  mileageWarrantyMiles: number | null;
+  utqg: string | null;
+  sidewallStyle: string | null;
+  threePMSF: boolean;
+  runFlat: boolean;
 };
 
 export type PublicWheelSpecDTO = {

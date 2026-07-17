@@ -51,7 +51,14 @@ export function ProductCard({ p }: { p: PublicProductDTO }) {
       <div className="mt-1 text-[11px] text-steel-400">SKU {p.sku}</div>
       <div className="mt-auto flex items-center justify-between border-t border-steel-100 pt-3">
         <StockBadge status={p.stockStatus} />
-        <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">Dealer price →</span>
+        {p.msrp !== null ? (
+          <span className="text-right">
+            <span className="block font-display text-lg font-bold leading-none text-navy-900">${p.msrp.toFixed(2)}</span>
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-steel-400">MSRP · dealers save</span>
+          </span>
+        ) : (
+          <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">Dealer price →</span>
+        )}
       </div>
     </Link>
   );

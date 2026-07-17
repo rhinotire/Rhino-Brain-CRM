@@ -65,6 +65,12 @@ function toPublicDTO(p: PublishedRow, logos?: Map<string, string>): PublicProduc
         rimWidthRange: p.tireSpec.rimWidthRange,
         overallDiameterIn: num(p.tireSpec.overallDiameterIn),
         sectionWidthIn: num(p.tireSpec.sectionWidthIn),
+        treadType: p.tireSpec.treadType,
+        mileageWarrantyMiles: p.tireSpec.mileageWarrantyMiles,
+        utqg: p.tireSpec.utqg,
+        sidewallStyle: p.tireSpec.sidewallStyle,
+        threePMSF: p.tireSpec.threePMSF,
+        runFlat: p.tireSpec.runFlat,
       }
     : null;
   const wheel: PublicWheelSpecDTO | null = p.wheelSpec
