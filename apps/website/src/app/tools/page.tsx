@@ -58,6 +58,11 @@ const TOOLS = [
     name: "Temperature & Pressure Calculator",
     blurb: "How much PSI the cold takes away — real gas-law math with a seasonal table.",
   },
+  {
+    href: "/tools/staggered-tire-calculator",
+    name: "Staggered Tire Calculator",
+    blurb: "Front/rear fitment checker plus the factory staggered sizes on popular performance cars.",
+  },
 ];
 
 export default function ToolsPage() {
