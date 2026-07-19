@@ -104,7 +104,10 @@ export function deriveSpecFromProduct(p: {
   }
 
   // axle position (commercial)
-  if (/\bDRIVE\b/.test(upper)) out.position = "drive";
+  // commercial drive tires split by shoulder design; a bare "drive" in the
+  // text can't tell us which, so only the explicit forms auto-fill
+  if (/CLOSED?\s*SHOULDER/.test(upper)) out.position = "closed-shoulder-drive";
+  else if (/OPEN\s*SHOULDER/.test(upper)) out.position = "open-shoulder-drive";
   else if (/\bSTEER\b/.test(upper)) out.position = "steer";
   else if (/\bALL[- ]?POSITION\b|\bA\/P\b/.test(upper)) out.position = "all-position";
   else if (/\bTRAILER\s*POSITION\b/.test(upper)) out.position = "trailer";
@@ -159,7 +162,7 @@ export function specGaps(existing: Record<string, unknown>, ruled: RuleSpec): st
 // ---- queue, and the CSV import. Untrusted values must pass this gate.
 export const SPEC_FIELD_VOCAB: Record<string, readonly string[]> = {
   treadType: ["mud-terrain", "rugged-terrain", "all-terrain", "highway", "touring", "all-season", "winter", "high-performance", "ultra-high-performance", "rib", "trailer"],
-  position: ["steer", "drive", "trailer", "all-position"],
+  position: ["steer", "closed-shoulder-drive", "open-shoulder-drive", "trailer", "all-position"],
   application: ["passenger", "light-truck", "commercial", "trailer", "atv-utv", "golf-cart", "lawn-garden", "industrial", "agricultural"],
   construction: ["R", "D"],
   loadRange: ["B", "C", "D", "E", "F", "G", "H", "J", "L"],

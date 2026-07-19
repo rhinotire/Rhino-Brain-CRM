@@ -43,7 +43,7 @@ type Proposal = { sku: string; fields: Record<string, ProposedField> };
 
 const VOCAB = `Controlled vocabulary (reject anything else):
 - treadType: mud-terrain | rugged-terrain | all-terrain | highway | touring | all-season | winter | high-performance | ultra-high-performance | rib | trailer
-- position: steer | drive | trailer | all-position
+- position: steer | closed-shoulder-drive | open-shoulder-drive | trailer | all-position (only pick a drive variant when the shoulder design is stated or well known for that line)
 - application: passenger | light-truck | commercial | trailer | atv-utv | golf-cart | lawn-garden | industrial | agricultural
 - construction: R | D
 - loadRange: single letter B C D E F G H J L

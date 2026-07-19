@@ -10,9 +10,15 @@ describe("deriveSpecFromProduct — deterministic layer", () => {
     });
   });
 
-  it("commercial drive tire with load index", () => {
+  it("commercial drive tire with load index (bare 'drive' no longer auto-fills position)", () => {
     const s = deriveSpecFromProduct({ sizeSpec: "11R22.5", description: "HS208 Drive Position 16-ply 146/143L" });
-    expect(s).toMatchObject({ rimDiameter: 22.5, plyRating: 16, loadRange: "H", position: "drive", loadIndex: "146/143", speedRating: "L" });
+    expect(s).toMatchObject({ rimDiameter: 22.5, plyRating: 16, loadRange: "H", loadIndex: "146/143", speedRating: "L" });
+    expect(s.position).toBeUndefined(); // closed vs open shoulder needs a human or explicit text
+  });
+
+  it("shoulder-design positions from explicit text", () => {
+    expect(deriveSpecFromProduct({ sizeSpec: "11R22.5", description: "HD878 Closed Shoulder Drive 16PR" }).position).toBe("closed-shoulder-drive");
+    expect(deriveSpecFromProduct({ sizeSpec: "11R22.5", description: "HD858 Open Shoulder Drive 16PR" }).position).toBe("open-shoulder-drive");
   });
 
   it("explicit Load Range beats nothing, cross-fills PR", () => {
