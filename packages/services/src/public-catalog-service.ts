@@ -148,14 +148,25 @@ const PUBLISHED_INCLUDE = {
  * The ONLY service the anonymous website tier may call for products.
  * Whitelist reads: published products, coarse stock buckets. No pricing.
  */
+/** Wheel-size shorthand: "2010"/"20x10"/"20 10" → contains-needle "20X10". */
+function wheelNeedles(q: string): string[] {
+  const m = q.trim().toUpperCase().replace(/×/g, "X").match(/^(\d{2})\s*X?\s*(\d{1,2}(?:\.5)?)J?$/);
+  if (!m) return [];
+  const d = Number(m[1]);
+  const w = Number(m[2]);
+  if (d < 8 || d > 30 || w < 3 || w > 16) return [];
+  return [`${d}X${m[2]}`];
+}
+
 export const PublicCatalogService = {
   async listPublished(
     params: { category?: string; query?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[]; assemblies?: boolean } = {}
   ): Promise<PublicProductDTO[]> {
     const q = params.query?.trim();
     // Normalized size search first (spec §1A): "2256517", "225 65 17",
-    // "11R225" etc. all resolve to the same canonical needles.
-    const needles = q ? sizeNeedles(q) : [];
+    // "11R225" etc. all resolve to the same canonical needles. Wheel pages
+    // use wheel-dimension shorthand instead ("2010" → 20X10).
+    const needles = q ? (params.category === "WHEELS" ? wheelNeedles(q) : sizeNeedles(q)) : [];
     const rows = await db.product.findMany({
       where: {
         ...PUBLISHED_WHERE,

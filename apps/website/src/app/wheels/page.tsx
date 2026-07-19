@@ -5,14 +5,14 @@ import { ProductCard } from "@/components/product-card";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Wholesale Trailer Wheels — Steel, Mod & Spoke",
-  description: "Steel trailer wheels at wholesale: white spoke, silver mod, galvanized. Common bolt patterns in stock in Orlando and Dallas.",
+  title: "Wholesale Wheels — Trailer, Off-Road & Custom",
+  description: "Wholesale wheels: trailer spoke/mod/galvanized plus off-road and custom truck wheels (20X10, 22X12). Common bolt patterns in stock in Orlando and Dallas.",
   alternates: { canonical: "/wheels" },
 };
 
 export const revalidate = 300;
 
-const POPULAR = ["15X5", "15X6", "5x4.5", "6x5.5", "spoke", "mod"];
+const POPULAR = ["15X5", "15X6", "20X10", "22X12", "6x5.5", "spoke"];
 
 export default async function WheelsPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim();
@@ -26,11 +26,14 @@ export default async function WheelsPage({ searchParams }: { searchParams: { q?:
           <nav aria-label="Breadcrumb" className="text-xs text-steel-400">
             <Link href="/" className="hover:text-white">Home</Link> / Wheels
           </nav>
-          <h1 className="h-display mt-2 text-4xl">{q ? `Wheels: “${q}”` : "Trailer Wheels"}</h1>
+          <h1 className="h-display mt-2 text-4xl">{q ? `Wheels: “${q}”` : "Wheels"}</h1>
+          <p className="mt-2 max-w-2xl text-sm text-steel-300">
+            Trailer wheels — spoke, mod, galvanized — plus off-road and custom truck wheels.
+          </p>
           <form action="/wheels" method="get" className="mt-4 flex max-w-lg gap-2">
             <label htmlFor="wheels-q" className="sr-only">Search wheels</label>
             <input id="wheels-q" name="q" defaultValue={q} autoComplete="off"
-              placeholder='Size, bolt pattern or style — "15X6", "6x5.5", "spoke"'
+              placeholder='Size, bolt pattern or style — "2010", "15X6", "6x5.5", "spoke"'
               className="w-full rounded-lg border-0 px-4 py-3 text-sm text-navy-900" />
             <button className="btn-gold shrink-0">Search</button>
           </form>
