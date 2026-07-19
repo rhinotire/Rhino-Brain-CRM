@@ -158,10 +158,39 @@ function wheelNeedles(q: string): string[] {
   return [`${d}X${m[2]}`];
 }
 
+/** Standard inch ↔ mm bolt-circle equivalences (see /tools/bolt-pattern-guide). */
+const BOLT_MM: Record<string, string> = { "4": "101.6", "4.5": "114.3", "4.75": "120.65", "5": "127", "5.5": "139.7", "6.5": "165.1" };
+
+/**
+ * Bolt-pattern needles: "6x5.5" / "6-5.5" / "6x55" / "6x139.7" → contains
+ * variants covering inch, no-dot ("5x45" appears in catalogs) and mm forms.
+ */
+function boltNeedles(raw: string): string[] {
+  const m = raw.trim().toUpperCase().replace(/×/g, "X").match(/^([45689])\s*[X/ -]?\s*(\d{1,3}(?:\.\d{1,2})?)$/);
+  if (!m) return [];
+  const lugs = m[1];
+  let val = m[2];
+  // "55" → 5.5 (two digits without dot are tenths of inches); ≥100 is mm
+  if (!val.includes(".") && val.length === 2) val = `${val[0]}.${val[1]}`;
+  const isMm = Number(val) >= 90;
+  const inch = isMm
+    ? Object.entries(BOLT_MM).find(([, mm]) => Math.abs(Number(mm) - Number(val)) < 1)?.[0]
+    : String(Number(val));
+  if (!inch) return isMm ? [`${lugs}X${val}`] : [];
+  const needles = new Set<string>([`${lugs}X${inch}`, `${lugs}X${inch.replace(".", "")}`]);
+  const mm = BOLT_MM[inch];
+  if (mm) needles.add(`${lugs}X${mm}`);
+  return [...needles];
+}
+
 export const PublicCatalogService = {
   async listPublished(
-    params: { category?: string; query?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[]; assemblies?: boolean } = {}
+    params: { category?: string; query?: string; boltPattern?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[]; assemblies?: boolean } = {}
   ): Promise<PublicProductDTO[]> {
+    const bolt = params.boltPattern?.trim();
+    const boltVariants = bolt ? boltNeedles(bolt) : [];
+    // unparseable bolt input still filters as a plain text needle
+    if (bolt && boltVariants.length === 0) boltVariants.push(bolt);
     const q = params.query?.trim();
     // Normalized size search first (spec §1A): "2256517", "225 65 17",
     // "11R225" etc. all resolve to the same canonical needles. Wheel pages
@@ -176,6 +205,19 @@ export const PublicCatalogService = {
         // mounted tire-and-wheel assemblies follow the catalog convention
         // "BRAND On WHEEL…" in the description
         ...(params.assemblies ? { description: { contains: " On ", mode: "insensitive" as const } } : {}),
+        // bolt pattern ANDs with the size query — it lives in sizeSpec,
+        // description, or the wheelSpec column depending on the import
+        ...(boltVariants.length
+          ? {
+              AND: [{
+                OR: boltVariants.flatMap((b) => [
+                  { sizeSpec: { contains: b, mode: "insensitive" as const } },
+                  { description: { contains: b, mode: "insensitive" as const } },
+                  { wheelSpec: { boltPattern: { contains: b, mode: "insensitive" as const } } },
+                ]),
+              }],
+            }
+          : {}),
         ...(needles.length
           ? { OR: needles.map((n) => ({ sizeSpec: { contains: n, mode: "insensitive" as const } })) }
           : q && q.length >= 2
