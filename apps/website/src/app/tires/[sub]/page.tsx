@@ -11,6 +11,48 @@ export const revalidate = 300;
 
 type Params = { sub: string };
 
+/**
+ * B2B landing content for the two commercial-heavy categories (master
+ * instruction §6.4/§6.5) — intro line under the H1 plus a lead-capture band
+ * after the grid. Other categories stay as plain catalog pages.
+ */
+const B2B_SECTIONS: Record<
+  string,
+  { intro: string; heading: string; bullets: string[]; ctas: { href: string; label: string; primary?: boolean }[] }
+> = {
+  "commercial-truck": {
+    intro:
+      "Steer, drive, trailer and all-position tires for fleets, owner-operators and commercial dealers — regional and long-haul patterns at dealer tier pricing.",
+    heading: "Buying for a fleet?",
+    bullets: [
+      "Every wheel position from one supplier — steer, drive, trailer, all-position",
+      "Size consolidation and replacement planning for multi-vehicle fleets",
+      COPY.deliveryStat,
+      "Emergency sourcing through our supplier network when a unit is down",
+    ],
+    ctas: [
+      { href: "/quote", label: "Request Commercial Tire Quote", primary: true },
+      { href: "/fleet-solutions", label: "Fleet Solutions" },
+    ],
+  },
+  "st-trailer": {
+    intro:
+      "ST trailer tires and mounted tire & wheel assemblies for trailer manufacturers, trailer dealers and repair shops — heavy-duty load ranges, matched to the trailer's placard.",
+    heading: "Trailer manufacturers & dealers",
+    bullets: [
+      "Mounted, ready-to-bolt-on tire & wheel assemblies — see Tire & Wheel Packages",
+      "Heavy-duty load ranges for utility, boat, horse, enclosed and equipment trailers",
+      "Bulk factory supply — recurring pallet and container programs for production lines",
+      COPY.dealerWarehouseBenefit,
+    ],
+    ctas: [
+      { href: "/quote", label: "Get Trailer Tire & Wheel Quote", primary: true },
+      { href: "/packages", label: "Browse Assemblies" },
+      { href: "/become-a-dealer", label: "Factory Supply Pricing" },
+    ],
+  },
+};
+
 export function generateMetadata({ params }: { params: Params }): Metadata {
   const cat = CATEGORY_SLUGS[params.sub];
   if (!cat) return {};
@@ -34,6 +76,9 @@ export default async function SubcategoryPage({ params }: { params: Params }) {
         <Link href="/">Home</Link> / <Link href="/tires">Tires</Link> / {cat.label}
       </nav>
       <h1 className="mt-2 text-2xl font-black">{cat.label}</h1>
+      {B2B_SECTIONS[params.sub] && (
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{B2B_SECTIONS[params.sub].intro}</p>
+      )}
 
       {sizes.length > 1 && (
         <div className="mt-4 flex flex-wrap gap-2">
@@ -56,6 +101,24 @@ export default async function SubcategoryPage({ params }: { params: Params }) {
           Catalog for this category is being published. Call {SITE.phoneDisplay} or{" "}
           <Link href="/quote" className="font-bold text-brand-dark">request a quote</Link> — we stock more than the site shows.
         </p>
+      )}
+
+      {B2B_SECTIONS[params.sub] && (
+        <section className="mt-10 rounded-2xl bg-navy-900 p-6 text-white">
+          <h2 className="h-display text-2xl">{B2B_SECTIONS[params.sub].heading}</h2>
+          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-steel-300">
+            {B2B_SECTIONS[params.sub].bullets.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {B2B_SECTIONS[params.sub].ctas.map((c) => (
+              <Link key={c.href} href={c.href} className={c.primary ? "btn-gold" : "btn-ghost-dark"}>
+                {c.label}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <JsonLd
