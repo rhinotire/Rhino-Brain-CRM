@@ -54,6 +54,19 @@ const RHINO = {
     "Apply for a Rhino Tire USA dealer account: tier pricing on tires, wheels and trailer parts, Florida and Texas warehouses, weekly delivery runs.",
   dealerWarehouseBenefit: "Orlando & Dallas warehouses — same-week Florida delivery runs",
   dealerQualifyLine: "tier pricing, weekly Florida delivery runs and container programs",
+  dealerReferralBenefit: "Customer referrals — installation requests from our website are routed to network dealers across Florida",
+
+  // about / service-area (Phase C)
+  aboutLede:
+    "Rhino Tire USA is a wholesale tire and wheel distributor with warehouses in Orlando, FL and Dallas, TX. We supply tire shops, trailer manufacturers, fleets and resellers with ST trailer, passenger, light-truck and commercial-truck tires, wheels and trailer parts at dealer tier pricing.",
+  serviceAreaName: "Florida",
+  serviceAreaLede:
+    "Based in Orlando with a second warehouse in Dallas, TX, we run weekly delivery routes across Florida and ship pallets and containers nationwide.",
+  serviceCities: [
+    "Orlando", "Kissimmee", "Sanford", "Apopka", "Winter Garden", "Clermont", "Lakeland", "Tampa",
+    "St. Petersburg", "Daytona Beach", "Melbourne", "Ocala", "Gainesville", "Jacksonville",
+    "Fort Myers", "Naples", "West Palm Beach", "Fort Lauderdale", "Miami",
+  ],
 };
 
 const EVERFLOW: typeof RHINO = {
@@ -92,6 +105,18 @@ const EVERFLOW: typeof RHINO = {
     "Apply for an Everflow Tires & Wheels dealer account: tier pricing on tires, wheels and trailer parts, Dallas warehouse pickup and delivery, and installation-customer referrals.",
   dealerWarehouseBenefit: "Dallas, TX warehouse — local pickup and DFW delivery",
   dealerQualifyLine: "tier pricing, local Dallas–Fort Worth delivery and container programs",
+  dealerReferralBenefit: "Customer referrals — installation requests from our website are routed to network dealers across Dallas–Fort Worth",
+
+  aboutLede:
+    "Everflow Tires & Wheels is a wholesale tire and wheel distributor in Dallas, TX. We supply tire shops, trailer manufacturers, fleets and resellers across Dallas–Fort Worth with ST trailer, passenger, light-truck and commercial-truck tires, wheels and trailer parts at dealer tier pricing.",
+  serviceAreaName: "Dallas–Fort Worth",
+  serviceAreaLede:
+    "From our Dallas warehouse we serve dealers, fleets, repair shops and trailer manufacturers across the Dallas–Fort Worth metroplex, with warehouse pickup and local delivery.",
+  serviceCities: [
+    "Dallas", "Garland", "Mesquite", "Richardson", "Plano", "Irving", "Arlington", "Grand Prairie",
+    "Fort Worth", "Carrollton", "Farmers Branch", "Lewisville", "McKinney", "Frisco", "Denton",
+    "Rockwall", "Rowlett", "Balch Springs", "DeSoto", "Duncanville",
+  ],
 };
 
 export const COPY = KEY === "EVERFLOW" ? EVERFLOW : RHINO;

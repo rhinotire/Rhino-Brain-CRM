@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { submitQuoteRequest, submitDealerApplication, type FormState } from "@/app/actions";
+import { submitQuoteRequest, submitDealerApplication, submitFleetInquiry, type FormState } from "@/app/actions";
 import { SITE } from "@/lib/site";
 
 const input = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm";
@@ -137,6 +137,78 @@ export function DealerForm() {
       <p className="mt-1 text-xs text-slate-500">Speeds up approval — you can also submit now and email it later.</p>
       {state.error && <p className="mt-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <Submit>Apply for a Dealer Account</Submit>
+    </form>
+  );
+}
+
+/** Fleet inquiry (master instruction §6.8) — feeds the same lead pipeline as quotes. */
+export function FleetForm() {
+  const [state, action] = useFormState<FormState, FormData>(submitFleetInquiry, {});
+  if (state.ok) return <Done title="Fleet inquiry received!" />;
+  return (
+    <form action={action} className="mt-2 max-w-xl">
+      <Honeypot />
+      <label className={label} htmlFor="f-company">Company name *</label>
+      <input id="f-company" name="companyName" required minLength={2} className={input} />
+      <label className={label} htmlFor="f-contact">Contact person *</label>
+      <input id="f-contact" name="contactPerson" required minLength={2} className={input} />
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="f-phone">Phone *</label>
+          <input id="f-phone" name="phone" type="tel" required minLength={7} className={input} />
+        </div>
+        <div>
+          <label className={label} htmlFor="f-email">Email</label>
+          <input id="f-email" name="email" type="email" className={input} />
+        </div>
+      </div>
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="f-type">Fleet type *</label>
+          <select id="f-type" name="fleetType" required className={input} defaultValue="">
+            <option value="" disabled>Select…</option>
+            <option>Trucking / long haul</option>
+            <option>Regional delivery</option>
+            <option>Construction</option>
+            <option>Landscaping</option>
+            <option>Trailer fleet</option>
+            <option>Municipal / utility</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label className={label} htmlFor="f-count"># of vehicles</label>
+          <input id="f-count" name="vehicleCount" inputMode="numeric" className={input} placeholder="e.g. 24" />
+        </div>
+      </div>
+      <label className={label} htmlFor="f-vtype">Vehicle types</label>
+      <input id="f-vtype" name="vehicleType" className={input} placeholder="e.g. Class 8 tractors + 53' trailers, F-350 service trucks" />
+      <label className={label} htmlFor="f-sizes">Common tire sizes *</label>
+      <textarea id="f-sizes" name="commonSizes" required minLength={2} rows={2} className={input} placeholder="e.g. 295/75R22.5 steer + drive, ST235/80R16" />
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="f-demand">Monthly tire demand</label>
+          <input id="f-demand" name="monthlyDemand" className={input} placeholder="e.g. 30–40 tires" />
+        </div>
+        <div>
+          <label className={label} htmlFor="f-area">Service area</label>
+          <input id="f-area" name="serviceArea" className={input} placeholder="e.g. DFW metro" />
+        </div>
+      </div>
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <div>
+          <label className={label} htmlFor="f-city">City</label>
+          <input id="f-city" name="city" className={input} />
+        </div>
+        <div>
+          <label className={label} htmlFor="f-state">State</label>
+          <input id="f-state" name="state" className={input} />
+        </div>
+      </div>
+      <label className={label} htmlFor="f-chal">Current challenges</label>
+      <textarea id="f-chal" name="challenges" rows={2} className={input} placeholder="e.g. inconsistent supply, too many sizes across the fleet" />
+      {state.error && <p className="mt-3 text-sm font-semibold text-red-600">{state.error}</p>}
+      <Submit>Request Fleet Program Quote</Submit>
     </form>
   );
 }

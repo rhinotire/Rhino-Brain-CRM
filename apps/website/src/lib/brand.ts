@@ -22,6 +22,18 @@ export type Brand = {
 
 export const BRAND_KEY = process.env.BRAND_KEY ?? "RHINO";
 
+/**
+ * One-line NAP string. Rhino's fallback street address is still the city
+ * placeholder ("Orlando, FL"), so skip the locality when the street already
+ * contains it — avoids "Orlando, FL, Orlando, FL".
+ */
+export function brandAddressLine(b: Brand): string {
+  const { streetAddress, addressLocality, addressRegion, postalCode } = b.address;
+  const zip = postalCode ? ` ${postalCode}` : "";
+  if (streetAddress.includes(addressLocality)) return `${streetAddress}${zip}`;
+  return `${streetAddress}, ${addressLocality}, ${addressRegion}${zip}`;
+}
+
 const FALLBACK: Brand = BRAND_KEY === "EVERFLOW" ? {
   key: "EVERFLOW",
   name: "Everflow Tires & Wheels",

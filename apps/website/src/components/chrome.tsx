@@ -139,6 +139,8 @@ export function Footer({ brand }: { brand: Brand }) {
           <ul className="mt-3 space-y-2 text-sm">
             <li><Link className="hover:text-white" href="/quote">Request a Quote</Link></li>
             <li><Link className="hover:text-white" href="/become-a-dealer">Become a Dealer</Link></li>
+            <li><Link className="hover:text-white" href="/fleet-solutions">Fleet Solutions</Link></li>
+            <li><Link className="hover:text-white" href="/service-area">Service Area</Link></li>
           </ul>
         </div>
         <div>
@@ -150,6 +152,14 @@ export function Footer({ brand }: { brand: Brand }) {
           </ul>
           <p className="mt-4 text-xs text-steel-400">{brand.networkName}</p>
         </div>
+      </div>
+      <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-5 gap-y-1 px-4 pb-3 text-xs text-steel-400">
+        <Link className="hover:text-white" href="/about">About</Link>
+        <Link className="hover:text-white" href="/contact">Contact</Link>
+        <Link className="hover:text-white" href="/legal/privacy">Privacy Policy</Link>
+        <Link className="hover:text-white" href="/legal/terms">Terms of Use</Link>
+        <Link className="hover:text-white" href="/legal/product-disclaimer">Product Disclaimer</Link>
+        <Link className="hover:text-white" href="/legal/accessibility">Accessibility</Link>
       </div>
       <p className="px-4 text-center text-xs text-steel-400">
         © {new Date().getFullYear()} {brand.legalName}. Wholesale pricing requires an approved dealer account.

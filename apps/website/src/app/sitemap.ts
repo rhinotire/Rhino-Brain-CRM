@@ -15,6 +15,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "", "/tires", "/wheels", "/parts", "/quote", "/become-a-dealer", "/knowledge", "/tools",
     "/tools/tire-size-calculator", "/tools/trailer-load-calculator", "/tools/bolt-pattern-guide", "/tools/tire-size-converter", "/tools/cost-per-mile-calculator", "/tools/dot-date-decoder", "/tools/gear-ratio-calculator", "/tools/offset-backspacing-calculator", "/tools/tread-depth-guide", "/tools/temperature-pressure-calculator", "/tools/staggered-tire-calculator", "/find-installation",
     "/tires/by-size", "/tires/by-vehicle", "/tires/specialty", "/brands", "/deals", "/packages", "/supplies", "/dealer/quick-order",
+    "/about", "/contact", "/service-area", "/fleet-solutions",
+    "/legal/privacy", "/legal/terms", "/legal/product-disclaimer", "/legal/accessibility",
   ].map((p) => ({
     url: `${SITE.url}${p}`,
     changeFrequency: "weekly" as const,

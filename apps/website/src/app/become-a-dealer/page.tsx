@@ -22,6 +22,7 @@ export default async function DealerPage() {
         <li>Dealer tier pricing (A–D) on the full catalog</li>
         <li>{COPY.dealerWarehouseBenefit}</li>
         <li>Pallet and container programs, mixed loads welcome</li>
+        <li>{COPY.dealerReferralBenefit}</li>
       </ul>
       <p className="mt-3 max-w-xl text-sm text-slate-600">
         Questions before applying? Call <a href={`tel:${brand.phone}`} className="font-bold">{brand.phoneDisplay}</a>

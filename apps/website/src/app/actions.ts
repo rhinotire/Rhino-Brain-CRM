@@ -29,6 +29,37 @@ export async function submitQuoteRequest(_prev: FormState, formData: FormData): 
   return result.ok ? { ok: true } : { error: result.error };
 }
 
+/**
+ * Fleet inquiry → Lead via the existing quote pipeline (no parallel lead
+ * model — docs/everflow-website-plan.md). Fleet specifics are folded into
+ * productsOfInterest/message so reps see the full picture in the CRM.
+ */
+export async function submitFleetInquiry(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (String(formData.get("website") ?? "")) return { ok: true }; // bot honeypot
+  const f = (k: string) => String(formData.get(k) ?? "").trim();
+  const details = [
+    `FLEET INQUIRY — type: ${f("fleetType") || "n/a"}`,
+    `Vehicles: ${f("vehicleCount") || "n/a"} (${f("vehicleType") || "type n/a"})`,
+    `Monthly tire demand: ${f("monthlyDemand") || "n/a"}`,
+    `Service area: ${f("serviceArea") || "n/a"}`,
+    f("challenges") ? `Current challenges: ${f("challenges")}` : "",
+  ].filter(Boolean).join("\n");
+  const result: PublicLeadResult = await PublicLeadService.createQuoteRequest(
+    {
+      companyName: f("companyName"),
+      contactPerson: f("contactPerson"),
+      phone: f("phone"),
+      email: f("email"),
+      city: f("city"),
+      state: f("state"),
+      productsOfInterest: f("commonSizes") || "Fleet tire program",
+      message: details,
+    },
+    clientKey(),
+  );
+  return result.ok ? { ok: true } : { error: result.error };
+}
+
 const CERT_MAX = 10 * 1024 * 1024;
 const CERT_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
