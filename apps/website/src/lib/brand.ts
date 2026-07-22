@@ -22,7 +22,19 @@ export type Brand = {
 
 export const BRAND_KEY = process.env.BRAND_KEY ?? "RHINO";
 
-const FALLBACK: Brand = {
+const FALLBACK: Brand = BRAND_KEY === "EVERFLOW" ? {
+  key: "EVERFLOW",
+  name: "Everflow Tires & Wheels",
+  legalName: "EVERFLOW TIRES & WHEELS LLC",
+  phone: "+19033376132",
+  phoneDisplay: "(903) 337-6132",
+  contactEmail: "everflowtire@gmail.com",
+  networkName: "EVERFLOW Preferred Dealer Network",
+  locationId: "",
+  logoUrl: null,
+  heroImageUrl: null,
+  address: { streetAddress: "5091 Pulaski St", addressLocality: "Dallas", addressRegion: "TX", postalCode: "75247", addressCountry: "US" },
+} : {
   key: "RHINO",
   name: "Rhino Tire USA",
   legalName: "RHINO TIRE USA LLC",

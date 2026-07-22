@@ -5,6 +5,7 @@ import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { JsonLd } from "@/components/json-ld";
 import { CATEGORY_SLUGS, SITE, sizeToSlug } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
@@ -15,7 +16,7 @@ export function generateMetadata({ params }: { params: Params }): Metadata {
   if (!cat) return {};
   return {
     title: `${cat.label} — Wholesale Pricing & Live Stock`,
-    description: `Wholesale ${cat.label.toLowerCase()} in stock in Orlando, FL and Dallas, TX. Dealer tier pricing — request a quote or apply for a dealer account.`,
+    description: `Wholesale ${cat.label.toLowerCase()} in stock in ${COPY.wh}. Dealer tier pricing — request a quote or apply for a dealer account.`,
     alternates: { canonical: `/tires/${params.sub}` },
   };
 }

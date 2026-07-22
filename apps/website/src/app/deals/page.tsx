@@ -3,13 +3,13 @@ import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Deals & Special Offers — Wholesale Tires and Wheels",
-  description:
-    "Current wholesale specials on tires, wheels and trailer parts. Volume pricing on pallets and containers from Orlando, FL and Dallas, TX.",
+  description: `Current wholesale specials on tires, wheels and trailer parts. Volume pricing on pallets and containers from ${COPY.wh}.`,
   alternates: { canonical: "/deals" },
 };
 

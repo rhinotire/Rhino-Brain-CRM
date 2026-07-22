@@ -3,11 +3,11 @@ import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Motor Oil & Tire Shop Supplies — Wholesale",
-  description:
-    "Motor oil and lubricants at wholesale, with tire shop supplies — balance weights, valve stems, patches and tools — joining the catalog. Orlando, FL and Dallas, TX.",
+  description: `Motor oil and lubricants at wholesale, with tire shop supplies — balance weights, valve stems, patches and tools — joining the catalog. ${COPY.wh}.`,
   alternates: { canonical: "/supplies" },
 };
 

@@ -1,5 +1,7 @@
 /** Inline SVG graphics — tire/wheel imagery so the site reads "tires" at a glance. */
 
+import { COPY } from "@/lib/brand-copy";
+
 /**
  * Hero graphic: a single detailed tire on an alloy wheel. Pure SVG so it
  * ships free, stays sharp at any size and never causes layout shift.
@@ -57,7 +59,7 @@ export function HeroTireWheel({ className }: { className?: string }) {
         <path id="hArc" d="M -138 0 A 138 138 0 0 1 138 0" fill="none" />
         <text fontFamily="'Barlow Condensed','Arial Narrow',sans-serif" fontWeight={700} fontSize={30}
           letterSpacing={7} fill="#454d5b">
-          <textPath href="#hArc" startOffset="50%" textAnchor="middle">RHINO TIRES USA</textPath>
+          <textPath href="#hArc" startOffset="50%" textAnchor="middle">{COPY.heroSidewallText}</textPath>
         </text>
         <path id="hArcB" d="M 138 0 A 138 138 0 0 1 -138 0" fill="none" />
         <text fontFamily="'Barlow Condensed','Arial Narrow',sans-serif" fontWeight={600} fontSize={20}

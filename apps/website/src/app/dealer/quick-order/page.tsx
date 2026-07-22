@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { QuoteForm } from "@/components/lead-forms";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Dealer Quick Order — Paste Your List, Get a Quote",
-  description:
-    "Dealers: paste your size/SKU list with quantities and get a tier-priced quote back fast. Pallet and container programs from Orlando, FL and Dallas, TX.",
+  description: `Dealers: paste your size/SKU list with quantities and get a tier-priced quote back fast. Pallet and container programs from ${COPY.wh}.`,
   alternates: { canonical: "/dealer/quick-order" },
 };
 

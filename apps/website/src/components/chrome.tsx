@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Brand } from "@/lib/brand";
 import { MobileMenu } from "@/components/mobile-menu";
 import { MAIN_NAV, TIRES_MEGA } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 const navLink =
   "whitespace-nowrap border-b-2 border-transparent py-1 text-sm font-semibold text-navy-800 transition hover:border-brand hover:text-navy-900";
@@ -52,7 +53,7 @@ export function Header({ brand }: { brand: Brand }) {
             <span className="font-semibold text-white">Consumers:</span>{" "}
             <Link href="/find-installation" className="underline decoration-brand/60 underline-offset-2 hover:text-brand-light">find installation near me</Link>
           </p>
-          <p className="sm:hidden font-semibold text-white">Wholesale · Orlando, FL</p>
+          <p className="sm:hidden font-semibold text-white">{COPY.headerTagline}</p>
           <a href={`tel:${brand.phone}`} className="shrink-0 font-bold text-brand-light">{brand.phoneDisplay}</a>
         </div>
       </div>

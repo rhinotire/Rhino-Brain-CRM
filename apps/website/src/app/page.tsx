@@ -4,13 +4,13 @@ import { SITE, CATEGORY_SLUGS } from "@/lib/site";
 import { PublicArticleService, PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { getBrand, BRAND_KEY } from "@/lib/brand";
+import { COPY } from "@/lib/brand-copy";
 import { HeroTireWheel, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
 import { TireSearch } from "@/components/tire-search";
 
 export const metadata: Metadata = {
-  title: "Rhino Tire USA — Wholesale Tires, Wheels & Trailer Parts Distributor",
-  description:
-    "B2B tire distributor with warehouses in Orlando, FL and Dallas, TX. ST trailer, passenger, light-truck and commercial-truck tires at dealer pricing. Same-week delivery in Florida.",
+  title: COPY.homeTitle,
+  description: COPY.homeDescription,
   alternates: { canonical: "/" },
 };
 
@@ -43,7 +43,7 @@ export default async function HomePage() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-14 pt-12 sm:pt-16 md:grid-cols-[1fr_minmax(260px,400px)]">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-light">
-              Wholesale tire &amp; wheel distributor · Orlando FL · Dallas TX
+              {COPY.heroTagline}
             </p>
             <h1 className="h-display mt-4 max-w-2xl text-5xl sm:text-7xl">
               Tires. Wheels.<br />
@@ -69,7 +69,7 @@ export default async function HomePage() {
         <div className="relative border-t border-white/10 bg-gradient-to-r from-navy-900 via-navy-800 to-navy-900">
           <div className="mx-auto grid max-w-6xl gap-x-6 gap-y-2 px-4 py-4 sm:grid-cols-3">
             {[
-              [TruckIcon, "Same-week delivery runs across Florida"],
+              [TruckIcon, COPY.deliveryStat],
               [TireIcon, "1,000+ tire & wheel SKUs in stock"],
               [WheelIcon, "Pallet & container programs, mixed loads"],
             ].map(([Icon, text]) => {
@@ -90,7 +90,7 @@ export default async function HomePage() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-light">For tire shops · trailer builders · fleets</p>
           <h2 className="h-display mt-2 text-3xl">Buying for Your Business?</h2>
           <p className="mt-3 text-sm leading-relaxed text-steel-300">
-            Tier pricing A–D, weekly Florida restock runs, mixed pallets and full containers from two warehouses.
+            {COPY.b2bJourneyBlurb}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/tires" className="btn-gold">Search Wholesale Inventory</Link>

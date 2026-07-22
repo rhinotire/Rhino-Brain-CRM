@@ -3,10 +3,11 @@ import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Wholesale Trailer Parts — Hubs, Axles & Accessories",
-  description: "Trailer hubs, axles, bearing kits and accessories at wholesale pricing from Florida and Texas warehouses.",
+  description: COPY.partsDescription,
   alternates: { canonical: "/parts" },
 };
 

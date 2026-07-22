@@ -3,11 +3,11 @@ import Link from "next/link";
 import { PublicCatalogService, sizeSuggestion } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { CATEGORY_SLUGS } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Wholesale Tires — Trailer, Passenger, Light Truck & Commercial",
-  description:
-    "Browse wholesale tires by category: ST trailer, passenger, light truck and commercial truck. Live stock status from our Orlando and Dallas warehouses.",
+  description: `Browse wholesale tires by category: ST trailer, passenger, light truck and commercial truck. Live stock status from ${COPY.whOur}.`,
   alternates: { canonical: "/tires" },
 };
 

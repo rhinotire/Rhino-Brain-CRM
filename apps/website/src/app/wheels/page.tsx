@@ -3,10 +3,11 @@ import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Wholesale Wheels — Trailer, Off-Road & Custom",
-  description: "Wholesale wheels: trailer spoke/mod/galvanized plus off-road and custom truck wheels (20X10, 22X12). Common bolt patterns in stock in Orlando and Dallas.",
+  description: `Wholesale wheels: trailer spoke/mod/galvanized plus off-road and custom truck wheels (20X10, 22X12). Common bolt patterns in stock in ${COPY.whShort}.`,
   alternates: { canonical: "/wheels" },
 };
 

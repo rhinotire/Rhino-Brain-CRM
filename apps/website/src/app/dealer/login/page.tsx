@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Dealer Login",
@@ -24,7 +25,7 @@ export default function DealerLoginPage() {
       </div>
       <p className="mt-8 rounded-2xl border border-steel-200 bg-white p-6 text-left text-sm text-steel-500 shadow-card">
         <span className="font-bold text-navy-900">No dealer account yet?</span> Tire shops, trailer manufacturers and
-        fleets qualify for tier pricing, weekly Florida delivery runs and container programs.{" "}
+        fleets qualify for {COPY.dealerQualifyLine}.{" "}
         <Link href="/become-a-dealer" className="font-bold text-brand-dark">Apply here</Link> — approval usually takes one
         business day.
       </p>

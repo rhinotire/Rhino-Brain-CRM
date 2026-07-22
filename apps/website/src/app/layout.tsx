@@ -8,15 +8,17 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "op
 // the font is same-origin and tiny, so it's used on virtually every view
 const barlow = Barlow_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-display", display: "optional" });
 import { Header, Footer, MobileBar } from "@/components/chrome";
+import { AssistantWidget } from "@/components/assistant-widget";
 import { JsonLd } from "@/components/json-ld";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 import { getBrand } from "@/lib/brand";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: "Rhino Tire USA — Wholesale Tires, Wheels & Trailer Parts",
-    template: "%s | Rhino Tire USA",
+    default: COPY.titleDefault,
+    template: COPY.titleTemplate,
   },
   description: SITE.description,
   openGraph: { siteName: SITE.name, type: "website" },
@@ -63,6 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main className="mx-auto w-full max-w-6xl px-4 pb-16">{children}</main>
         <Footer brand={brand} />
         <MobileBar brand={brand} />
+        <AssistantWidget />
         {GA4_ID && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />

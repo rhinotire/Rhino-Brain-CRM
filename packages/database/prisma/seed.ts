@@ -55,9 +55,10 @@ async function main() {
   await db.brandConfig.upsert({
     where: { key: "EVERFLOW" }, update: {},
     create: {
-      key: "EVERFLOW", domain: "everflowtires.com", name: "Everflow Tires & Wheels", legalName: "EVERFLOW TIRES & WHEELS",
-      phone: "+12140000000", phoneDisplay: "(214) 000-0000",
-      addressJson: { streetAddress: "Dallas, TX", addressLocality: "Dallas", addressRegion: "TX", addressCountry: "US" },
+      // Owner-confirmed 2026-07-22 (docs/everflow-website-plan.md): everflowtireusa.com, 5091 Pulaski St
+      key: "EVERFLOW", domain: "everflowtireusa.com", name: "Everflow Tires & Wheels", legalName: "EVERFLOW TIRES & WHEELS LLC",
+      phone: "+19033376132", phoneDisplay: "(903) 337-6132",
+      addressJson: { streetAddress: "5091 Pulaski St", addressLocality: "Dallas", addressRegion: "TX", postalCode: "75247", addressCountry: "US" },
       networkName: "EVERFLOW Preferred Dealer Network", locationId: everflow.id, active: false, // RHINO ships first
     },
   });

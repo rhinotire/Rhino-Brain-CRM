@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CATEGORY_SLUGS } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Search Tires by Size — Any Format Accepted",
-  description:
-    "Find wholesale tires by size: 225/65R17, ST235/80R16, 11R22.5, 33X12.50R20 — or just the digits like 2256517. Live stock from Orlando, FL and Dallas, TX.",
+  description: `Find wholesale tires by size: 225/65R17, ST235/80R16, 11R22.5, 33X12.50R20 — or just the digits like 2256517. Live stock from ${COPY.wh}.`,
   alternates: { canonical: "/tires/by-size" },
 };
 

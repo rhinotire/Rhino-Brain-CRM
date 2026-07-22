@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Find Tires for Your Vehicle — Locate Your Tire Size",
@@ -19,7 +20,7 @@ const STEPS = [
   },
   {
     title: "Search that size here",
-    body: "Type it below in any format — with slashes, spaces, or just the digits. We'll show live wholesale stock from our Orlando and Dallas warehouses.",
+    body: `Type it below in any format — with slashes, spaces, or just the digits. We'll show live wholesale stock from ${COPY.whOur}.`,
   },
 ];
 

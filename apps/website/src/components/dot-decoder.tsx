@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { COPY } from "@/lib/brand-copy";
 
 /**
  * DOT date-code decoder. The last four digits of the DOT code are week +
@@ -144,7 +145,7 @@ export function DotDecoder() {
         <h2 className="h-display text-2xl">Time for fresh tires?</h2>
         <p className="mt-2 text-sm text-steel-300">
           Consumers: we&apos;ll route you to professional installation near you. Dealers: wholesale pricing on fresh-date
-          stock from Orlando and Dallas.
+          stock from {COPY.whShort}.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link href="/find-installation" className="btn-gold">Find Installation Near Me</Link>

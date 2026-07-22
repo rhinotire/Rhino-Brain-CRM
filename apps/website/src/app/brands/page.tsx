@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { SITE } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Tire & Wheel Brands We Stock",
-  description:
-    "Browse the tire and wheel brands stocked in our Orlando, FL and Dallas, TX warehouses — value lines and national-brand alternatives at wholesale pricing.",
+  description: COPY.brandsDescription,
   alternates: { canonical: "/brands" },
 };
 

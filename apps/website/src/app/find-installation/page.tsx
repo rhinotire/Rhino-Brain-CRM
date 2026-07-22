@@ -4,11 +4,11 @@ import { PublicInstallerService, recordEvent } from "@rhino/services";
 import { InstallerCard } from "@/components/installer-cards";
 import { InstallerNeededForm } from "@/components/consumer-request-form";
 import { getBrand, BRAND_KEY } from "@/lib/brand";
+import { COPY } from "@/lib/brand-copy";
 
 export const metadata: Metadata = {
   title: "Find Tires & Installation Near Me",
-  description:
-    "Enter your tire size and ZIP code to find local professional installation. Orlando-area customers install at IDEAL TIRES & WHEELS.",
+  description: COPY.findInstallDescription,
   alternates: { canonical: "/find-installation" },
 };
 

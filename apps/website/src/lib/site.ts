@@ -1,11 +1,13 @@
+import { COPY } from "@/lib/brand-copy";
+
 /**
- * Canonical entity identity (docs/seo-requirements.md): legalName
- * "RHINO TIRE USA LLC", brand "Rhino Tire USA" — one spelling everywhere.
- * The new platform launches on rhinotiresusa.com.
+ * Canonical entity identity (docs/seo-requirements.md): one spelling everywhere,
+ * selected per deployment by brand key (RHINO on rhinotiresusa.com, EVERFLOW on
+ * everflowtireusa.com). All brand-conditional strings live in lib/brand-copy.ts.
  */
 export const SITE = {
-  name: "Rhino Tire USA",
-  legalName: "RHINO TIRE USA LLC",
+  name: COPY.name,
+  legalName: COPY.legalName,
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rhinotiresusa.com",
   phone: process.env.NEXT_PUBLIC_PHONE ?? "+14077775598", // owner-confirmed wholesale line
   phoneDisplay: process.env.NEXT_PUBLIC_PHONE_DISPLAY ?? "(407) 777-5598",
@@ -16,8 +18,7 @@ export const SITE = {
     postalCode: process.env.NEXT_PUBLIC_ADDR_ZIP ?? "",
     addressCountry: "US",
   },
-  description:
-    "Wholesale distributor of trailer, passenger, light-truck and commercial-truck tires, wheels and trailer parts. Warehouses in Orlando, FL and Dallas, TX. Dealer pricing for tire shops, trailer manufacturers and fleets.",
+  description: COPY.siteDescription,
 } as const;
 
 export const CATEGORY_SLUGS: Record<string, { db: string; label: string; parent: "tires" | "wheels" | "parts" }> = {

@@ -96,6 +96,9 @@ importers:
 
   apps/website:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.110.0
+        version: 0.110.0(zod@3.25.76)
       '@rhino/services':
         specifier: workspace:*
         version: link:../../packages/services

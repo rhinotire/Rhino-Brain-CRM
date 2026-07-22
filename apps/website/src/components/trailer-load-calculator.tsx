@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { calcTrailerLoad, HITCH_SHARE, LOAD_INDEX_TABLE, type HitchType } from "@/lib/trailer-load";
+import { COPY } from "@/lib/brand-copy";
 
 const lbs = (n: number) => n.toLocaleString("en-US");
 
@@ -102,7 +103,7 @@ export function TrailerLoadCalculator() {
       <div className="mt-6 rounded-2xl bg-navy-900 p-6 text-white">
         <h2 className="h-display text-2xl">Need trailer tires that carry it?</h2>
         <p className="mt-2 text-sm text-steel-300">
-          Tell us your size and the capacity above — we&apos;ll quote ST trailer tires from our Orlando and Dallas stock at
+          Tell us your size and the capacity above — we&apos;ll quote ST trailer tires from our {COPY.whShort} stock at
           dealer pricing.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">

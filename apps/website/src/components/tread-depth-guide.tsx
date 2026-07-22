@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { COPY } from "@/lib/brand-copy";
 
 /**
  * Tread depth guide: depth in 32nds → status tier + % of usable tread left
@@ -150,7 +151,7 @@ export function TreadDepthGuide() {
       <div className="mt-6 rounded-2xl bg-navy-900 p-6 text-white">
         <h2 className="h-display text-2xl">Tread&apos;s done? Sort it today.</h2>
         <p className="mt-2 text-sm text-steel-300">
-          Consumers: professional installation near you. Dealers: wholesale replacement stock from Orlando and Dallas.
+          Consumers: professional installation near you. Dealers: wholesale replacement stock from {COPY.whShort}.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link href="/find-installation" className="btn-gold">Find Installation Near Me</Link>

@@ -3,13 +3,13 @@ import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { SITE, SPECIALTY_APPLICATIONS } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Specialty Tires — ATV/UTV, Golf Cart, Lawn & Ag",
-  description:
-    "Wholesale specialty tires: ATV/UTV, golf cart, lawn & garden, industrial and agricultural. Dealer pricing from Orlando, FL and Dallas, TX warehouses.",
+  description: COPY.specialtyDescription,
   alternates: { canonical: "/tires/specialty" },
 };
 
