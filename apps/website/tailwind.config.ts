@@ -5,9 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Rhino gold
+        // Brand accent — CSS variables so each deployment gets its own color
+        // (RHINO gold by default, EVERFLOW orange via html[data-brand]).
+        // Triplet format keeps Tailwind opacity modifiers (bg-brand/15) working.
         // dark variant is text-safe on white (≥4.5:1 contrast)
-        brand: { DEFAULT: "#F0A500", dark: "#8F6400", light: "#FFC93C" },
+        brand: {
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          dark: "rgb(var(--brand-dark) / <alpha-value>)",
+          light: "rgb(var(--brand-light) / <alpha-value>)",
+        },
         // deep navy — primary dark surface
         navy: {
           DEFAULT: "#0C1B33",

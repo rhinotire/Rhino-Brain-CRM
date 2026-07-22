@@ -5,13 +5,27 @@
 html {
   scroll-behavior: smooth;
 }
+
+/* Brand accent per deployment (docs/everflow-website-plan.md).
+   RHINO keeps the original gold byte-for-byte; EVERFLOW uses the orange
+   from the owner's logo waves. RGB triplets — consumed by tailwind.config. */
+:root {
+  --brand: 240 165 0; /* #F0A500 gold */
+  --brand-dark: 143 100 0; /* #8F6400 */
+  --brand-light: 255 201 60; /* #FFC93C */
+}
+html[data-brand="EVERFLOW"] {
+  --brand: 234 140 31; /* #EA8C1F logo-wave orange */
+  --brand-dark: 143 71 0; /* #8F4700 burnt orange, ≥4.5:1 on white */
+  --brand-light: 247 169 77; /* #F7A94D */
+}
 body {
   @apply text-ink antialiased;
 }
 
 /* Accessible focus for keyboard users, brand-colored */
 :focus-visible {
-  outline: 2px solid #f0a500;
+  outline: 2px solid rgb(var(--brand));
   outline-offset: 2px;
 }
 

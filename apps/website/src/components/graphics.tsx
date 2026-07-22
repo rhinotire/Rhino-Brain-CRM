@@ -69,7 +69,7 @@ export function HeroTireWheel({ className }: { className?: string }) {
         {/* specular highlight */}
         <path d="M -150 -95 A 178 178 0 0 1 -20 -177" fill="none" stroke="#ffffff" strokeWidth={20} strokeLinecap="round" opacity={0.06} />
         {/* gold pinstripe + machined lip */}
-        <circle r={117} fill="none" stroke="#F0A500" strokeWidth={3.5} />
+        <circle r={117} fill="none" stroke="rgb(var(--brand))" strokeWidth={3.5} />
         <circle r={110} fill="url(#hAlloy)" />
         <circle r={97} fill="url(#hBarrel)" />
         {/* six tapered twin spokes */}
@@ -85,7 +85,7 @@ export function HeroTireWheel({ className }: { className?: string }) {
           <circle key={a} cx={0} cy={-33} r={6.5} fill="url(#hLug)" transform={`rotate(${a})`} />
         ))}
         <circle r={19} fill="#141a24" />
-        <circle r={19} fill="none" stroke="#F0A500" strokeWidth={2.5} />
+        <circle r={19} fill="none" stroke="rgb(var(--brand))" strokeWidth={2.5} />
         <circle r={7} fill="#39404d" />
       </g>
     </svg>

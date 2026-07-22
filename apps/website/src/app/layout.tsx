@@ -12,7 +12,7 @@ import { AssistantWidget } from "@/components/assistant-widget";
 import { JsonLd } from "@/components/json-ld";
 import { SITE } from "@/lib/site";
 import { COPY } from "@/lib/brand-copy";
-import { getBrand } from "@/lib/brand";
+import { getBrand, BRAND_KEY } from "@/lib/brand";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -33,7 +33,7 @@ const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const brand = await getBrand();
   return (
-    <html lang="en" className={`${inter.variable} ${barlow.variable}`}>
+    <html lang="en" data-brand={BRAND_KEY} className={`${inter.variable} ${barlow.variable}`}>
       <body className="min-h-screen bg-white font-sans">
         <JsonLd
           data={{
