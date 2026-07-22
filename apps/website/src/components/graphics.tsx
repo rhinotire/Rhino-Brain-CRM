@@ -41,6 +41,9 @@ export function HeroTireWheel({ className }: { className?: string }) {
 
       {/* ---- tire on alloy wheel ---- */}
       <g transform="translate(220 220)">
+        {/* whole wheel spins slowly (CSS .tire-spin, still under reduced-motion);
+            the specular highlight stays fixed outside this group like real light */}
+        <g className="tire-spin">
         {/* tread blocks — chunky, slightly rounded, with a sipe cut */}
         {blocks.map((a) => (
           <g key={a} transform={`rotate(${a})`}>
@@ -66,8 +69,6 @@ export function HeroTireWheel({ className }: { className?: string }) {
           letterSpacing={6} fill="#3b424f">
           <textPath href="#hArcB" startOffset="50%" textAnchor="middle">WHOLESALE · TIRES · WHEELS</textPath>
         </text>
-        {/* specular highlight */}
-        <path d="M -150 -95 A 178 178 0 0 1 -20 -177" fill="none" stroke="#ffffff" strokeWidth={20} strokeLinecap="round" opacity={0.06} />
         {/* gold pinstripe + machined lip */}
         <circle r={117} fill="none" stroke="rgb(var(--brand))" strokeWidth={3.5} />
         <circle r={110} fill="url(#hAlloy)" />
@@ -87,6 +88,9 @@ export function HeroTireWheel({ className }: { className?: string }) {
         <circle r={19} fill="#141a24" />
         <circle r={19} fill="none" stroke="rgb(var(--brand))" strokeWidth={2.5} />
         <circle r={7} fill="#39404d" />
+        </g>
+        {/* specular highlight — fixed light source over the spinning tire */}
+        <path d="M -150 -95 A 178 178 0 0 1 -20 -177" fill="none" stroke="#ffffff" strokeWidth={20} strokeLinecap="round" opacity={0.06} />
       </g>
     </svg>
   );

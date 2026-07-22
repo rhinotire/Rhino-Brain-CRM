@@ -23,6 +23,21 @@ body {
   @apply text-ink antialiased;
 }
 
+/* Hero tire rotation — subtle, stately; disabled for reduced-motion users */
+@keyframes tire-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tire-spin {
+  animation: tire-spin 18s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tire-spin {
+    animation: none;
+  }
+}
+
 /* Accessible focus for keyboard users, brand-colored */
 :focus-visible {
   outline: 2px solid rgb(var(--brand));
