@@ -62,7 +62,18 @@ export default async function HomePage() {
             </div>
           </div>
           {!brand.heroImageUrl && (
-            <HeroTireWheel className="mx-auto hidden w-full max-w-[400px] drop-shadow-2xl md:block" />
+            <div className="hidden md:block">
+              <HeroTireWheel className="mx-auto w-full max-w-[400px] drop-shadow-2xl" />
+              {/* caption plays on the spin — dealers' business keeps turning too */}
+              <p className="mt-6 text-center">
+                <span className="h-display text-2xl text-white">
+                  Keeping Dealers <span className="text-brand">Rolling</span>
+                </span>
+                <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.3em] text-steel-300">
+                  {COPY.heroWheelCities}
+                </span>
+              </p>
+            </div>
           )}
         </div>
         {/* metallic stat band */}

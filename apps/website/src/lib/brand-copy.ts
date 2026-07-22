@@ -34,6 +34,9 @@ const RHINO = {
   // embossed sidewall lettering on the hero tire graphic (≤15 chars fits the arc)
   heroSidewallText: "RHINO TIRES USA",
 
+  // caption under the spinning hero tire
+  heroWheelCities: "Orlando, FL · Dallas, TX",
+
   // warehouse phrases for interpolation
   wh: "Orlando, FL and Dallas, TX",
   whShort: "Orlando and Dallas",
@@ -87,6 +90,8 @@ const EVERFLOW: typeof RHINO = {
   headerTagline: "Wholesale · Dallas, TX",
 
   heroSidewallText: "EVERFLOW TIRES",
+
+  heroWheelCities: "Dallas, TX",
 
   wh: "Dallas, TX",
   whShort: "Dallas",
