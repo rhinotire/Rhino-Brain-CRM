@@ -21,7 +21,7 @@ export default async function DealsPage() {
       <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
         <Link href="/">Home</Link> / Deals
       </nav>
-      <h1 className="mt-2 text-2xl font-black">Deals &amp; Special Offers</h1>
+      <h1 className="mt-2 text-2xl font-black text-red-600">🏷️ Deals &amp; Special Offers</h1>
       <p className="mt-2 max-w-2xl text-sm text-steel-500">
         Overstock, close-outs and volume specials. Dealer pricing shown on approved accounts.
       </p>
@@ -29,7 +29,7 @@ export default async function DealsPage() {
       {products.length ? (
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           {products.map((p) => (
-            <ProductCard key={p.sku} p={p} />
+            <ProductCard key={p.sku} p={p} dealBadge />
           ))}
         </div>
       ) : (

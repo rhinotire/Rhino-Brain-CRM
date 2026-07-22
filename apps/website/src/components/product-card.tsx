@@ -14,14 +14,19 @@ export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"]
 }
 
 /** Premium product card: brand eyebrow, condensed name, big size, badges. */
-export function ProductCard({ p }: { p: PublicProductDTO }) {
+export function ProductCard({ p, dealBadge }: { p: PublicProductDTO; dealBadge?: boolean }) {
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
   return (
     <Link
       href={`/products/${p.slug}`}
-      className="group flex flex-col rounded-2xl border border-steel-200 bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift"
+      className={`group flex flex-col rounded-2xl border bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lift ${dealBadge ? "border-red-200 hover:border-red-400" : "border-steel-200 hover:border-brand"}`}
     >
       <div className="relative mb-3 flex h-36 items-center justify-center rounded-xl bg-gradient-to-b from-steel-100 to-white">
+        {dealBadge && (
+          <span className="absolute -left-1.5 -top-1.5 z-10 rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-white shadow">
+            Deal
+          </span>
+        )}
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={img.url} alt={img.alt} className="h-32 w-full object-contain" loading="lazy" />

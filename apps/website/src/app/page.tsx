@@ -126,13 +126,15 @@ export default async function HomePage() {
         </section>
       )}
       {deals.length > 0 && (
-        <section>
-          <div className="flex items-baseline justify-between">
-            <h2 className="h-display text-3xl text-navy-900">Deals &amp; Specials</h2>
-            <Link href="/deals" className="text-sm font-bold text-brand-dark hover:underline">All deals →</Link>
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {deals.slice(0, 8).map((p) => <ProductCard key={p.sku} p={p} />)}
+        <section className="relative left-1/2 w-screen -translate-x-1/2 bg-gradient-to-r from-red-50 via-orange-50 to-red-50">
+          <div className="mx-auto max-w-6xl px-4 py-10">
+            <div className="flex items-baseline justify-between">
+              <h2 className="h-display text-3xl text-red-600">🏷️ Deals &amp; Specials</h2>
+              <Link href="/deals" className="text-sm font-bold text-red-600 hover:underline">All deals →</Link>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+              {deals.slice(0, 8).map((p) => <ProductCard key={p.sku} p={p} dealBadge />)}
+            </div>
           </div>
         </section>
       )}
