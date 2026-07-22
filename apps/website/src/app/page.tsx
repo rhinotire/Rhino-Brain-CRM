@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE, CATEGORY_SLUGS } from "@/lib/site";
-import { PublicArticleService } from "@rhino/services";
+import { PublicArticleService, PublicCatalogService } from "@rhino/services";
+import { ProductCard } from "@/components/product-card";
 import { getBrand, BRAND_KEY } from "@/lib/brand";
 import { HeroTireWheel, TreadTexture, TireIcon, WheelIcon, TruckIcon, TrailerIcon } from "@/components/graphics";
 import { TireSearch } from "@/components/tire-search";
@@ -14,7 +15,13 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [brand, articles] = await Promise.all([getBrand(), PublicArticleService.listPublished(BRAND_KEY)]);
+  const [brand, articles, hot, deals, arrivals] = await Promise.all([
+    getBrand(),
+    PublicArticleService.listPublished(BRAND_KEY),
+    PublicCatalogService.listPublished({ bestSeller: true, take: 8 }),
+    PublicCatalogService.listPublished({ specialOffer: true, take: 8 }),
+    PublicCatalogService.listPublished({ sort: "newest", take: 8 }),
+  ]);
   return (
     <div className="space-y-16">
       {/* ============ HERO — navy, metallic, gold ============ */}
@@ -105,6 +112,41 @@ export default async function HomePage() {
           </form>
         </div>
       </section>
+
+      {/* ============ MERCHANDISING — hot / deals / new, hide when empty ============ */}
+      {hot.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between">
+            <h2 className="h-display text-3xl text-navy-900">🔥 Hot Right Now</h2>
+            <Link href="/tires" className="text-sm font-bold text-brand-dark hover:underline">All tires →</Link>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {hot.slice(0, 8).map((p) => <ProductCard key={p.sku} p={p} />)}
+          </div>
+        </section>
+      )}
+      {deals.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between">
+            <h2 className="h-display text-3xl text-navy-900">Deals &amp; Specials</h2>
+            <Link href="/deals" className="text-sm font-bold text-brand-dark hover:underline">All deals →</Link>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {deals.slice(0, 8).map((p) => <ProductCard key={p.sku} p={p} />)}
+          </div>
+        </section>
+      )}
+      {arrivals.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between">
+            <h2 className="h-display text-3xl text-navy-900">New Arrivals</h2>
+            <Link href="/tires" className="text-sm font-bold text-brand-dark hover:underline">Browse all →</Link>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {arrivals.slice(0, 8).map((p) => <ProductCard key={p.sku} p={p} />)}
+          </div>
+        </section>
+      )}
 
       {/* ============ CATEGORIES ============ */}
       <section>

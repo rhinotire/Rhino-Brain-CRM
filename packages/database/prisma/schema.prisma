@@ -614,6 +614,7 @@ model Product {
   bestSeller   Boolean @default(false)
   specialOffer Boolean @default(false)
   featured     Boolean @default(false)
+  publishedAt  DateTime? // first time the product went PUBLIC — powers "New Arrivals"
 
   inventory  InventorySnapshot[]
   orderItems OrderItem[]

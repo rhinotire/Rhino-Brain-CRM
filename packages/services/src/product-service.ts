@@ -53,14 +53,17 @@ export const ProductService = {
     }
     const p = await db.product.findUniqueOrThrow({
       where: { id: productId },
-      select: { sku: true, brand: true, description: true, sizeSpec: true, slug: true, name: true },
+      select: { sku: true, brand: true, description: true, sizeSpec: true, slug: true, name: true, publishedAt: true },
     });
     const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
     const name = p.name ?? [p.brand, p.description, p.sizeSpec].filter(Boolean).join(" ").trim();
     let slug = p.slug ?? slugify(name || p.sku);
     const clash = await db.product.findFirst({ where: { slug, NOT: { id: productId } }, select: { id: true } });
     if (clash) slug = `${slug}-${slugify(p.sku)}`;
-    await db.product.update({ where: { id: productId }, data: { visibility: "PUBLIC", slug, name: name || p.sku } });
+    await db.product.update({
+      where: { id: productId },
+      data: { visibility: "PUBLIC", slug, name: name || p.sku, ...(p.publishedAt ? {} : { publishedAt: new Date() }) },
+    });
     return { slug };
   },
 

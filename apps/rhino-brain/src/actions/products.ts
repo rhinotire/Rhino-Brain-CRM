@@ -70,6 +70,18 @@ export async function clearProductPhoto(productId: string): Promise<{ ok?: boole
   return { ok: true };
 }
 
+/** Toggle a homepage merchandising flag (Hot = bestSeller, Deal = specialOffer). */
+export async function toggleProductFlag(productId: string, flag: "bestSeller" | "specialOffer"): Promise<{ ok?: boolean; value?: boolean; error?: string }> {
+  await requireManager();
+  if (flag !== "bestSeller" && flag !== "specialOffer") return { error: "Unknown flag." };
+  const p = await db.product.findUnique({ where: { id: productId }, select: { bestSeller: true, specialOffer: true } });
+  if (!p) return { error: "Product not found." };
+  const value = !p[flag];
+  await db.product.update({ where: { id: productId }, data: { [flag]: value } });
+  revalidatePath("/products");
+  return { ok: true, value };
+}
+
 /** Set/clear a product's public reference price (MSRP). Never touches tier pricing. */
 export async function setMsrp(productId: string, value: string): Promise<{ ok?: boolean; msrp?: number | null; error?: string }> {
   await requireManager();

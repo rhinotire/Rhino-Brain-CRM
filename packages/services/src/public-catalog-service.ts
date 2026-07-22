@@ -185,7 +185,7 @@ function boltNeedles(raw: string): string[] {
 
 export const PublicCatalogService = {
   async listPublished(
-    params: { category?: string; query?: string; boltPattern?: string; take?: number; skip?: number; specialOffer?: boolean; applications?: string[]; assemblies?: boolean } = {}
+    params: { category?: string; query?: string; boltPattern?: string; take?: number; skip?: number; specialOffer?: boolean; bestSeller?: boolean; applications?: string[]; assemblies?: boolean; sort?: "newest" } = {}
   ): Promise<PublicProductDTO[]> {
     const bolt = params.boltPattern?.trim();
     const boltVariants = bolt ? boltNeedles(bolt) : [];
@@ -201,6 +201,7 @@ export const PublicCatalogService = {
         ...PUBLISHED_WHERE,
         ...(params.category ? { category: params.category as PublishedRow["category"] } : {}),
         ...(params.specialOffer ? { specialOffer: true } : {}),
+        ...(params.bestSeller ? { bestSeller: true } : {}),
         ...(params.applications?.length ? { tireSpec: { application: { in: params.applications } } } : {}),
         // mounted tire-and-wheel assemblies follow the catalog convention
         // "BRAND On WHEEL…" in the description
@@ -233,7 +234,9 @@ export const PublicCatalogService = {
             : {}),
       },
       include: PUBLISHED_INCLUDE,
-      orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
+      orderBy: params.sort === "newest"
+        ? [{ publishedAt: "desc" as const }, { sku: "asc" as const }]
+        : [{ sizeSpec: "asc" as const }, { sku: "asc" as const }],
       take: Math.min(params.take ?? 60, 200),
       skip: params.skip ?? 0,
     });
