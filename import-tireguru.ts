@@ -20,16 +20,14 @@ import { PrismaClient, Prisma, ProductCategory } from "@prisma/client";
 import * as XLSX from "xlsx";
 
 // ---------------------------------------------------------------------------
-// Price-level mapping — CONFIRM WITH WILLIAM before first --apply.
-// TireGuru level name → CRM field. Unknown levels are reported and skipped.
-// Sample values 2026-07-23 (CROSSWIND M/T 33X12.50R15): C-5 114.80 < Wholesale
-// 151.41 < 2025 GoodLuck 155.95 < GoodLuck CC 160.77 < Retail Markup 222.79.
+// Price-level mapping (owner-confirmed 2026-07-23): "2025 GoodLuck" is the
+// standard dealer price 90% of customers pay → priceA. Retail Markup → msrp
+// (public reference). C-5 / Wholesale / GoodLuck CC are rep-negotiated levels
+// the owner keeps OFF the platform on purpose — deliberately not imported.
+// Unknown levels are reported and skipped.
 // ---------------------------------------------------------------------------
 const PRICE_LEVEL_MAP: Record<string, "priceA" | "priceB" | "priceC" | "priceD" | "msrp"> = {
-  "C-5": "priceA",
-  "Wholesale": "priceB",
-  "2025 GoodLuck": "priceC",
-  "2025 Goodluck CC": "priceD",
+  "2025 GoodLuck": "priceA",
   "Retail Markup": "msrp",
 };
 
@@ -110,7 +108,26 @@ function parseStock(path: string): StockRow[] {
       onOrder: Number(row[9]) || 0,
     });
   }
-  return out;
+  // TireGuru lists some wheels twice — same item number under two catalog lines
+  // (pre/post rebrand, e.g. "Impact 808" + "Rhino 808"). Merge: sum quantities,
+  // keep the higher-stock line's metadata.
+  const bySku = new Map<string, StockRow>();
+  for (const r of out) {
+    const prev = bySku.get(r.sku);
+    if (!prev) {
+      bySku.set(r.sku, r);
+      continue;
+    }
+    const keep = r.onHand >= prev.onHand ? r : prev;
+    bySku.set(r.sku, {
+      ...keep,
+      onHand: prev.onHand + r.onHand,
+      committed: prev.committed + r.committed,
+      onOrder: prev.onOrder + r.onOrder,
+    });
+  }
+  if (bySku.size < out.length) console.log(`(stock report: merged ${out.length - bySku.size} duplicate-SKU lines)`);
+  return [...bySku.values()];
 }
 
 function parsePrice(path: string): { rows: PriceRow[]; levelNames: string[] } {
