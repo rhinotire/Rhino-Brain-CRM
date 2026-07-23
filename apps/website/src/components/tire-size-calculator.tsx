@@ -104,8 +104,10 @@ function TirePicker({ label, tire, onChange, accent }: { label: string; tire: Ti
 
 const fmt = (n: number, d = 2) => n.toFixed(d);
 
-export function TireSizeCalculator() {
-  const [a, setA] = useState<TireSpec>({ kind: "metric", width: 205, aspect: 75, rim: 15 });
+export function TireSizeCalculator({ initialA }: { initialA?: string }) {
+  const [a, setA] = useState<TireSpec>(
+    () => (initialA && parseTireSize(initialA)) || { kind: "metric", width: 205, aspect: 75, rim: 15 },
+  );
   const [b, setB] = useState<TireSpec>({ kind: "metric", width: 235, aspect: 80, rim: 16 });
   const ca = calcTire(a);
   const cb = calcTire(b);

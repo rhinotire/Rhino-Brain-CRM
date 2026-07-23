@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/tools/tire-size-calculator" },
 };
 
-export default function TireCalcPage() {
+export default function TireCalcPage({ searchParams }: { searchParams?: { a?: string } }) {
   return (
     <div className="pt-8">
       <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
@@ -24,7 +24,7 @@ export default function TireCalcPage() {
       </p>
 
       <div className="mt-6">
-        <TireSizeCalculator />
+        <TireSizeCalculator initialA={searchParams?.a} />
       </div>
 
       {/* GEO: quotable explanations under the tool */}
