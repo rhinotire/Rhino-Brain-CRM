@@ -12,6 +12,21 @@ D2C/SEO layer; this covers the transaction layer where Rhino's actual business l
 | K&M Tire (Weblink 2.1 + Mr. Tire program) | Large Midwest wholesaler | Public pages + trade press |
 | Tireweb Wholesale | SaaS platform sold TO tire wholesalers | Full public feature list — the closest thing to an industry-standard checklist |
 
+## Build vs buy (asked 2026-07-23)
+
+The big three run **in-house platforms** (their scale funds dev teams). Tireweb Wholesale
+is the off-the-shelf SaaS for regional/mid-size wholesalers — real customers include
+Atlantic Tire, Flynn's Tire, Purcell Tire, Ben Tire, STM (white-label dealer apps on
+Google Play), claiming 30k+ dealers on platform.
+
+Decision: **build**. Tireweb assumes it pulls stock/pricing from your POS/ERP — ours is
+RHINO BRAIN, so buying still means building a full data-feed integration, plus SaaS fees
+and their template. Our differentiators (multi-company shared stock, IDEAL routing,
+Send-to-Installer, free-text quick order) don't fit their mold, and architecture.md
+already reserves the dealer-portal layer over data we own. Tireweb remains the fallback
+if a sub-brand ever needs a good-enough wholesale storefront fast. Its feature list
+doubles as our table-stakes validation (below).
+
 ## Industry table stakes (every portal has these)
 
 1. **Dealer login with tier pricing** — each account sees its own price, 24/7.
