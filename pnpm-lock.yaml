@@ -102,6 +102,9 @@ importers:
       '@rhino/services':
         specifier: workspace:*
         version: link:../../packages/services
+      jose:
+        specifier: ^5.10.0
+        version: 5.10.0
       next:
         specifier: ^14.2.13
         version: 14.2.35(@playwright/test@1.61.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -181,6 +184,9 @@ importers:
       '@rhino/database':
         specifier: workspace:*
         version: link:../database
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       nodemailer:
         specifier: ^9.0.3
         version: 9.0.3
@@ -191,6 +197,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       '@types/nodemailer':
         specifier: ^8.0.1
         version: 8.0.1

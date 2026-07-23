@@ -5,6 +5,8 @@
 export { ProductService, type ProductSearchParams } from "./product-service";
 export { InventoryService, type SnapshotRow, type SnapshotResult } from "./inventory-service";
 export { PublicCatalogService } from "./public-catalog-service";
+export { DealerAuthService, type DealerIdentity } from "./dealer-auth-service";
+export { DealerCatalogService, type DealerProductDTO } from "./dealer-catalog-service";
 export { PublicLeadService, rateLimited, type QuoteRequestInput, type DealerApplicationInput, type PublicLeadResult } from "./public-lead-service";
 export { PublicInstallerService, type PublicInstallerDTO, type InstallationOptions } from "./public-installer-service";
 export { PublicConsumerLeadService, type ConsumerLeadResult } from "./public-consumer-lead-service";

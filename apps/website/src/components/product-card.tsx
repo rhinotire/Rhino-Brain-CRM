@@ -13,8 +13,11 @@ export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"]
   return <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style}`}>{STOCK_LABEL[status]}</span>;
 }
 
+/** Logged-in dealer extras rendered on the card (read-only portal Phase 1). */
+export type DealerCardInfo = { price: number | null; qty: number; qtyByLocation: Record<string, number> };
+
 /** Premium product card: brand eyebrow, condensed name, big size, badges. */
-export function ProductCard({ p, dealBadge }: { p: PublicProductDTO; dealBadge?: boolean }) {
+export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dealBadge?: boolean; dealer?: DealerCardInfo }) {
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
   return (
     <Link
@@ -55,14 +58,41 @@ export function ProductCard({ p, dealBadge }: { p: PublicProductDTO; dealBadge?:
       <div className="mt-0.5 line-clamp-2 text-xs text-steel-500">{p.name}</div>
       <div className="mt-1 text-[11px] text-steel-400">SKU {p.sku}</div>
       <div className="mt-auto flex items-center justify-between border-t border-steel-100 pt-3">
-        <StockBadge status={p.stockStatus} />
-        {p.msrp !== null ? (
-          <span className="text-right">
-            <span className="block font-display text-lg font-bold leading-none text-navy-900">${p.msrp.toFixed(2)}</span>
-            <span className="block text-[10px] font-semibold uppercase tracking-wide text-steel-400">MSRP · dealers save</span>
-          </span>
+        {dealer ? (
+          <>
+            <span className="text-left">
+              {dealer.qty > 0 ? (
+                <span className="block text-xs font-bold text-emerald-700">
+                  {dealer.qty} in stock
+                  <span className="block text-[10px] font-semibold text-steel-400">
+                    {Object.entries(dealer.qtyByLocation).map(([tag, q]) => `${tag} ${q}`).join(" · ")}
+                  </span>
+                </span>
+              ) : (
+                <span className="block text-xs font-bold text-steel-400">Out of stock — ask your rep</span>
+              )}
+            </span>
+            {dealer.price !== null ? (
+              <span className="text-right">
+                <span className="block font-display text-lg font-bold leading-none text-navy-900">${dealer.price.toFixed(2)}</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-brand-dark">your price</span>
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-brand-dark">Ask your rep</span>
+            )}
+          </>
         ) : (
-          <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">Dealer price →</span>
+          <>
+            <StockBadge status={p.stockStatus} />
+            {p.msrp !== null ? (
+              <span className="text-right">
+                <span className="block font-display text-lg font-bold leading-none text-navy-900">${p.msrp.toFixed(2)}</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-steel-400">MSRP · dealers save</span>
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">Dealer price →</span>
+            )}
+          </>
         )}
       </div>
     </Link>

@@ -304,6 +304,7 @@ model Customer {
   lostSales     LostSale[]
   installers    Installer[]
   installerReferrals InstallerReferral[]
+  dealerUsers   DealerUser[]
 
   // Placeholder fields for future Tireguru POS integration
   tireguruId     String? @unique
@@ -504,6 +505,25 @@ model Tag {
   name      String        @unique
   color     String        @default("#64748b")
   customers CustomerTag[]
+}
+
+// ---------- Dealer portal auth (architecture.md trust tier: external dealer) ----------
+// Completely separate from internal User. A dealer login belongs to exactly one
+// Customer; every portal query is scoped to that customer server-side.
+
+model DealerUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([customerId])
 }
 
 model CustomerTag {
