@@ -81,6 +81,27 @@ tier prices, customers, orders — all in the CRM DB; architecture.md already re
 dealer-portal trust tier with DealerUser sessions and own-scope authorization).
 The portal is a presentation + auth layer over data we already have.
 
+## Current stack & migration strategy (owner input 2026-07-23)
+
+Live operations run on **TireGuru POS** + TireGuru **TireLink** as the dealer portal.
+Owner finds both mediocre and wants TireLink replaced, but fears migration risk.
+
+Strategy — strangler pattern, never big-bang:
+1. **TireGuru POS stays untouched** as the in-store system of record. Replacing a POS is
+   the real surgery; it is out of scope indefinitely.
+2. New portal replaces **TireLink only**, and launches **read-only** (tier prices + live
+   stock, no ordering). A read-only surface cannot lose an order or corrupt books;
+   TireLink keeps running in parallel as fallback.
+3. Pilot with 2–3 friendly dealers before wide rollout.
+4. Ordering comes later, and v1 orders flow into the CRM's existing human-confirmation
+   path — reps still key confirmed orders into TireGuru. Digitize the order intake,
+   keep the ledger where it is.
+5. TireGuru retirement is a separate, much later decision.
+
+**Design blocker to resolve first:** where does inventory/pricing truth live today —
+TireGuru POS or RHINO BRAIN? If TireGuru holds it, the portal needs a TireGuru data
+feed (API/export capability TBD) before the read-only phase can be trusted.
+
 ## Recommended build order (portal MVP, matches architecture.md Phase 2)
 
 1. **DealerUser auth** linked to a CRM Customer (approval flow already exists via
