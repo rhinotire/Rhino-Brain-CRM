@@ -305,6 +305,7 @@ model Customer {
   installers    Installer[]
   installerReferrals InstallerReferral[]
   dealerUsers   DealerUser[]
+  dealerOrderRequests DealerOrderRequest[]
 
   // Placeholder fields for future Tireguru POS integration
   tireguruId     String? @unique
@@ -523,7 +524,56 @@ model DealerUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  orderRequests DealerOrderRequest[]
+
   @@index([customerId])
+}
+
+// Portal order intake (strangler step: order capture digitized, the ledger stays
+// in TireGuru). A request is NOT a confirmed sale — it never touches Order until
+// a rep confirms it, so CRM revenue reporting stays clean.
+
+enum DealerOrderStatus {
+  SUBMITTED // dealer placed it in the portal
+  CONFIRMED // rep confirmed price/stock, keyed into TireGuru
+  FULFILLED // shipped / picked up
+  CANCELLED
+}
+
+model DealerOrderRequest {
+  id            String            @id @default(cuid())
+  requestNumber String            @unique // "DR-…" shown to the dealer
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  dealerUserId  String
+  dealerUser    DealerUser        @relation(fields: [dealerUserId], references: [id])
+  status        DealerOrderStatus @default(SUBMITTED)
+  poNumber      String? // the dealer's own PO reference
+  notes         String?
+  total         Decimal           @default(0) @db.Decimal(12, 2) // indicative, at submit-time tier prices
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  items DealerOrderRequestItem[]
+
+  @@index([customerId, createdAt])
+  @@index([status])
+}
+
+model DealerOrderRequestItem {
+  id          String             @id @default(cuid())
+  requestId   String
+  request     DealerOrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?           @relation(fields: [productId], references: [id])
+  sku         String
+  description String
+  quantity    Int
+  unitPrice   Decimal            @db.Decimal(10, 2) // server-resolved tier price at submit time
+  lineTotal   Decimal            @db.Decimal(12, 2)
+
+  @@index([requestId])
+  @@index([productId])
 }
 
 model CustomerTag {
@@ -648,6 +698,7 @@ model Product {
   relatedTo ProductRelation[] @relation("RelatedProduct")
   consumerLeads ConsumerLead[]
   specProposal  SpecProposal?
+  dealerOrderItems DealerOrderRequestItem[]
 
   @@index([category])
   @@index([sizeSpec])

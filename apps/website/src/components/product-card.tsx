@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PublicProductDTO } from "@rhino/services";
 import { STOCK_LABEL } from "@/lib/site";
 import { TireGraphic } from "@/components/graphics";
+import { AddToOrder } from "@/components/dealer-cart";
 
 export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"] }) {
   const style =
@@ -19,7 +20,7 @@ export type DealerCardInfo = { price: number | null; qty: number; qtyByLocation:
 /** Premium product card: brand eyebrow, condensed name, big size, badges. */
 export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dealBadge?: boolean; dealer?: DealerCardInfo }) {
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
-  return (
+  const card = (
     <Link
       href={`/products/${p.slug}`}
       className={`group flex flex-col rounded-2xl border bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lift ${dealBadge ? "border-red-200 hover:border-red-400" : "border-steel-200 hover:border-brand"}`}
@@ -96,5 +97,16 @@ export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dea
         )}
       </div>
     </Link>
+  );
+  if (!dealer) return card;
+  // dealer mode: Add-to-Order controls live OUTSIDE the card link (nested
+  // interactive elements inside an anchor break click handling)
+  return (
+    <div className="flex flex-col">
+      {card}
+      {dealer.qty > 0 && dealer.price !== null && (
+        <AddToOrder sku={p.sku} label={p.name} size={p.sizeSpec} price={dealer.price} />
+      )}
+    </div>
   );
 }

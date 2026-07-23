@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { DealerCatalogService, sizeSuggestion } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { DealerBanner } from "@/components/dealer-banner";
+import { DealerCartProvider, DealerCartBar } from "@/components/dealer-cart";
 import { CATEGORY_SLUGS } from "@/lib/site";
 import { getDealerSession } from "@/lib/dealer-session";
 
@@ -29,8 +30,9 @@ export default async function DealerCatalogPage({ searchParams }: { searchParams
   );
 
   return (
-    <div className="pt-6">
-      <DealerBanner session={session} />
+    <DealerCartProvider>
+    <div className="pb-20 pt-6">
+      <DealerBanner session={session} active="/dealer/catalog" />
 
       <h1 className="mt-5 text-2xl font-black">Dealer Catalog</h1>
       <form action="/dealer/catalog" className="mt-3 flex max-w-lg gap-2">
@@ -71,9 +73,11 @@ export default async function DealerCatalogPage({ searchParams }: { searchParams
       )}
 
       <p className="mt-8 text-xs text-steel-400">
-        Read-only preview: to order, use <Link href="/dealer/quick-order" className="font-bold text-brand-dark">Quick Order</Link> or
-        contact your rep. Quantities update with each warehouse sync.
+        Add items and submit — your rep confirms pricing and availability on the final invoice.
+        Quantities update with each warehouse sync. Big list? <Link href="/dealer/quick-order" className="font-bold text-brand-dark">Paste it in Quick Order</Link>.
       </p>
     </div>
+    <DealerCartBar />
+    </DealerCartProvider>
   );
 }
