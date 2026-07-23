@@ -98,9 +98,16 @@ Strategy — strangler pattern, never big-bang:
    keep the ledger where it is.
 5. TireGuru retirement is a separate, much later decision.
 
-**Design blocker to resolve first:** where does inventory/pricing truth live today —
-TireGuru POS or RHINO BRAIN? If TireGuru holds it, the portal needs a TireGuru data
-feed (API/export capability TBD) before the read-only phase can be trusted.
+**Source of truth (answered 2026-07-23):** TireGuru POS. CRM currently holds a manual,
+incomplete export of it. TireGuru has **no public API** (verified — partner-only closed
+integrations), but it demonstrably pushes live inventory to TireConnect/SimpleTire/
+Solid Commerce, so export plumbing exists on their side. Data path, in order:
+(A) request a scheduled inventory+pricing CSV feed from TireGuru support (paying
+customer asking for their own data); (B) regardless of A, build a TireGuru-report →
+CRM importer (existing repo pattern: import-real-data.ts) so the manual export becomes
+a 5-minute full sync — this alone unblocks the read-only portal; (C) scripted web
+export as last resort only. Mid-term: new products/pricing enter CRM first, demoting
+TireGuru to in-store billing.
 
 ## Recommended build order (portal MVP, matches architecture.md Phase 2)
 
