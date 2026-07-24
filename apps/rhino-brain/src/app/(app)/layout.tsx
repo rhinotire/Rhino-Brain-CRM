@@ -21,6 +21,7 @@ const managerGroups: NavGroup[] = [
     { href: "/leads", label: "Leads List", icon: "☰" },
     { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
     { href: "/quotes", label: "Quotes", icon: "＄" },
+    { href: "/portal-orders", label: "Portal Orders", icon: "🛒" },
     { href: "/opportunities", label: "Opportunities", icon: "◎" },
   ]},
   { title: "Daily Work", items: [
@@ -64,6 +65,7 @@ const repGroups: NavGroup[] = [
     { href: "/pipeline", label: "My Leads", icon: "⇉" },
     { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
     { href: "/quotes", label: "My Quotes", icon: "＄" },
+    { href: "/portal-orders", label: "Portal Orders", icon: "🛒" },
     { href: "/opportunities", label: "Opportunities", icon: "◎" },
   ]},
   { title: "Daily Work", items: [

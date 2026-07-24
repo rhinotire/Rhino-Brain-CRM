@@ -92,7 +92,7 @@ export const DealerOrderService = {
         locationId: customer.locationId,
         title: `Portal order ${requestNumber} — ${customer.companyName}`,
         body: `${priced.length} line${priced.length > 1 ? "s" : ""}, ${priced.reduce((s, l) => s + l.quantity, 0)} units, $${total.toFixed(2)} at dealer pricing. Confirm and key into TireGuru.`,
-        link: `/customers/${identity.customerId}`,
+        link: `/portal-orders`,
         assignedRepId: customer.assignedRepId,
         taskPriority: "URGENT",
       }).catch(() => {}); // notification failure must never lose the order

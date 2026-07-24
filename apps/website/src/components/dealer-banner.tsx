@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { dealerLogout } from "@/app/dealer/login/dealer-actions";
+import { CartCount } from "@/components/dealer-cart";
 import type { DealerSession } from "@/lib/dealer-session";
 
 const TABS = [
   { href: "/dealer/catalog", label: "Catalog" },
+  { href: "/dealer/cart", label: "Cart", badge: true },
   { href: "/dealer/orders", label: "My Orders" },
   { href: "/dealer/quick-order", label: "Quick Order" },
 ];
@@ -26,6 +28,7 @@ export function DealerBanner({ session, active }: { session: DealerSession; acti
           <Link key={t.href} href={t.href}
             className={`rounded-t-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wide ${active === t.href ? "bg-white text-navy-900" : "text-steel-300 hover:bg-navy-800 hover:text-white"}`}>
             {t.label}
+            {t.badge && <CartCount />}
           </Link>
         ))}
       </nav>

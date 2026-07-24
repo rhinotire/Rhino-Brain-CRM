@@ -25,17 +25,23 @@ const STORAGE = "dealer_cart_v1";
 
 export function DealerCartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
+  // Guard: never persist before the initial load, or a fresh mount (e.g. the
+  // cart page itself) would clobber the stored cart with [].
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE);
       if (raw) setLines(JSON.parse(raw));
     } catch {}
+    setLoaded(true);
   }, []);
   useEffect(() => {
+    if (!loaded) return;
     try {
       localStorage.setItem(STORAGE, JSON.stringify(lines));
+      window.dispatchEvent(new Event("dealer-cart"));
     } catch {}
-  }, [lines]);
+  }, [lines, loaded]);
 
   const api = useMemo<CartCtx>(
     () => ({
@@ -89,17 +95,67 @@ export function AddToOrder({ sku, label, size, price }: { sku: string; label: st
   );
 }
 
-/** Fixed bottom bar: review lines, PO/notes, submit. */
+/** Slim fixed bottom bar on the catalog: shows the draft, links to the cart. */
 export function DealerCartBar() {
+  const { lines } = useDealerCart();
+  const units = lines.reduce((s, l) => s + l.qty, 0);
+  const total = lines.reduce((s, l) => s + (l.price ?? 0) * l.qty, 0);
+  if (!lines.length) return null;
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-navy-800 bg-navy-900 text-white shadow-2xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <span className="text-sm font-bold">
+          Cart: {lines.length} SKU{lines.length > 1 ? "s" : ""} · {units} units
+          <span className="ml-2 text-brand-light">${total.toFixed(2)}</span>
+        </span>
+        <a href="/dealer/cart" className="btn-gold shrink-0 !py-2 text-xs">View Cart & Checkout →</a>
+      </div>
+    </div>
+  );
+}
+
+/** Item count for the portal nav "Cart" tab. Reads localStorage directly so it
+ * works on pages outside the DealerCartProvider (orders, quick order). */
+export function CartCount() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const read = () => {
+      try {
+        const l: CartLine[] = JSON.parse(localStorage.getItem(STORAGE) ?? "[]");
+        setN(l.reduce((s, x) => s + x.qty, 0));
+      } catch {
+        setN(0);
+      }
+    };
+    read();
+    window.addEventListener("dealer-cart", read);
+    window.addEventListener("storage", read);
+    return () => {
+      window.removeEventListener("dealer-cart", read);
+      window.removeEventListener("storage", read);
+    };
+  }, []);
+  if (!n) return null;
+  return <span className="ml-1 rounded-full bg-brand px-1.5 text-[10px] font-black text-navy-900">{n}</span>;
+}
+
+/** Full cart page: review lines, edit quantities, PO/notes, place the order. */
+export function CartView() {
   const { lines, setQty, remove, clear } = useDealerCart();
-  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const units = lines.reduce((s, l) => s + l.qty, 0);
   const total = lines.reduce((s, l) => s + (l.price ?? 0) * l.qty, 0);
-  if (!lines.length) return null;
+
+  if (!lines.length) {
+    return (
+      <p className="mt-6 rounded-2xl bg-steel-100 p-6 text-sm text-steel-500">
+        Your cart is empty. Add items from the <a href="/dealer/catalog" className="font-bold text-brand-dark">catalog</a>.
+      </p>
+    );
+  }
 
   async function submit(formData: FormData) {
     setPending(true);
@@ -119,70 +175,71 @@ export function DealerCartBar() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-navy-800 bg-navy-900 text-white shadow-2xl">
-      <div className="mx-auto max-w-6xl px-4">
-        <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between py-3 text-left">
-          <span className="text-sm font-bold">
-            Order draft: {lines.length} SKU{lines.length > 1 ? "s" : ""} · {units} units
-            <span className="ml-2 text-brand-light">${total.toFixed(2)}</span>
-          </span>
-          <span className="text-xs font-bold uppercase tracking-wide text-steel-300">{open ? "Hide ▾" : "Review & Submit ▴"}</span>
-        </button>
-
-        {open && (
-          <div className="max-h-[50vh] overflow-y-auto border-t border-navy-800 pb-4">
-            <table className="mt-3 w-full text-left text-xs">
-              <thead>
-                <tr className="text-steel-400">
-                  <th className="py-1 pr-2 font-semibold">Item</th>
-                  <th className="py-1 pr-2 font-semibold">Qty</th>
-                  <th className="py-1 pr-2 text-right font-semibold">Price</th>
-                  <th className="py-1 pr-2 text-right font-semibold">Line</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((l) => (
-                  <tr key={l.sku} className="border-t border-navy-800">
-                    <td className="py-1.5 pr-2">
-                      <span className="font-bold">{l.size ?? l.sku}</span>
-                      <span className="block text-steel-400">{l.label}</span>
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <input type="number" min={1} value={l.qty} aria-label={`Quantity for ${l.sku}`}
-                        onChange={(e) => setQty(l.sku, Number(e.target.value) || 1)}
-                        className="w-16 rounded border-0 px-1.5 py-1 text-center text-xs text-navy-900" />
-                    </td>
-                    <td className="py-1.5 pr-2 text-right">{l.price !== null ? `$${l.price.toFixed(2)}` : "rep"}</td>
-                    <td className="py-1.5 pr-2 text-right font-bold">{l.price !== null ? `$${(l.price * l.qty).toFixed(2)}` : "—"}</td>
-                    <td className="py-1.5 text-right">
-                      <button type="button" onClick={() => remove(l.sku)} className="text-steel-400 hover:text-white" aria-label={`Remove ${l.sku}`}>✕</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <form action={submit} className="mt-3 flex flex-wrap items-end gap-2">
-              <div>
-                <label htmlFor="cart-po" className="block text-[10px] font-bold uppercase tracking-wide text-steel-400">Your PO # (optional)</label>
-                <input id="cart-po" name="po" className="mt-1 w-40 rounded-lg border-0 px-2.5 py-2 text-xs text-navy-900" />
-              </div>
-              <div className="min-w-[200px] flex-1">
-                <label htmlFor="cart-notes" className="block text-[10px] font-bold uppercase tracking-wide text-steel-400">Notes for your rep (optional)</label>
-                <input id="cart-notes" name="notes" placeholder="Delivery instructions, timing…" className="mt-1 w-full rounded-lg border-0 px-2.5 py-2 text-xs text-navy-900" />
-              </div>
-              <button disabled={pending} className="btn-gold shrink-0">
-                {pending ? "Submitting…" : `Submit Order · $${total.toFixed(2)}`}
-              </button>
-            </form>
-            {error && <p className="mt-2 rounded-lg bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-200">{error}</p>}
-            <p className="mt-2 text-[10px] text-steel-400">
-              Prices confirmed by your rep on final invoice · freight & FET per your terms · submitting sends this to your rep, it does not charge anything.
-            </p>
-          </div>
-        )}
+    <div className="mt-6">
+      <div className="overflow-x-auto rounded-2xl border border-steel-200 bg-white shadow-card">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-steel-100 text-xs uppercase tracking-wide text-steel-400">
+              <th className="px-4 py-2.5 font-semibold">Item</th>
+              <th className="px-4 py-2.5 font-semibold">Qty</th>
+              <th className="px-4 py-2.5 text-right font-semibold">Your Price</th>
+              <th className="px-4 py-2.5 text-right font-semibold">Line Total</th>
+              <th className="px-2 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.sku} className="border-b border-steel-50">
+                <td className="px-4 py-3">
+                  <span className="font-display font-bold text-navy-900">{l.size ?? l.sku}</span>
+                  <span className="block text-xs text-steel-500">{l.label}</span>
+                  <span className="block text-[11px] text-steel-400">SKU {l.sku}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <input type="number" min={1} max={2000} value={l.qty} aria-label={`Quantity for ${l.sku}`}
+                    onChange={(e) => setQty(l.sku, Number(e.target.value) || 1)}
+                    className="w-20 rounded-lg border border-steel-300 px-2 py-1.5 text-center text-sm" />
+                </td>
+                <td className="px-4 py-3 text-right">{l.price !== null ? `$${l.price.toFixed(2)}` : "Ask rep"}</td>
+                <td className="px-4 py-3 text-right font-bold text-navy-900">{l.price !== null ? `$${(l.price * l.qty).toFixed(2)}` : "—"}</td>
+                <td className="px-2 py-3 text-right">
+                  <button type="button" onClick={() => remove(l.sku)} aria-label={`Remove ${l.sku}`}
+                    className="rounded-md px-2 py-1 text-steel-400 hover:bg-red-50 hover:text-red-600">✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="px-4 py-3 text-xs text-steel-500">{lines.length} SKU{lines.length > 1 ? "s" : ""} · {units} units</td>
+              <td colSpan={2} className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-steel-500">Order total</td>
+              <td className="px-4 py-3 text-right font-display text-lg font-bold text-navy-900">${total.toFixed(2)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
       </div>
+
+      <form action={submit} className="mt-5 max-w-xl space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <label htmlFor="cart-po" className="block text-xs font-bold uppercase tracking-wide text-steel-500">Your PO # (optional)</label>
+            <input id="cart-po" name="po" className="mt-1 w-44 rounded-lg border border-steel-300 px-3 py-2 text-sm" />
+          </div>
+          <div className="min-w-[240px] flex-1">
+            <label htmlFor="cart-notes" className="block text-xs font-bold uppercase tracking-wide text-steel-500">Notes for your rep (optional)</label>
+            <input id="cart-notes" name="notes" placeholder="Delivery instructions, timing…" className="mt-1 w-full rounded-lg border border-steel-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</p>}
+        <button disabled={pending} className="btn-gold">
+          {pending ? "Placing order…" : `Place Order · $${total.toFixed(2)}`}
+        </button>
+        <p className="text-[11px] text-steel-400">
+          Placing the order sends it to your rep for confirmation — nothing is charged. Prices confirmed on final
+          invoice; freight &amp; FET per your terms.
+        </p>
+      </form>
     </div>
   );
 }
