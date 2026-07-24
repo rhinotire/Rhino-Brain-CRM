@@ -3,7 +3,19 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "DATABASE_URL",
+        "SUPABASE_*",
+        "BRAND_KEY",
+        "SESSION_SECRET",
+        "DEALER_SESSION_SECRET",
+        "ZOHO_SMTP_*",
+        "CRON_SECRET",
+        "ANTHROPIC_API_KEY",
+        "SHOPIFY_*",
+        "NEXT_PUBLIC_*"
+      ]
     },
     "lint": {},
     "test": {
