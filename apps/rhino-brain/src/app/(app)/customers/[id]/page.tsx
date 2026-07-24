@@ -9,6 +9,7 @@ import { NewQuoteButton } from "@/components/quote-form";
 import { EditCustomerButton } from "@/components/edit-customer-button";
 import { TaskActions } from "@/components/task-form";
 import { CustomerDocuments } from "@/components/customer-documents";
+import { DealerPortalAccess } from "@/components/dealer-portal-access";
 import { isStorageConfigured } from "@/lib/storage";
 import {
   customerTypeLabels, customerStatusLabels, customerSourceLabels, productLabels,
@@ -35,6 +36,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       opportunities: { orderBy: { createdAt: "desc" } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
       orders: { orderBy: { orderDate: "desc" }, take: 12 },
+      dealerUsers: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!customer) notFound();
@@ -231,6 +233,20 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               }))}
             />
           </Card>
+
+          {!accounting && (
+            <Card title="🔑 Dealer Portal Access">
+              <DealerPortalAccess
+                customerId={customer.id}
+                users={customer.dealerUsers.map(u => ({
+                  id: u.id, name: u.name, email: u.email, active: u.active,
+                  lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+                }))}
+                defaultName={customer.contactPerson ?? ""}
+                defaultEmail={customer.email ?? ""}
+              />
+            </Card>
+          )}
         </div>
 
         {/* Middle: activity timeline */}
