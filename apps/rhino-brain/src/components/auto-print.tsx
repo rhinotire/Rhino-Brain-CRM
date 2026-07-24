@@ -13,7 +13,7 @@ export function AutoPrint({ auto = false }: { auto?: boolean }) {
   }, [auto]);
   return (
     <div className="mb-4 flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 print:hidden">
-      <span className="text-xs text-slate-500">Print view — use your browser's print dialog to save as PDF.</span>
+      <span className="text-xs text-slate-500">Print view — use the browser print dialog to save as PDF.</span>
       <button
         type="button"
         onClick={() => window.print()}
