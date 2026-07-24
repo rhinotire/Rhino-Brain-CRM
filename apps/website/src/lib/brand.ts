@@ -22,6 +22,15 @@ export type Brand = {
 
 export const BRAND_KEY = process.env.BRAND_KEY ?? "RHINO";
 
+// WhatsApp Business line, wa.me digits format. Per-deployment env override;
+// RHINO's office line is WhatsApp Business (owner-confirmed 2026-07-24).
+// Everflow stays null (hidden) until its own number is confirmed.
+export const WHATSAPP: string | null =
+  process.env.NEXT_PUBLIC_WHATSAPP ?? (BRAND_KEY === "RHINO" ? "14077775598" : null);
+
+export const waLink = (text: string): string | null =>
+  WHATSAPP ? `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}` : null;
+
 /**
  * One-line NAP string. Rhino's fallback street address is still the city
  * placeholder ("Orlando, FL"), so skip the locality when the street already
@@ -57,7 +66,7 @@ const FALLBACK: Brand = BRAND_KEY === "EVERFLOW" ? {
   locationId: "",
   logoUrl: null,
   heroImageUrl: null,
-  address: { streetAddress: "Orlando, FL", addressLocality: "Orlando", addressRegion: "FL", addressCountry: "US" },
+  address: { streetAddress: "11423 Satellite Blvd", addressLocality: "Orlando", addressRegion: "FL", postalCode: "32837", addressCountry: "US" },
 };
 
 let cached: { brand: Brand; at: number } | null = null;
