@@ -84,6 +84,11 @@ export default async function PortalOrdersPage({ searchParams }: { searchParams:
                 <span className="ml-auto flex items-center gap-3">
                   <span className="font-bold">${Number(o.total).toFixed(2)}</span>
                   <PortalOrderStatusSelect id={o.id} status={o.status} />
+                  <a href={`/print/portal-order/${o.id}?auto=1`} target="_blank" rel="noopener"
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                    title="Print order sheet">
+                    🖨 Print
+                  </a>
                 </span>
               </summary>
               <div className="border-t border-slate-100 px-4 py-3">
