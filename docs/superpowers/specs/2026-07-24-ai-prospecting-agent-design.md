@@ -13,7 +13,10 @@
 
 **一期（美国国内，本 spec 的实施范围）**
 - 数据源：种子名单导入、沉睡客户盘活、Google Places 按州采集、官网爬取 + AI 提取
-- 产品线 Campaign：P1/P2「拖车生态」（ST 胎+轮辋+总成+支腿/牵引器）、P3 乘用胎（PCR/UHP/4x4/LT）
+- 产品线 Campaign 优先级（William 2026-07-24 确认，覆盖 iSales 报告的建议顺序）：
+  1. **P4 卡车胎（TBR）— 最重要**：商用胎经销商、卡车维修店（truck shop）、车队公司（fleet）、大型运输公司（big transportation company）。车队/运输公司虽是终端用户，按老板决策直接开发（批量采购逻辑）
+  2. **P3 乘用胎（PCR）**：轮胎零售店（tire shops）、区域批发商
+  3. **P1/P2 拖车胎批发 + 拖车制造商**：trailer tires wholesale 渠道；trailer manufacturer（OEM）纳入一期触达范围（首触收集需求，正式准入推进仍需资料包就绪）
 - 区域：L1-A 佛州及东南部（归 Rhino）、德州及南中部（归 Everflow）；其他州按仓库就近分配
 - 外联：邮件自动发送（自建 Gmail API + 预热）+ 电话话术卡片
 - CRM UI：线索校准队列、外联审核发件箱、五分法看板、成本看板
@@ -23,7 +26,7 @@
 - Twilio WhatsApp Business API：审核模板首触 → 24h 窗口内 AI 草拟+人工审发 → 高价值转业务员个人号
 - 多语言开发信（英/西）
 
-**三期（可选）**：短信（TCPA 合规后）、付费数据商（Apollo）、P4 TBR / P5 OTR 产品线、OEM 项目池（B 池)推进
+**三期（可选）**：短信（TCPA 合规后）、付费数据商（Apollo）、P5 OTR 产品线、大零售（Tractor Supply/Discount Tire 类）准入推进
 
 **明确不做**：灰色 WhatsApp 个人号自动化（封号+资产归属风险）；向 C 端个人发送任何外联；话术中承诺关税税率。
 
@@ -79,7 +82,7 @@
 |---|---|---|
 | 自动开发池 | A-H，六项校验全过，非保护 | 进 Campaign，AI 草拟 3-5 轮触达 |
 | 人工复核池 | A-M / C-H / C-M | 校准队列人工 2-5 分钟判定 |
-| 项目/准入池 | B-H / B-M（OEM、大零售、车队） | 不进自动外联；项目化跟进（三期） |
+| 项目/准入池 | B-H / B-M（OEM、大零售） | 拖车制造商一期可发首触邮件（收集需求，不承诺资质）；大零售三期推进 |
 | 沉睡激活池 | 历史客户/报价客户超期无互动 | 独立 Campaign，优先跑（转化率最高，先验证发信引擎） |
 | 保护/排除池 | D 类 | 永不自动触达；记录原因与复核日期 |
 
@@ -114,7 +117,7 @@ FL 及东南部 → Rhino；TX 及南中部 → Everflow；其余州按两仓运
 
 ## 7. 种子名单（首批导入，来源：iSales 客户画像报告 2026-07-24）
 
-导入为 Lead（source=SEED），预置 pool/confidence/productLine/切入要点；上线前逐家人工复核。
+导入为 Lead（source=SEED），预置 pool/confidence/productLine/切入要点；上线前逐家人工复核。按 Campaign 优先级，**Purcell、McCarthy、Parrish（P4/P5 商用线）为最高优先种子**；P4 的增量线索主要靠 Places 采集（搜索类目：commercial tire dealer、truck repair、truck stop、trucking company、fleet services）。
 
 **A-H（8 家，直接买家，优先）**：The Trailer Parts Outlet（TX，P1/P2，托盘补库/预装总成切入）、Southwest Wheel（P1/P2/P4，ST总成+轮辋+支腿组合矩阵）、Eastern Marine/Trailer Parts Superstore（DE，P1/P2，boat/RV 耐腐蚀轮辋）、RecStuff（WI，P1/P2，目录缺口一页清单）、etrailer（P1/P2，可测试 SKU+资料包，项目式）、Parrish Tire Wholesale（P3/P4/P5，价位带缺口+区域保护）、Purcell Tire & Service（P4/P5/P1，工况+供应稳定）、McCarthy Tire Service（P4/P5，选定工况/尺寸+成本模型）
 
@@ -133,7 +136,7 @@ FL 及东南部 → Rhino；TX 及南中部 → Everflow；其余州按两仓运
 3. 每封邮件退订链接 + 公司地址 —— 模板层强制注入
 4. 话术禁承诺关税税率（中国产拖车轮辋/总成涉 AD/CVD）—— prompt 层禁止 + 审核提示
 5. 每邮箱日发送量硬上限（预热曲线）—— 超限熔断
-6. OEM（B 池）触达前需 DOT/质保资料包就绪 —— B 池一期不自动外联
+6. OEM/车队触达可先行（首触收集需求），但报价与准入推进前需 DOT/质保资料包就绪；开发信不得虚构资质与认证
 
 ## 9. 90 天路径与指标
 
@@ -141,14 +144,14 @@ FL 及东南部 → Rhino；TX 及南中部 → Everflow；其余州按两仓运
 |---|---|---|---|
 | 1 对齐清洗 | D1-15 | 保护池初始化；种子导入；域名/邮箱购置预热启动；产品资料包（老板提供） | 保护池覆盖率；种子复核完成 |
 | 2 样本验证 | D16-30 | 沉睡激活 Campaign 先行；Places 采集 FL/TX 首批；校准队列跑 50-80 家 | 六项校验通过率；邮箱预热正常 |
-| 3 分线触达 | D31-60 | P1/P2 与 P3 两条 Campaign 全量运行 | 有效邮箱率、回复率、合格回复、询价数 |
+| 3 分线触达 | D31-60 | 按优先级跑三条 Campaign：P4 卡车胎（经销商+truck shop+车队/运输公司）→ P3 乘用胎（tire shops）→ P1/P2 拖车（批发+制造商首触） | 有效邮箱率、回复率、合格回复、询价数 |
 | 4 收缩加码 | D61-90 | 按回复数据收缩画像；准备二期（海关数据+WhatsApp） | A-H 占比提升；每 A 级线索成本下降 |
 
 ## 10. 前置任务（需 William 提供/确认）
 
 1. 真实公司信息包：对外主体名称口径、官网、电话、发信署名地址（iSales 报告里的主体/电话/域名信息是他们的演示数据，一律不用）
-2. 按 P1-P3 的可售品牌、SKU、库存、MOQ、价格带、交期（决定开发信颗粒度）
+2. 按 P4 / P3 / P1-P2 优先级提供可售品牌、SKU、库存、MOQ、价格带、交期（决定开发信颗粒度）；P4 另需车队卖点素材（成本/英里、质保、供货稳定性）
 3. 现有客户/代理/报价客户全量名单 → 保护池初始化
 4. 独立发信域名选定与购买；Google Workspace 开通
 5. Google Places API key
-6. 首轮主推产品包确认（建议 P1/P2 拖车生态 + P3 各一个）
+6. 首轮主推产品包确认：P4 卡车胎优先（型号/尺寸/价位带），P3、P1/P2 跟进
