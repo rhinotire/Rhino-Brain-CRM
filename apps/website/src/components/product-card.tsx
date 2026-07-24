@@ -17,6 +17,38 @@ export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"]
 /** Logged-in dealer extras rendered on the card (read-only portal Phase 1). */
 export type DealerCardInfo = { price: number | null; qty: number; qtyByLocation: Record<string, number> };
 
+const TREAD_LABEL: Record<string, string> = {
+  "highway": "Highway",
+  "all-terrain": "All Terrain",
+  "rugged-terrain": "Rugged Terrain",
+  "mud-terrain": "Mud Terrain",
+  "touring": "Touring",
+  "rib": "Rib",
+};
+
+/** Compact spec row: the fields tire buyers actually decide on (competitor
+ * benchmark: industry data on the card, never generic e-commerce fields).
+ * Renders nothing when no spec data exists — no empty placeholders. */
+function SpecChips({ t }: { t: PublicProductDTO["tireSpec"] }) {
+  if (!t) return null;
+  const chips: string[] = [];
+  if (t.loadIndex && t.speedRating) chips.push(`${t.loadIndex}${t.speedRating}`);
+  else if (t.speedRating) chips.push(`Speed ${t.speedRating}`);
+  if (t.treadType && TREAD_LABEL[t.treadType]) chips.push(TREAD_LABEL[t.treadType]);
+  if (t.mileageWarrantyMiles) chips.push(`${Math.round(t.mileageWarrantyMiles / 1000)}k mi warranty`);
+  if (t.utqg) chips.push(`UTQG ${t.utqg}`);
+  if (t.threePMSF) chips.push("3PMSF ❄");
+  if (t.runFlat) chips.push("Run Flat");
+  if (!chips.length) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {chips.slice(0, 4).map((c) => (
+        <span key={c} className="rounded bg-steel-100 px-1.5 py-0.5 text-[10px] font-semibold text-navy-800">{c}</span>
+      ))}
+    </div>
+  );
+}
+
 /** Premium product card: brand eyebrow, condensed name, big size, badges. */
 export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dealBadge?: boolean; dealer?: DealerCardInfo }) {
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
@@ -58,6 +90,7 @@ export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dea
       <div className="font-display text-lg font-bold uppercase leading-tight text-navy-900">{p.sizeSpec ?? p.name}</div>
       <div className="mt-0.5 line-clamp-2 text-xs text-steel-500">{p.name}</div>
       <div className="mt-1 text-[11px] text-steel-400">SKU {p.sku}</div>
+      <SpecChips t={p.tireSpec} />
       <div className="mt-auto flex items-center justify-between border-t border-steel-100 pt-3">
         {dealer ? (
           <>
