@@ -51,4 +51,14 @@ export const DealerAuthService = {
   async getActive(dealerUserId: string) {
     return db.dealerUser.findFirst({ where: { id: dealerUserId, active: true } });
   },
+
+  /** Self-service password change — requires the current password. */
+  async changePassword(dealerUserId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+    if (newPassword.length < 8) return { ok: false, error: "New password must be at least 8 characters." };
+    const user = await db.dealerUser.findFirst({ where: { id: dealerUserId, active: true } });
+    if (!user) return { ok: false, error: "Account not found." };
+    if (!(await bcrypt.compare(currentPassword, user.passwordHash))) return { ok: false, error: "Current password is incorrect." };
+    await db.dealerUser.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(newPassword, 10) } });
+    return { ok: true };
+  },
 };

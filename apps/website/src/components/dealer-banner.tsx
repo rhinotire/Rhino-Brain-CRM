@@ -19,9 +19,14 @@ export function DealerBanner({ session, active }: { session: DealerSession; acti
           <span className="text-[10px] font-bold uppercase tracking-widest text-brand-light">Dealer Portal</span>
           <span className="ml-2 font-bold">{session.companyName}</span>
         </p>
-        <form action={dealerLogout}>
-          <button className="text-xs font-bold text-steel-300 underline-offset-2 hover:text-white hover:underline">Sign out</button>
-        </form>
+        <span className="flex items-center gap-3">
+          <Link href="/dealer/account" className="text-xs font-bold text-steel-300 underline-offset-2 hover:text-white hover:underline">
+            Account
+          </Link>
+          <form action={dealerLogout}>
+            <button className="text-xs font-bold text-steel-300 underline-offset-2 hover:text-white hover:underline">Sign out</button>
+          </form>
+        </span>
       </div>
       <nav className="mt-1 flex gap-1 px-2 pb-0" aria-label="Dealer portal">
         {TABS.map((t) => (
