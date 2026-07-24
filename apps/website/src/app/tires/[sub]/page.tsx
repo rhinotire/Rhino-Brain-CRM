@@ -9,6 +9,12 @@ import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
+/** Known category slugs prebuild at deploy; without generateStaticParams the
+ * route silently falls out of ISR and renders on every request (2.5s TTFB). */
+export function generateStaticParams() {
+  return Object.keys(CATEGORY_SLUGS).map((sub) => ({ sub }));
+}
+
 type Params = { sub: string };
 
 /**

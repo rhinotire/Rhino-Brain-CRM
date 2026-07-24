@@ -10,6 +10,11 @@ import { BRAND_KEY } from "@/lib/brand";
 
 export const revalidate = 300;
 
+/** On-demand ISR — the empty list is REQUIRED to keep this route cached. */
+export function generateStaticParams(): { slug: string }[] {
+  return [];
+}
+
 type Params = { slug: string };
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {

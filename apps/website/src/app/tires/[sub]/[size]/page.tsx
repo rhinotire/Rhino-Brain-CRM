@@ -19,6 +19,12 @@ function toTireSpec(sizeSpec: string): { spec: TireSpec; prefix?: string } | nul
 
 export const revalidate = 300;
 
+/** Sizes build on demand, then cache for `revalidate` seconds. The empty list
+ * is REQUIRED — without generateStaticParams this route falls out of ISR. */
+export function generateStaticParams(): { sub: string; size: string }[] {
+  return [];
+}
+
 type Params = { sub: string; size: string };
 
 const SERVICE_PREFIX: Record<string, string> = {
