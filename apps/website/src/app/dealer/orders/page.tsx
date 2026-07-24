@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DealerOrderService } from "@rhino/services";
 import { DealerBanner } from "@/components/dealer-banner";
+import { ReorderButton } from "@/components/dealer-reorder";
 import { getDealerSession } from "@/lib/dealer-session";
 
 export const metadata: Metadata = {
@@ -62,7 +63,12 @@ export default async function DealerOrdersPage({ searchParams }: { searchParams:
                 <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLE[o.status]}`}>
                   {STATUS_LABEL[o.status]}
                 </span>
-                <span className="ml-auto font-display text-sm font-bold text-navy-900">${o.total.toFixed(2)}</span>
+                <span className="ml-auto flex items-center gap-3">
+                  <span className="font-display text-sm font-bold text-navy-900">${o.total.toFixed(2)}</span>
+                  <ReorderButton
+                    lines={o.items.map((i) => ({ sku: i.sku, label: i.description, size: i.sizeSpec, price: i.unitPrice, qty: i.quantity }))}
+                  />
+                </span>
               </summary>
               <div className="overflow-x-auto border-t border-steel-100 px-5 py-3">
                 <table className="w-full text-left text-xs">
