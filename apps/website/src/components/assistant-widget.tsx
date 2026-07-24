@@ -21,8 +21,24 @@ export function AssistantWidget() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [teaser, setTeaser] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // one-time nudge per session: a small bubble above the launcher after 3s
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("ata_teaser")) return;
+      const t = setTimeout(() => {
+        setTeaser(true);
+        sessionStorage.setItem("ata_teaser", "1");
+      }, 3000);
+      return () => clearTimeout(t);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (open) setTeaser(false);
+  }, [open]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -73,19 +89,36 @@ export function AssistantWidget() {
 
   return (
     <>
-      {/* launcher — above the mobile sticky action bar */}
+      {/* launcher — above the mobile sticky action bar. Brand gold (the site's
+          CTA color) so it reads as an action, not part of the navy chrome. */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open AI assistant chat"
-          className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-navy-900 px-4 py-3 text-sm font-bold text-white shadow-lift transition hover:bg-navy-800 focus:outline-none focus:ring-2 focus:ring-brand sm:bottom-6 sm:right-6"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-brand stroke-2" aria-hidden="true">
-            <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" strokeLinejoin="round" />
-            <path d="M9 12h.01M13 12h.01M17 12h.01" strokeLinecap="round" />
-          </svg>
-          Ask about tires
-        </button>
+        <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6">
+          {teaser && (
+            <div className="relative max-w-[220px] rounded-2xl rounded-br-md border border-steel-200 bg-white px-3.5 py-2.5 text-xs leading-snug text-navy-900 shadow-lift">
+              <button
+                onClick={() => setTeaser(false)}
+                aria-label="Dismiss"
+                className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-navy-900 text-[10px] text-white"
+              >
+                ✕
+              </button>
+              <span className="font-bold">Questions about sizes or stock?</span>
+              <br />
+              Instant answers from our live inventory — 24/7.
+            </div>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Open AI assistant chat"
+            className="flex items-center gap-2 rounded-full bg-brand px-5 py-3.5 text-sm font-black uppercase tracking-wide text-navy-900 shadow-lift transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-navy-900"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-600" />
+            </span>
+            Ask About Tires
+          </button>
+        </div>
       )}
 
       {open && (
