@@ -5,11 +5,12 @@
 :root { color-scheme: light; }
 body { @apply bg-slate-100 text-slate-900 antialiased; }
 
-/* Printing a flyer: hide the app shell, print only #flyer-print with full colors */
+/* Printing: hide the app shell, print only the declared print area with full
+   colors. #flyer-print (flyer builder) and #print-area (order sheets etc.). */
 @media print {
   body * { visibility: hidden; }
-  #flyer-print, #flyer-print * { visibility: visible; }
-  #flyer-print {
+  #flyer-print, #flyer-print *, #print-area, #print-area * { visibility: visible; }
+  #flyer-print, #print-area {
     position: absolute;
     inset: 0 auto auto 0;
     width: 100%;

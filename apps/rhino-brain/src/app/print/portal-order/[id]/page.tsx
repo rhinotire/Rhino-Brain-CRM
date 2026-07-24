@@ -29,7 +29,7 @@ export default async function PortalOrderPrintPage({ params, searchParams }: { p
   const units = o.items.reduce((s, i) => s + i.quantity, 0);
 
   return (
-    <div className="mx-auto max-w-3xl bg-white p-8 text-slate-900 print:p-0">
+    <div id="print-area" className="mx-auto max-w-3xl bg-white p-8 text-slate-900 print:p-0">
       <AutoPrint auto={searchParams?.auto === "1"} />
 
       <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
