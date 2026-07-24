@@ -28,14 +28,26 @@ export default async function PortalOrderPrintPage({ params, searchParams }: { p
 
   const units = o.items.reduce((s, i) => s + i.quantity, 0);
 
+  // Letterhead: the owner-uploaded brand mark (brand-assets bucket), picked by
+  // the order's company — Everflow TX orders print with the Everflow logo.
+  const brandKey = o.customer.location?.name?.toUpperCase().includes("EVERFLOW") ? "EVERFLOW" : "RHINO";
+  const brand = await db.brandConfig.findUnique({ where: { key: brandKey }, select: { name: true, logoPath: true } });
+  const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const logoUrl = brand?.logoPath && base ? `${base}/storage/v1/object/public/brand-assets/${brand.logoPath}` : null;
+
   return (
     <div id="print-area" className="mx-auto max-w-3xl bg-white p-8 text-slate-900 print:p-0">
       <AutoPrint auto={searchParams?.auto === "1"} />
 
       <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
         <div>
-          <div className="text-2xl font-black uppercase">{o.customer.location?.name ?? "Rhino Tire USA"}</div>
-          <div className="text-xs text-slate-500">{o.customer.location?.city}</div>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={brand?.name ?? o.customer.location?.name ?? "Rhino Tire USA"} className="h-16 w-auto object-contain" />
+          ) : (
+            <div className="text-2xl font-black uppercase">{o.customer.location?.name ?? "Rhino Tire USA"}</div>
+          )}
+          <div className="mt-1 text-xs text-slate-500">{o.customer.location?.city}</div>
         </div>
         <div className="text-right">
           <div className="text-xl font-black">ORDER REQUEST</div>
