@@ -25,6 +25,7 @@ export { recordEvent } from "./analytics";
 export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";
 export { askClaudeJson } from "./claude-json";
 export { fetchSiteText, extractEnrichment, type Enrichment } from "./prospect-enrich";
+export { searchPlacesPage, PLACES_COST_PER_CALL_USD, type PlaceCandidate } from "./places-collector";
 export { sendEmail, isEmailConfigured } from "./email";
 export type {
   StockStatus,
