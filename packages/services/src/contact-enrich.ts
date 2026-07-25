@@ -30,9 +30,15 @@ const SENIORITIES = ["owner", "founder", "c_suite", "vp", "director", "manager"]
 const MAX_REVEALS = 3; // Apollo credits cap per company
 
 type ApolloPerson = {
-  first_name?: string; last_name?: string; name?: string;
+  id?: string;
+  first_name?: string; last_name?: string; last_name_obfuscated?: string; name?: string;
   title?: string; linkedin_url?: string;
 };
+
+/** Plans that can't reveal an email return a placeholder like
+ * "email_not_unlocked@domain.com" — treat it as no email. */
+const isRealEmail = (e: unknown): e is string =>
+  typeof e === "string" && e.includes("@") && !e.startsWith("email_not_unlocked");
 
 export async function findDecisionMakers(
   input: { companyName: string; domain: string | null },
@@ -68,33 +74,44 @@ export async function findDecisionMakers(
 
   const contacts: ProspectContact[] = [];
   for (const p of top) {
-    const fullName = p.name ?? [p.first_name, p.last_name].filter(Boolean).join(" ");
-    if (!fullName) continue;
+    // Search obfuscates last names on some plans ("Lu***s") — the match-by-id
+    // call below returns the real full name, LinkedIn URL and email.
+    let fullName = p.name ?? [p.first_name, p.last_name ?? p.last_name_obfuscated].filter(Boolean).join(" ");
+    let linkedinUrl = p.linkedin_url ?? null;
+    let title = p.title ?? "";
+    if (!fullName && !p.id) continue;
     let email: string | null = null;
     let emailStatus: string | null = null;
     let phone: string | null = null;
     let source: ProspectContact["source"] = "APOLLO";
 
-    // 2. Paid reveal: Apollo enrichment (1 credit when data found)
+    // 2. Paid reveal: Apollo enrichment by person id (1 credit when found)
     try {
       const matchRes = await fetchFn("https://api.apollo.io/api/v1/people/match", {
         method: "POST",
         headers: { "content-type": "application/json", "X-Api-Key": keys.apolloKey },
-        body: JSON.stringify({
-          name: fullName,
-          organization_name: input.companyName,
-          ...(input.domain ? { domain: input.domain } : {}),
-          reveal_personal_emails: false,
-        }),
+        body: JSON.stringify(
+          p.id
+            ? { id: p.id, reveal_personal_emails: false }
+            : { name: fullName, organization_name: input.companyName, ...(input.domain ? { domain: input.domain } : {}), reveal_personal_emails: false }
+        ),
       });
       if (matchRes.ok) {
-        const m = (await matchRes.json()) as { person?: { email?: string | null; email_status?: string | null; sanitized_phone?: string | null } };
-        email = m.person?.email ?? null;
-        emailStatus = m.person?.email_status ?? null;
+        const m = (await matchRes.json()) as {
+          person?: { name?: string | null; title?: string | null; linkedin_url?: string | null; email?: string | null; email_status?: string | null; sanitized_phone?: string | null };
+        };
+        if (m.person?.name) fullName = m.person.name;
+        if (m.person?.title) title = m.person.title;
+        if (m.person?.linkedin_url) linkedinUrl = m.person.linkedin_url;
+        if (isRealEmail(m.person?.email)) {
+          email = m.person!.email!;
+          emailStatus = m.person?.email_status ?? null;
+          apolloCredits++;
+        }
         phone = m.person?.sanitized_phone ?? null;
-        if (email) apolloCredits++;
       }
     } catch { /* fall through to RocketReach */ }
+    if (!fullName) continue;
 
     // 3. Fallback: RocketReach lookup by name + employer
     if (!email && keys.rocketReachKey) {
@@ -115,9 +132,9 @@ export async function findDecisionMakers(
 
     contacts.push({
       name: fullName,
-      title: p.title ?? "",
+      title,
       email, emailStatus, phone,
-      linkedinUrl: p.linkedin_url ?? null,
+      linkedinUrl,
       source,
     });
   }
