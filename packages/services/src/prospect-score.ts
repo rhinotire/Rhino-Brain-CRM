@@ -47,9 +47,9 @@ export async function scoreProspect(
   const o = (json ?? {}) as Record<string, unknown>;
   const valid =
     POOLS.includes(o.pool as never) && CONF.includes(o.confidence as never) &&
-    LINES.includes(o.productLine as never) && typeof o.score === "number";
+    LINES.includes(o.productLine as never) && Number.isFinite(o.score as number);
   const checks: SixCheck[] = Array.isArray(o.checks)
-    ? (o.checks as SixCheck[]).filter((c) => c && typeof c.check === "string" && typeof c.pass === "boolean")
+    ? (o.checks as SixCheck[]).filter((c) => c && typeof c.check === "string" && typeof c.pass === "boolean" && typeof c.evidence === "string")
     : [];
   const verdict: ProspectVerdict = valid
     ? {
