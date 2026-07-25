@@ -41,4 +41,11 @@ describe("fetchSiteText", () => {
     const failFetch = (async () => { throw new Error("boom"); }) as unknown as typeof fetch;
     expect(await fetchSiteText("https://example.com", failFetch)).toBe("");
   });
+  it("caps extracted text at 8000 chars", async () => {
+    const big = `<body>${"tire ".repeat(3000)}</body>`;
+    const fakeFetch = (async () => new Response(big)) as typeof fetch;
+    const text = await fetchSiteText("https://example.com", fakeFetch);
+    expect(text.length).toBeLessThanOrEqual(8000);
+    expect(text.length).toBeGreaterThan(7000);
+  });
 });

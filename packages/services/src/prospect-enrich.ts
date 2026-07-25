@@ -12,14 +12,13 @@ const MAX_CHARS = 8000;
 
 /** Fetch a homepage and reduce it to plain text. "" on any failure (site down ≠ bad lead). */
 export async function fetchSiteText(url: string, fetchFn: typeof fetch = fetch): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
     const res = await fetchFn(url.includes("://") ? url : `https://${url}`, {
       signal: controller.signal,
       headers: { "user-agent": "Mozilla/5.0 (compatible; RhinoBrain/1.0)" },
     });
-    clearTimeout(timer);
     if (!res.ok) return "";
     const html = await res.text();
     return html
@@ -32,6 +31,8 @@ export async function fetchSiteText(url: string, fetchFn: typeof fetch = fetch):
       .slice(0, MAX_CHARS);
   } catch {
     return "";
+  } finally {
+    clearTimeout(timer);
   }
 }
 
