@@ -81,23 +81,57 @@ export async function listRepsForAssign(): Promise<Array<{ id: string; name: str
 /** ADMIN-only: run a Places collection from the CRM ("search" button). Costs
  * real API money, so capped at 20 candidates per run — bigger sweeps use the
  * CLI script. */
-export async function runCollection(
-  state: string,
-  category: ProspectCategory,
-  limit: number
-): Promise<{ ok: boolean; error?: string; result?: PipelineResult }> {
+export async function runCollection(params: {
+  country: string;
+  state?: string;
+  category?: ProspectCategory;
+  customQuery?: string;
+  limit: number;
+}): Promise<{ ok: boolean; error?: string; result?: PipelineResult }> {
   const session = await requireManager();
   if (session.role !== "ADMIN") return { ok: false, error: "Only ADMIN can run collections (they cost API budget)" };
   const placesKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!placesKey) return { ok: false, error: "GOOGLE_PLACES_API_KEY is not configured on the server (Vercel env)" };
-  const capped = Math.max(1, Math.min(20, Math.floor(limit) || 10));
+  const capped = Math.max(1, Math.min(20, Math.floor(params.limit) || 10));
   try {
-    const result = await runProspectingPipeline({ state, category, limit: capped, placesKey });
+    const result = await runProspectingPipeline({
+      country: params.country,
+      state: params.state,
+      category: params.category,
+      customQuery: params.customQuery,
+      limit: capped,
+      placesKey,
+    });
     revalidatePath("/prospecting");
     return { ok: true, result };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "collection failed" };
   }
+}
+
+/** Manually add a company to the protection/blacklist. Anything here is
+ * invisible to collectors and (later) untouchable by outreach. */
+export async function addExclusionEntry(input: {
+  kind: "EXISTING_CUSTOMER" | "AGENT" | "COMPETITOR" | "OPTED_OUT" | "RISK";
+  companyName: string;
+  website?: string;
+  phone?: string;
+  reason?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireManager();
+  if (!input.companyName.trim()) return { ok: false, error: "Company name is required" };
+  await addExclusion({ ...input, companyName: input.companyName.trim(), addedById: session.userId });
+  revalidatePath("/prospecting/exclusions");
+  return { ok: true };
+}
+
+/** Remove a protection entry — un-protects the company, so ADMIN only. */
+export async function removeExclusion(id: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireManager();
+  if (session.role !== "ADMIN") return { ok: false, error: "Only ADMIN can remove protection entries" };
+  await db.exclusionList.delete({ where: { id } }).catch(() => null);
+  revalidatePath("/prospecting/exclusions");
+  return { ok: true };
 }
 
 /** Find named decision-makers (purchaser / president / owner) for one lead

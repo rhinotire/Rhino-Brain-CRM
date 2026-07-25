@@ -35,8 +35,10 @@ async function main() {
   if (!placesKey) throw new Error("GOOGLE_PLACES_API_KEY not set");
 
   const result = await runProspectingPipeline({
+    country: (arg("country", "US") ?? "US").toUpperCase(),
     state: (arg("state") ?? "").toUpperCase(),
     category: arg("category", "p4") as ProspectCategory,
+    customQuery: arg("query"),
     limit: Number(arg("limit", "40")),
     placesKey,
     dry: process.argv.includes("--dry"),

@@ -44,11 +44,12 @@ export default async function ProspectingPage() {
         <h1 className="text-xl font-bold">
           Prospecting <span className="text-sm font-normal text-slate-400">(AI-graded leads awaiting calibration)</span>
         </h1>
-        <div className="flex gap-3 text-sm text-slate-500">
+        <div className="flex items-center gap-3 text-sm text-slate-500">
           <span>Pending <b>{pendingCount}</b></span>
           <span>Followed <b className="text-emerald-700">{followedCount}</b></span>
           <span>Rejected <b className="text-red-600">{rejectedCount}</b></span>
           {poolCounts.map((p) => <span key={p.pool ?? "null"}>{p.pool ?? "unscored"} <b>{p._count}</b></span>)}
+          <a href="/prospecting/exclusions" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">🛡 Protection list</a>
         </div>
       </div>
 
