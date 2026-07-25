@@ -10,6 +10,7 @@ type Row = {
 };
 
 const KINDS = [
+  { value: "BLACKLIST", label: "⛔ Blacklist — bad credit / fraud, do NOT engage" },
   { value: "EXISTING_CUSTOMER", label: "Existing customer" },
   { value: "AGENT", label: "Agent / partner" },
   { value: "COMPETITOR", label: "Competitor" },
@@ -18,6 +19,7 @@ const KINDS = [
 ] as const;
 
 const KIND_COLORS: Record<string, string> = {
+  BLACKLIST: "bg-red-600 text-white",
   EXISTING_CUSTOMER: "bg-emerald-100 text-emerald-800",
   AGENT: "bg-blue-100 text-blue-800",
   COMPETITOR: "bg-red-100 text-red-800",
@@ -31,7 +33,7 @@ export function ExclusionManager({ rows, isAdmin }: { rows: Row[]; isAdmin: bool
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
   const [phone, setPhone] = useState("");
-  const [kind, setKind] = useState<string>("COMPETITOR");
+  const [kind, setKind] = useState<string>("BLACKLIST");
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
 

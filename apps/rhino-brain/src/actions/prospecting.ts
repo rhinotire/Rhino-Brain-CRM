@@ -112,7 +112,7 @@ export async function runCollection(params: {
 /** Manually add a company to the protection/blacklist. Anything here is
  * invisible to collectors and (later) untouchable by outreach. */
 export async function addExclusionEntry(input: {
-  kind: "EXISTING_CUSTOMER" | "AGENT" | "COMPETITOR" | "OPTED_OUT" | "RISK";
+  kind: "EXISTING_CUSTOMER" | "AGENT" | "COMPETITOR" | "OPTED_OUT" | "RISK" | "BLACKLIST";
   companyName: string;
   website?: string;
   phone?: string;

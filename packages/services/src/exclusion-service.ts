@@ -43,8 +43,25 @@ export async function isExcluded(candidate: {
   return matchesExclusion(candidate, rows);
 }
 
+/** Rep-facing blacklist check (bad credit / unpaid debt / fraud — owner rule):
+ * matches ONLY kind=BLACKLIST rows, so protecting a good customer from cold
+ * outreach never paints them as a deadbeat. Surface the result as a red
+ * warning wherever reps see the company. */
+export async function findBlacklistMatch(candidate: {
+  companyName?: string | null;
+  website?: string | null;
+  phone?: string | null;
+}): Promise<(ExclusionRow & { reason?: string | null }) | null> {
+  const rows = await db.exclusionList.findMany({
+    where: { kind: "BLACKLIST" },
+    select: { kind: true, companyName: true, domain: true, phone: true, reason: true },
+  });
+  const hit = matchesExclusion(candidate, rows);
+  return hit ? (hit as ExclusionRow & { reason?: string | null }) : null;
+}
+
 export async function addExclusion(input: {
-  kind: "EXISTING_CUSTOMER" | "AGENT" | "COMPETITOR" | "OPTED_OUT" | "RISK";
+  kind: "EXISTING_CUSTOMER" | "AGENT" | "COMPETITOR" | "OPTED_OUT" | "RISK" | "BLACKLIST";
   companyName: string;
   website?: string | null;
   phone?: string | null;

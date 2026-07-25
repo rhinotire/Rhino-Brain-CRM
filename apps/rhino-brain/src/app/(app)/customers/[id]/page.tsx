@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { findBlacklistMatch } from "@rhino/services";
 import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Card, Badge, Button } from "@/components/ui/primitives";
@@ -51,9 +52,25 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);
   const openTasks = customer.tasks.filter(t => t.status === "OPEN");
+  // Owner rule: bad-credit/fraud companies are blacklisted centrally; every
+  // rep opening this page must see the warning before engaging.
+  const blacklisted = await findBlacklistMatch({
+    companyName: customer.companyName,
+    phone: customer.phone,
+    website: customer.website,
+  });
 
   return (
     <div className="space-y-5">
+      {blacklisted && (
+        <div className="rounded-xl border-2 border-red-600 bg-red-50 p-4">
+          <p className="text-base font-bold text-red-700">⛔ BLACKLISTED — DO NOT ENGAGE</p>
+          <p className="mt-1 text-sm text-red-700">
+            This company is on the blacklist{blacklisted.reason ? `: ${blacklisted.reason}` : " (bad credit / fraud risk)"}.
+            No new quotes, no credit terms, no orders without owner approval.
+          </p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

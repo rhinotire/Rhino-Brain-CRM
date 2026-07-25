@@ -122,6 +122,7 @@ enum ExclusionKind {
   COMPETITOR
   OPTED_OUT
   RISK
+  BLACKLIST // bad credit / unpaid debt / fraud — reps must not engage (owner rule 2026-07-25)
 }
 
 enum ProspectSourceKind {
