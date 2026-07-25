@@ -15,6 +15,7 @@ export { PublicBrandService, type PublicBrandDTO } from "./public-brand-service"
 export { PublicArticleService, type PublicArticleDTO } from "./public-article-service";
 export { PublicReferralService, type SendToInstallerResult } from "./public-referral-service";
 export { matchInstallerReferral, phoneKey, domainKey, nameKey, type MatchResult } from "./referral-matching";
+export { dedupeKeyFor } from "./prospect-dedupe";
 export { runReferralMaintenance } from "./referral-maintenance";
 export { normalizeSizeInput, sizeNeedles, sizeSuggestion, type NormalizedSize } from "./size-normalize";
 export { deriveSpecFromProduct, specGaps, validateSpecField, SPEC_FIELD_VOCAB, type RuleSpec } from "./spec-rules";
