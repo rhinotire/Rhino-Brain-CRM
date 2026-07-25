@@ -19,6 +19,7 @@ const managerGroups: NavGroup[] = [
     { href: "/customers", label: "Customers", icon: "🏬" },
     { href: "/pipeline", label: "Lead Pipeline", icon: "⇉" },
     { href: "/leads", label: "Leads List", icon: "☰" },
+    { href: "/prospecting", label: "Prospecting (AI)", icon: "🧭" },
     { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
     { href: "/quotes", label: "Quotes", icon: "＄" },
     { href: "/portal-orders", label: "Portal Orders", icon: "🛒" },
@@ -32,7 +33,6 @@ const managerGroups: NavGroup[] = [
   { title: "Products", items: [
     { href: "/products", label: "Products & Stock", icon: "📦" },
     { href: "/spec-review", label: "Spec Review", icon: "🔍" },
-    { href: "/prospecting", label: "Prospecting", icon: "🧭" },
     { href: "/lost-sales", label: "Lost Sales", icon: "💸" },
     { href: "/flyers", label: "Special Flyers", icon: "📣" },
   ]},

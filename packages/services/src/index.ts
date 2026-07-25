@@ -37,3 +37,5 @@ export type {
   PublicPartSpecDTO,
   InternalProductHit,
 } from "./types";
+export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, type ProspectCategory, type PipelineResult } from "./prospect-pipeline";
+export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";

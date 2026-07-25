@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { calibrateLead } from "@/actions/prospecting";
+import { calibrateLead, generateOutreachDraft } from "@/actions/prospecting";
 
 type Check = { check: string; pass: boolean; evidence: string };
+type Draft = { emailSubject: string; emailBody: string; phoneOpener: string; talkingPoints: string[]; generatedAt: string };
 type Props = {
   lead: {
     id: string; companyName: string; city: string | null; state: string | null;
@@ -11,7 +12,7 @@ type Props = {
     email: string | null; phone: string | null;
     scoreReasons: Check[] | null;
     enrichment: { businessSummary?: string; brandsSold?: string[]; buyerSignals?: string[]; emails?: string[] } | null;
-    meta: { website?: string; angle?: string } | null;
+    meta: { website?: string; angle?: string; outreachDraft?: Draft } | null;
   };
   reps: Array<{ id: string; name: string }>;
 };
@@ -23,14 +24,29 @@ const POOL_COLORS: Record<string, string> = {
   D_EXCLUDED: "bg-slate-200 text-slate-600",
 };
 
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+    >
+      {copied ? "✓ Copied" : label}
+    </button>
+  );
+}
+
 export function ProspectCard({ lead, reps }: Props) {
   const [pending, start] = useTransition();
+  const [drafting, startDraft] = useTransition();
   const [repId, setRepId] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [alsoExclude, setAlsoExclude] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(lead.meta?.outreachDraft ?? null);
+  const [showDraft, setShowDraft] = useState(false);
 
   const act = (verdict: "FOLLOW" | "REJECT") =>
     start(async () => {
@@ -39,7 +55,17 @@ export function ProspectCard({ lead, reps }: Props) {
       else setDone(true);
     });
 
+  const makeDraft = () =>
+    startDraft(async () => {
+      setError("");
+      const r = await generateOutreachDraft(lead.id);
+      if (!r.ok || !r.draft) setError(r.error ?? "draft failed");
+      else { setDraft(r.draft); setShowDraft(true); }
+    });
+
   if (done) return null;
+
+  const contactEmails = [...new Set([lead.email, ...(lead.enrichment?.emails ?? [])].filter((e): e is string => !!e))];
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
@@ -55,11 +81,22 @@ export function ProspectCard({ lead, reps }: Props) {
         </h3>
       </div>
 
-      {lead.meta?.website && (
-        <a href={lead.meta.website.startsWith("http") ? lead.meta.website : `https://${lead.meta.website}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
-          {lead.meta.website}
-        </a>
-      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {lead.meta?.website && (
+          <a href={lead.meta.website.startsWith("http") ? lead.meta.website : `https://${lead.meta.website}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+            🌐 {lead.meta.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+          </a>
+        )}
+        {lead.phone && (
+          <a href={`tel:${lead.phone}`} className="font-semibold text-slate-700 hover:underline">☎ {lead.phone}</a>
+        )}
+        {contactEmails.map((e) => (
+          <a key={e} href={`mailto:${e}`} className="text-slate-700 hover:underline">✉ {e}</a>
+        ))}
+        {!lead.phone && contactEmails.length === 0 && (
+          <span className="text-xs text-slate-400">No direct contact found yet — check the website</span>
+        )}
+      </div>
       {lead.enrichment?.businessSummary && <p className="text-sm text-slate-600">{lead.enrichment.businessSummary}</p>}
       {lead.meta?.angle && <p className="rounded bg-amber-50 p-2 text-sm text-amber-900">Angle: {lead.meta.angle}</p>}
       {!!lead.enrichment?.brandsSold?.length && (
@@ -76,6 +113,39 @@ export function ProspectCard({ lead, reps }: Props) {
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {draft && showDraft && (
+        <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wide text-indigo-700">AI outreach draft</span>
+            <div className="flex gap-2">
+              <button onClick={makeDraft} disabled={drafting} className="rounded border border-indigo-300 px-2 py-0.5 text-xs text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
+                {drafting ? "Regenerating…" : "↻ Regenerate"}
+              </button>
+              <button onClick={() => setShowDraft(false)} className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-500">Hide</button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-slate-800">📧 {draft.emailSubject}</p>
+              <CopyButton text={`Subject: ${draft.emailSubject}\n\n${draft.emailBody}`} label="Copy email" />
+            </div>
+            <p className="whitespace-pre-wrap text-sm text-slate-700">{draft.emailBody}</p>
+          </div>
+          <div className="space-y-1 border-t border-indigo-100 pt-2">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-slate-600">📞 Phone opener</p>
+              <CopyButton text={draft.phoneOpener} label="Copy" />
+            </div>
+            <p className="text-sm italic text-slate-700">“{draft.phoneOpener}”</p>
+            {draft.talkingPoints.length > 0 && (
+              <ul className="list-inside list-disc text-xs text-slate-600">
+                {draft.talkingPoints.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {rejecting ? (
         <div className="space-y-2">
@@ -96,6 +166,13 @@ export function ProspectCard({ lead, reps }: Props) {
             <option value="">Assign rep (optional)</option>
             {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
+          <button
+            disabled={drafting}
+            onClick={() => (draft && !showDraft ? setShowDraft(true) : makeDraft())}
+            className="rounded border border-indigo-300 px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+          >
+            {drafting ? "Writing…" : draft ? "✉ Show AI draft" : "✉ AI draft"}
+          </button>
           <button disabled={pending} onClick={() => setRejecting(true)} className="rounded border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600">Not a target</button>
         </div>
       )}

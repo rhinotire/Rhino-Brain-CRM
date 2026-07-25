@@ -2,8 +2,12 @@ import { db } from "@/lib/db";
 import { requireManager, locationScope } from "@/lib/auth";
 import { listRepsForAssign } from "@/actions/prospecting";
 import { ProspectCard } from "@/components/prospect-card";
+import { ProspectCollectForm } from "@/components/prospect-collect-form";
 
 export const dynamic = "force-dynamic";
+// In-page collection runs (Places + AI per candidate) need more than the
+// default function window.
+export const maxDuration = 300;
 
 const PAGE_SIZE = 50;
 
@@ -47,6 +51,8 @@ export default async function ProspectingPage() {
           {poolCounts.map((p) => <span key={p.pool ?? "null"}>{p.pool ?? "unscored"} <b>{p._count}</b></span>)}
         </div>
       </div>
+
+      {session.role === "ADMIN" && <ProspectCollectForm />}
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
         Recent runs:{" "}
