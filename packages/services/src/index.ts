@@ -23,6 +23,8 @@ export { deriveSpecFromProduct, specGaps, validateSpecField, SPEC_FIELD_VOCAB, t
 export { uploadDealerDoc, signDealerDocUrl, isDealerStorageConfigured } from "./storage";
 export { recordEvent } from "./analytics";
 export { isValidUsZip, zipDistanceMiles, zipCityState } from "./geo";
+export { askClaudeJson } from "./claude-json";
+export { fetchSiteText, extractEnrichment, type Enrichment } from "./prospect-enrich";
 export { sendEmail, isEmailConfigured } from "./email";
 export type {
   StockStatus,
