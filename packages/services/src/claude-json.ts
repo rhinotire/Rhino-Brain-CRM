@@ -4,6 +4,22 @@
  */
 const DEFAULT_MODEL = process.env.PROSPECT_AI_MODEL || "claude-haiku-4-5-20251001";
 
+/**
+ * Models often wrap the JSON in fences or append prose after it. Parse the
+ * whole reply first; on failure fall back to the outermost {...} slice.
+ */
+export function parseJsonReply(text: string): unknown {
+  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+    throw new Error(`Claude reply was not JSON: ${cleaned.slice(0, 120)}`);
+  }
+}
+
 export async function askClaudeJson(opts: {
   system: string;
   user: string;
@@ -30,9 +46,8 @@ export async function askClaudeJson(opts: {
     usage?: { input_tokens?: number; output_tokens?: number };
   };
   const text = body.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
-  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
   return {
-    json: JSON.parse(cleaned),
+    json: parseJsonReply(text),
     inputTokens: body.usage?.input_tokens ?? 0,
     outputTokens: body.usage?.output_tokens ?? 0,
   };
