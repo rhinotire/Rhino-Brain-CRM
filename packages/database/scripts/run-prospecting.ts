@@ -55,6 +55,7 @@ async function main() {
   ensureEnv("ANTHROPIC_API_KEY");
   const placesKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!placesKey) throw new Error("GOOGLE_PLACES_API_KEY not set");
+  if (!DRY && !process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set (required for enrich/score on non-dry runs)");
 
   const exclusions = await db.exclusionList.findMany({ select: { kind: true, companyName: true, domain: true, phone: true } });
   const locByTag = async (tag: "FL" | "TX") => (await db.location.findFirst({ where: { shortTag: tag } }))?.id ?? null;
@@ -66,61 +67,63 @@ async function main() {
     data: { source: "GOOGLE_PLACES", params: { state: STATE, category: CATEGORY, limit: LIMIT } },
   });
 
-  outer:
-  for (const q of QUERIES[CATEGORY]) {
-    let pageToken: string | undefined;
-    do {
-      const page = await searchPlacesPage({ query: `${q} in ${STATE_NAMES[STATE]}`, apiKey: placesKey, pageToken });
-      apiCalls++;
-      pageToken = page.nextPageToken ?? undefined;
-      for (const c of page.candidates) {
-        if (results >= LIMIT) break outer;
-        results++;
-        if (matchesExclusion({ companyName: c.companyName, website: c.website, phone: c.phone }, exclusions)) { excluded++; continue; }
-        const key = dedupeKeyFor({ website: c.website, phone: c.phone, companyName: c.companyName, city: c.city });
-        if (!key) continue;
-        if (await db.lead.findFirst({ where: { dedupeKey: key }, select: { id: true } })) { dups++; continue; }
-        if (DRY) { console.log("would create:", c.companyName, c.city, c.state); continue; }
+  try {
+    outer:
+    for (const q of QUERIES[CATEGORY]) {
+      let pageToken: string | undefined;
+      do {
+        const page = await searchPlacesPage({ query: `${q} in ${STATE_NAMES[STATE]}`, apiKey: placesKey, pageToken });
+        apiCalls++;
+        pageToken = page.nextPageToken ?? undefined;
+        for (const c of page.candidates) {
+          if (results >= LIMIT) break outer;
+          results++;
+          if (matchesExclusion({ companyName: c.companyName, website: c.website, phone: c.phone }, exclusions)) { excluded++; continue; }
+          const key = dedupeKeyFor({ website: c.website, phone: c.phone, companyName: c.companyName, city: c.city });
+          if (!key) continue;
+          if (await db.lead.findFirst({ where: { dedupeKey: key }, select: { id: true } })) { dups++; continue; }
+          if (DRY) { console.log("would create:", c.companyName, c.city, c.state); continue; }
 
-        const siteText = c.website ? await fetchSiteText(c.website) : "";
-        const enr = await extractEnrichment(siteText, c.companyName);
-        const sc = await scoreProspect({ companyName: c.companyName, state: c.state, enrichment: enr.enrichment });
-        inTok += enr.inputTokens + sc.inputTokens;
-        outTok += enr.outputTokens + sc.outputTokens;
-        const wh = assignStateLocation(c.state);
-        await db.lead.create({
-          data: {
-            companyName: c.companyName,
-            phone: c.phone, city: c.city, state: c.state,
-            email: enr.enrichment.emails[0] ?? null,
-            type: "WHOLESALE_DEALER",
-            source: "PROSPECTING",
-            interest: sc.verdict.productLine === "P3_PCR" ? "PCR_TIRES" : sc.verdict.productLine === "P4_TBR" ? "TBR_TIRES" : sc.verdict.productLine === "P2_TRAILER_WHEEL" ? "WHEELS" : "TRAILER_TIRES",
-            stage: "NEW_LEAD",
-            pool: sc.verdict.pool, confidence: sc.verdict.confidence, productLine: sc.verdict.productLine,
-            score: sc.verdict.score, scoreReasons: sc.verdict.checks,
-            enrichment: enr.enrichment as object,
-            dedupeKey: key, sourceRunId: run!.id,
-            locationId: wh === "RHINO" ? rhinoId : wh === "EVERFLOW" ? everflowId : null,
-            meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q },
-          },
-        });
-        created++;
-        console.log(`+ ${c.companyName} [${sc.verdict.pool}/${sc.verdict.confidence}] score=${sc.verdict.score}`);
-      }
-    } while (pageToken && results < LIMIT);
+          const siteText = c.website ? await fetchSiteText(c.website) : "";
+          const enr = await extractEnrichment(siteText, c.companyName);
+          const sc = await scoreProspect({ companyName: c.companyName, state: c.state, enrichment: enr.enrichment });
+          inTok += enr.inputTokens + sc.inputTokens;
+          outTok += enr.outputTokens + sc.outputTokens;
+          const wh = assignStateLocation(c.state);
+          await db.lead.create({
+            data: {
+              companyName: c.companyName,
+              phone: c.phone, city: c.city, state: c.state,
+              email: enr.enrichment.emails[0] ?? null,
+              type: "WHOLESALE_DEALER",
+              source: "PROSPECTING",
+              interest: sc.verdict.productLine === "P3_PCR" ? "PCR_TIRES" : sc.verdict.productLine === "P4_TBR" ? "TBR_TIRES" : sc.verdict.productLine === "P2_TRAILER_WHEEL" ? "WHEELS" : "TRAILER_TIRES",
+              stage: "NEW_LEAD",
+              pool: sc.verdict.pool, confidence: sc.verdict.confidence, productLine: sc.verdict.productLine,
+              score: sc.verdict.score, scoreReasons: sc.verdict.checks,
+              enrichment: enr.enrichment as object,
+              dedupeKey: key, sourceRunId: run!.id,
+              locationId: wh === "RHINO" ? rhinoId : wh === "EVERFLOW" ? everflowId : null,
+              meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q },
+            },
+          });
+          created++;
+          console.log(`+ ${c.companyName} [${sc.verdict.pool}/${sc.verdict.confidence}] score=${sc.verdict.score}`);
+        }
+      } while (pageToken && results < LIMIT);
+    }
+  } finally {
+    if (run) {
+      await db.sourceRun.update({
+        where: { id: run.id },
+        data: {
+          resultCount: results, newLeadCount: created, dupCount: dups, excludedCount: excluded,
+          apiCostUsd: apiCalls * PLACES_COST_PER_CALL_USD, inputTokens: inTok, outputTokens: outTok,
+        },
+      });
+    }
+    console.log({ results, created, dups, excluded, apiCalls, inTok, outTok });
   }
-
-  if (run) {
-    await db.sourceRun.update({
-      where: { id: run.id },
-      data: {
-        resultCount: results, newLeadCount: created, dupCount: dups, excludedCount: excluded,
-        apiCostUsd: apiCalls * PLACES_COST_PER_CALL_USD, inputTokens: inTok, outputTokens: outTok,
-      },
-    });
-  }
-  console.log({ results, created, dups, excluded, apiCalls, inTok, outTok });
 }
 
 main().finally(() => db.$disconnect());
