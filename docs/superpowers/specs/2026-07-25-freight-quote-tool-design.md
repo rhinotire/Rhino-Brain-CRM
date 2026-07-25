@@ -22,8 +22,12 @@ Decisions confirmed with William:
 - **Carrier list defaults to all active carriers**, uncheckable per shipment.
 - **Award flow:** auto-send confirmation email to the winner, status → BOOKED;
   pickup/delivery status updated manually afterwards.
-- **Dedicated mailbox** (not rhinotyre@gmail.com) — address TBD from William;
+- **Dedicated mailbox:** `luckywarehouse888@gmail.com` (confirmed 2026-07-25);
   mailbox is configurable, stored in the shared `Mailbox` table.
+- **Multi-stop pooled loads:** one truck may deliver to several customers
+  (multiple drops). A shipment has 1..N ordered stops; drop order is specified
+  by the user at creation and carriers quote an all-in rate for the full route
+  including all drop fees.
 - **Architecture: Approach A** — full Gmail integration (Mailbox table + OAuth +
   Vercel Cron polling), built as shared infrastructure that the prospecting agent
   (docs/superpowers/specs/2026-07-24-ai-prospecting-agent-design.md) will reuse.
@@ -35,16 +39,27 @@ New models:
 - **`Mailbox`** (shared infra): `email`, `provider` (GMAIL), encrypted OAuth
   credentials, `purpose` (FREIGHT | PROSPECTING), `active`. Only the freight row is
   created now; schema matches the prospecting spec so it can be reused.
-- **`FreightCarrier`**: `name`, `contactName?`, `email`, `phone?`, `mcNumber?`,
-  `equipmentTypes` (DRY_VAN_53, FLATBED_53), `notes?`, `active`.
+- **`FreightCarrier`**: `name`, `phone?`, `mcNumber?`, `equipmentTypes`
+  (DRY_VAN_53, FLATBED_53), `notes?`, `active`. Fully user-maintained via
+  `/freight/carriers` CRUD (William adds/edits carriers himself).
+- **`FreightCarrierContact`** (a carrier can have several email contacts):
+  `carrierId`, `name?`, `email`, `active`. Quote emails go out as ONE email
+  per carrier with all active contacts in To — replies from any contact land
+  in the same Gmail thread. Seed carrier: TMS with dayleen.marine@ and
+  tim.sebacher@tms-transportation.com.
 - **`FreightConsignee`** (saved destinations, entered once): `name`
   (e.g. "Pearson GA – XXX Tire"), `addressLine`, `city`, `state`, `zip`,
   `contactName?`, `phone?`, `deliveryNotes?`, `active`.
-- **`FreightShipment`**: `refCode` (e.g. RT-2607-001), `consigneeId`,
-  `originAddress` (defaults to Rhino warehouse, editable), `equipmentType`
+- **`FreightShipment`**: `refCode` (e.g. RT-2607-001), `originAddress`
+  (defaults to Rhino FL warehouse — 11423 Satellite Blvd, Orlando, FL 32837
+  per CRM data, confirm at go-live; editable per shipment), `equipmentType`
   (DRY_VAN_53 | FLATBED_53), `pickupDate`, `commodity` (default "tires"),
-  `quantity`/`weight`, `notes`, `status`, `awardedQuoteId?`, `locationId`
+  `notes`, `status`, `awardedQuoteId?`, `locationId`
   (company isolation — same scoping rule as the rest of the CRM), `createdById`.
+- **`FreightShipmentStop`** (multi-stop pooled loads): `shipmentId`,
+  `sequence` (1..N, user-ordered), `consigneeId`, `quantity`/`weight` for that
+  stop (each pooled customer's own goods), `notes?`. A single-drop load is
+  simply N=1 — same logic throughout.
 - **`FreightQuote`** (one row per carrier per shipment, unique
   `[shipmentId, carrierId]`): `status`, `price?`, `currency` (USD),
   `transitDays?`, `gmailThreadId`, `gmailMessageId?`, `rawReplyExcerpt?`,
@@ -60,11 +75,13 @@ Quote:    SENT → QUOTED | DECLINED | NEEDS_ATTENTION | SEND_FAILED
 ## 4. Email flow
 
 **Send (one-click blast):**
-- One email per carrier (no CC — carriers must not see each other), in English:
-  lane (origin → destination), equipment type, pickup date, commodity
-  (tires + weight/count), request for all-in rate and earliest pickup.
-- Subject carries the refCode:
-  `Rate Request RT-2607-001: Ocala FL → Pearson GA, 53' Dry Van`.
+- One email per carrier (no cross-carrier CC — carriers must not see each
+  other; a carrier's own multiple contacts share one To line), in English:
+  full route with all stops listed in drop order (address + per-stop
+  tire count/weight), equipment type, pickup date, request for an all-in
+  rate covering all drop fees, and earliest pickup.
+- Subject carries the refCode and stop count:
+  `Rate Request RT-2607-001: Orlando FL → Pearson GA + Douglas GA (2 stops), 53' Dry Van`.
   Reply matching uses Gmail `threadId` primary + refCode-in-subject fallback.
 - Preview screen before sending; email body editable per send.
 - Per-carrier failure isolation: one failed send marks that quote SEND_FAILED
@@ -91,10 +108,11 @@ Quote:    SENT → QUOTED | DECLINED | NEEDS_ATTENTION | SEND_FAILED
 
 - **`/freight`** — shipment list: refCode, lane, pickup date, status chip,
   reply progress (e.g. `5/8 已回复`), current lowest price.
-- **`/freight/new`** — new quote request: consignee dropdown (inline add),
-  origin (defaulted), equipment, pickup date, weight/count, notes → carrier
-  checklist (all active pre-checked) → email preview → send.
-  Repeat lanes become: pick consignee → change date → send (~30 seconds).
+- **`/freight/new`** — new quote request: "Add stop" builds the drop list —
+  each stop picks a consignee (inline add) and its tire count/weight, with
+  up/down reordering; origin (defaulted), equipment, pickup date, notes →
+  carrier checklist (all active pre-checked) → email preview → send.
+  Repeat lanes become: pick consignee(s) → change date → send (~30 seconds).
 - **`/freight/[id]`** — comparison table: per-carrier price, transit, replied-at,
   expandable raw reply, NEEDS_ATTENTION highlighted; award button per row;
   status timeline; manual PICKED_UP / DELIVERED buttons after booking.
@@ -113,8 +131,12 @@ Core services live in `packages/services` with unit tests following the existing
 `*.test.ts` pattern: quote-reply JSON validation, thread/refCode matching,
 award transition logic, carrier-selection defaults.
 
-## 8. Open items (needed before go-live, not blocking development)
+## 8. Go-live inputs (provided 2026-07-25)
 
-1. Dedicated mailbox address + one-time Google OAuth authorization by William.
-2. Full origin warehouse address (Rhino FL).
-3. Carrier list (names + emails).
+1. Mailbox: `luckywarehouse888@gmail.com` — still needs a one-time Google OAuth
+   authorization by William when the integration is built.
+2. Origin warehouse: Rhino FL — default `11423 Satellite Blvd, Orlando, FL 32837`
+   (from CRM data; William to confirm; editable per shipment).
+3. First carrier: TMS (dayleen.marine@tms-transportation.com,
+   tim.sebacher@tms-transportation.com). More carriers added by William via
+   the `/freight/carriers` page.
