@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, locationScope } from "@/lib/auth";
 import { listRepsForAssign } from "@/actions/prospecting";
 import { ProspectCard } from "@/components/prospect-card";
 
@@ -10,15 +10,16 @@ const PAGE_SIZE = 50;
 /** Prospect calibration queue (spec §6.2). AI-graded leads wait here for a
  * human verdict before any outreach can ever target them. */
 export default async function ProspectingPage() {
-  await requireManager();
+  const session = await requireManager();
+  const scope = locationScope(session);
 
   const [pendingCount, followedCount, rejectedCount, poolCounts, pending, reps, runs] = await Promise.all([
-    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null } }),
-    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: { not: null }, pool: { not: "D_EXCLUDED" } } }),
-    db.lead.count({ where: { source: "PROSPECTING", pool: "D_EXCLUDED" } }),
-    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING" }, _count: true }),
+    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null, ...scope } }),
+    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: { not: null }, pool: { not: "D_EXCLUDED" }, ...scope } }),
+    db.lead.count({ where: { source: "PROSPECTING", pool: "D_EXCLUDED", ...scope } }),
+    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING", ...scope }, _count: true }),
     db.lead.findMany({
-      where: { source: "PROSPECTING", reviewedAt: null },
+      where: { source: "PROSPECTING", reviewedAt: null, ...scope },
       orderBy: [{ score: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
       take: PAGE_SIZE,
     }),
