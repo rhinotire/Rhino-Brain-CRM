@@ -62,7 +62,7 @@ async function main() {
   const rhinoId = await locByTag("FL");
   const everflowId = await locByTag("TX");
 
-  let apiCalls = 0, inTok = 0, outTok = 0, results = 0, created = 0, dups = 0, excluded = 0;
+  let apiCalls = 0, inTok = 0, outTok = 0, results = 0, created = 0, dups = 0, excluded = 0, skipped = 0;
   const run = DRY ? null : await db.sourceRun.create({
     data: { source: "GOOGLE_PLACES", params: { state: STATE, category: CATEGORY, limit: LIMIT } },
   });
@@ -84,31 +84,39 @@ async function main() {
           if (await db.lead.findFirst({ where: { dedupeKey: key }, select: { id: true } })) { dups++; continue; }
           if (DRY) { console.log("would create:", c.companyName, c.city, c.state); continue; }
 
-          const siteText = c.website ? await fetchSiteText(c.website) : "";
-          const enr = await extractEnrichment(siteText, c.companyName);
-          const sc = await scoreProspect({ companyName: c.companyName, state: c.state, enrichment: enr.enrichment });
-          inTok += enr.inputTokens + sc.inputTokens;
-          outTok += enr.outputTokens + sc.outputTokens;
-          const wh = assignStateLocation(c.state);
-          await db.lead.create({
-            data: {
-              companyName: c.companyName,
-              phone: c.phone, city: c.city, state: c.state,
-              email: enr.enrichment.emails[0] ?? null,
-              type: "WHOLESALE_DEALER",
-              source: "PROSPECTING",
-              interest: sc.verdict.productLine === "P3_PCR" ? "PCR_TIRES" : sc.verdict.productLine === "P4_TBR" ? "TBR_TIRES" : sc.verdict.productLine === "P2_TRAILER_WHEEL" ? "WHEELS" : "TRAILER_TIRES",
-              stage: "NEW_LEAD",
-              pool: sc.verdict.pool, confidence: sc.verdict.confidence, productLine: sc.verdict.productLine,
-              score: sc.verdict.score, scoreReasons: sc.verdict.checks,
-              enrichment: enr.enrichment as object,
-              dedupeKey: key, sourceRunId: run!.id,
-              locationId: wh === "RHINO" ? rhinoId : wh === "EVERFLOW" ? everflowId : null,
-              meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q },
-            },
-          });
-          created++;
-          console.log(`+ ${c.companyName} [${sc.verdict.pool}/${sc.verdict.confidence}] score=${sc.verdict.score}`);
+          try {
+            const siteText = c.website ? await fetchSiteText(c.website) : "";
+            const enr = await extractEnrichment(siteText, c.companyName);
+            inTok += enr.inputTokens;
+            outTok += enr.outputTokens;
+            const sc = await scoreProspect({ companyName: c.companyName, state: c.state, enrichment: enr.enrichment });
+            inTok += sc.inputTokens;
+            outTok += sc.outputTokens;
+            const wh = assignStateLocation(c.state);
+            await db.lead.create({
+              data: {
+                companyName: c.companyName,
+                phone: c.phone, city: c.city, state: c.state,
+                email: enr.enrichment.emails[0] ?? null,
+                type: "WHOLESALE_DEALER",
+                source: "PROSPECTING",
+                interest: sc.verdict.productLine === "P3_PCR" ? "PCR_TIRES" : sc.verdict.productLine === "P4_TBR" ? "TBR_TIRES" : sc.verdict.productLine === "P2_TRAILER_WHEEL" ? "WHEELS" : "TRAILER_TIRES",
+                stage: "NEW_LEAD",
+                pool: sc.verdict.pool, confidence: sc.verdict.confidence, productLine: sc.verdict.productLine,
+                score: sc.verdict.score, scoreReasons: sc.verdict.checks,
+                enrichment: enr.enrichment as object,
+                dedupeKey: key, sourceRunId: run!.id,
+                locationId: wh === "RHINO" ? rhinoId : wh === "EVERFLOW" ? everflowId : null,
+                meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q },
+              },
+            });
+            created++;
+            console.log(`+ ${c.companyName} [${sc.verdict.pool}/${sc.verdict.confidence}] score=${sc.verdict.score}`);
+          } catch (e) {
+            skipped++;
+            console.warn(`! skipped ${c.companyName}: ${e instanceof Error ? e.message : e}`);
+            continue;
+          }
         }
       } while (pageToken && results < LIMIT);
     }
@@ -122,7 +130,7 @@ async function main() {
         },
       });
     }
-    console.log({ results, created, dups, excluded, apiCalls, inTok, outTok });
+    console.log({ results, created, dups, excluded, skipped, apiCalls, inTok, outTok });
   }
 }
 
