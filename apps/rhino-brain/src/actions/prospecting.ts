@@ -5,10 +5,13 @@ import {
   addExclusion,
   runProspectingPipeline,
   generateOutreachDraft as generateDraftService,
+  findDecisionMakers,
+  domainKey,
   type ProspectCategory,
   type PipelineResult,
   type OutreachDraft,
   type Enrichment,
+  type ProspectContact,
 } from "@rhino/services";
 import { db } from "@/lib/db";
 import { requireManager, locationScope } from "@/lib/auth";
@@ -97,6 +100,46 @@ export async function runCollection(
   }
 }
 
+/** Find named decision-makers (purchaser / president / owner) for one lead
+ * via Apollo (+ RocketReach email fallback). Costs data credits, so it is a
+ * per-lead button, not automatic. Results persist to Lead.meta.contacts. */
+export async function findContacts(
+  leadId: string
+): Promise<{ ok: boolean; error?: string; contacts?: ProspectContact[] }> {
+  const session = await requireManager();
+  const lead = await db.lead.findUnique({ where: { id: leadId } });
+  if (!lead) return { ok: false, error: "Lead not found" };
+  const scope = locationScope(session);
+  if (session.role !== "ADMIN" && scope.locationId && lead.locationId !== scope.locationId)
+    return { ok: false, error: "Lead belongs to another location" };
+
+  const apolloKey = process.env.APOLLO_API_KEY;
+  if (!apolloKey) return { ok: false, error: "APOLLO_API_KEY is not configured yet (Vercel env) — ask the owner to add it" };
+  const meta = (lead.meta ?? {}) as Record<string, unknown>;
+  const domain = domainKey(typeof meta.website === "string" ? meta.website : null) || null;
+
+  try {
+    const { contacts } = await findDecisionMakers(
+      { companyName: lead.companyName, domain },
+      { apolloKey, rocketReachKey: process.env.ROCKETREACH_API_KEY }
+    );
+    if (contacts.length === 0) return { ok: false, error: "No decision-makers found in Apollo for this company" };
+    await db.lead.update({
+      where: { id: leadId },
+      data: {
+        meta: { ...meta, contacts },
+        // Promote the best contact into the Lead's own fields when empty
+        ...(lead.contactPerson ? {} : { contactPerson: `${contacts[0].name} (${contacts[0].title})` }),
+        ...(lead.email || !contacts[0].email ? {} : { email: contacts[0].email }),
+      },
+    });
+    revalidatePath("/prospecting");
+    return { ok: true, contacts };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "contact lookup failed" };
+  }
+}
+
 /** Generate (or regenerate) the personalized first-touch draft for one lead.
  * Persisted into Lead.meta.outreachDraft so tokens aren't re-spent on reload. */
 export async function generateOutreachDraft(
@@ -113,6 +156,7 @@ export async function generateOutreachDraft(
     return { ok: false, error: "Lead belongs to another location" };
 
   const meta = (lead.meta ?? {}) as Record<string, unknown>;
+  const contacts = Array.isArray(meta.contacts) ? (meta.contacts as ProspectContact[]) : [];
   try {
     const { draft } = await generateDraftService({
       companyName: lead.companyName,
@@ -122,6 +166,7 @@ export async function generateOutreachDraft(
       enrichment: (lead.enrichment as Enrichment | null) ?? null,
       angle: typeof meta.angle === "string" ? meta.angle : null,
       senderCompany: lead.location?.shortTag === "TX" ? "Everflow Tire (Dallas, TX)" : "Rhino Tire USA (Orlando, FL)",
+      contact: contacts[0] ? { name: contacts[0].name, title: contacts[0].title } : null,
     });
     await db.lead.update({
       where: { id: leadId },

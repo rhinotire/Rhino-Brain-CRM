@@ -32,6 +32,7 @@ export async function generateOutreachDraft(
     enrichment: Enrichment | null;
     angle: string | null;
     senderCompany: "Rhino Tire USA (Orlando, FL)" | "Everflow Tire (Dallas, TX)";
+    contact?: { name: string; title: string } | null;
   },
   ask: typeof askClaudeJson = askClaudeJson
 ): Promise<{ draft: OutreachDraft; inputTokens: number; outputTokens: number }> {
@@ -40,6 +41,7 @@ export async function generateOutreachDraft(
     user: [
       `Sender company: ${input.senderCompany}`,
       `Prospect: ${input.companyName} (${[input.city, input.state].filter(Boolean).join(", ") || "US"})`,
+      input.contact ? `Address the email to: ${input.contact.name}, ${input.contact.title} (greet them by first name)` : "No named contact — open with a role-neutral greeting.",
       `Best-fit product line: ${input.productLine ?? "unknown"}`,
       input.angle ? `Sales angle from market analysis: ${input.angle}` : "",
       `Website enrichment:\n${JSON.stringify(input.enrichment ?? {}, null, 1)}`,

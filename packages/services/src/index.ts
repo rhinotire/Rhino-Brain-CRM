@@ -39,3 +39,4 @@ export type {
 } from "./types";
 export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, type ProspectCategory, type PipelineResult } from "./prospect-pipeline";
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
+export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { calibrateLead, generateOutreachDraft } from "@/actions/prospecting";
+import { calibrateLead, generateOutreachDraft, findContacts } from "@/actions/prospecting";
 
 type Check = { check: string; pass: boolean; evidence: string };
 type Draft = { emailSubject: string; emailBody: string; phoneOpener: string; talkingPoints: string[]; generatedAt: string };
+type Contact = { name: string; title: string; email: string | null; emailStatus: string | null; phone: string | null; linkedinUrl: string | null; source: string };
 type Props = {
   lead: {
     id: string; companyName: string; city: string | null; state: string | null;
@@ -12,7 +13,7 @@ type Props = {
     email: string | null; phone: string | null;
     scoreReasons: Check[] | null;
     enrichment: { businessSummary?: string; brandsSold?: string[]; buyerSignals?: string[]; emails?: string[] } | null;
-    meta: { website?: string; angle?: string; outreachDraft?: Draft } | null;
+    meta: { website?: string; angle?: string; outreachDraft?: Draft; contacts?: Contact[] } | null;
   };
   reps: Array<{ id: string; name: string }>;
 };
@@ -47,6 +48,16 @@ export function ProspectCard({ lead, reps }: Props) {
   const [done, setDone] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(lead.meta?.outreachDraft ?? null);
   const [showDraft, setShowDraft] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>(lead.meta?.contacts ?? []);
+  const [findingContacts, startFind] = useTransition();
+
+  const lookupContacts = () =>
+    startFind(async () => {
+      setError("");
+      const r = await findContacts(lead.id);
+      if (!r.ok || !r.contacts) setError(r.error ?? "contact lookup failed");
+      else setContacts(r.contacts);
+    });
 
   const act = (verdict: "FOLLOW" | "REJECT") =>
     start(async () => {
@@ -93,10 +104,32 @@ export function ProspectCard({ lead, reps }: Props) {
         {contactEmails.map((e) => (
           <a key={e} href={`mailto:${e}`} className="text-slate-700 hover:underline">✉ {e}</a>
         ))}
-        {!lead.phone && contactEmails.length === 0 && (
-          <span className="text-xs text-slate-400">No direct contact found yet — check the website</span>
+        {!lead.phone && contactEmails.length === 0 && contacts.length === 0 && (
+          <span className="text-xs text-slate-400">No direct contact found yet — try “Find contacts”</span>
         )}
       </div>
+
+      {contacts.length > 0 && (
+        <div className="space-y-1 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Decision makers</p>
+          {contacts.map((c, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+              <span className="font-semibold text-slate-800">{c.name}</span>
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800">{c.title}</span>
+              {c.email && (
+                <a href={`mailto:${c.email}`} className="text-slate-700 hover:underline">
+                  ✉ {c.email}{c.emailStatus === "verified" || c.emailStatus === "valid" ? " ✓" : ""}
+                </a>
+              )}
+              {c.phone && <a href={`tel:${c.phone}`} className="text-slate-700 hover:underline">☎ {c.phone}</a>}
+              {c.linkedinUrl && (
+                <a href={c.linkedinUrl.startsWith("http") ? c.linkedinUrl : `https://${c.linkedinUrl}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">in↗</a>
+              )}
+              <span className="text-[10px] text-slate-400">{c.source}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {lead.enrichment?.businessSummary && <p className="text-sm text-slate-600">{lead.enrichment.businessSummary}</p>}
       {lead.meta?.angle && <p className="rounded bg-amber-50 p-2 text-sm text-amber-900">Angle: {lead.meta.angle}</p>}
       {!!lead.enrichment?.brandsSold?.length && (
@@ -166,6 +199,13 @@ export function ProspectCard({ lead, reps }: Props) {
             <option value="">Assign rep (optional)</option>
             {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
+          <button
+            disabled={findingContacts}
+            onClick={lookupContacts}
+            className="rounded border border-emerald-300 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {findingContacts ? "Searching…" : contacts.length > 0 ? "👤 Refresh contacts" : "👤 Find contacts"}
+          </button>
           <button
             disabled={drafting}
             onClick={() => (draft && !showDraft ? setShowDraft(true) : makeDraft())}
