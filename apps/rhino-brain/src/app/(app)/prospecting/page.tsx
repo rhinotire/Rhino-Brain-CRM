@@ -12,14 +12,21 @@ const PAGE_SIZE = 50;
 export default async function ProspectingPage() {
   const session = await requireManager();
   const scope = locationScope(session);
+  // Unassigned-location prospects (seeds, states outside FL/TX routing) would
+  // vanish under any single-company filter. ADMINs filtering by company still
+  // see them; location-locked managers stay fail-closed to their own company.
+  const leadScope =
+    session.role === "ADMIN" && scope.locationId
+      ? { OR: [{ locationId: scope.locationId }, { locationId: null }] }
+      : scope;
 
   const [pendingCount, followedCount, rejectedCount, poolCounts, pending, reps, runs] = await Promise.all([
-    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null, ...scope } }),
-    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: { not: null }, pool: { not: "D_EXCLUDED" }, ...scope } }),
-    db.lead.count({ where: { source: "PROSPECTING", pool: "D_EXCLUDED", ...scope } }),
-    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING", ...scope }, _count: true }),
+    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null, ...leadScope } }),
+    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: { not: null }, pool: { not: "D_EXCLUDED" }, ...leadScope } }),
+    db.lead.count({ where: { source: "PROSPECTING", pool: "D_EXCLUDED", ...leadScope } }),
+    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING", ...leadScope }, _count: true }),
     db.lead.findMany({
-      where: { source: "PROSPECTING", reviewedAt: null, ...scope },
+      where: { source: "PROSPECTING", reviewedAt: null, ...leadScope },
       orderBy: [{ score: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
       take: PAGE_SIZE,
     }),

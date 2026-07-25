@@ -18,8 +18,11 @@ export async function calibrateLead(
   if (!lead) return { ok: false, error: "Lead not found" };
   if (lead.reviewedAt) return { ok: false, error: "Already reviewed" };
 
+  // ADMIN's sidebar company filter is a view preference, not a permission —
+  // it must not block calibrating unassigned or cross-company leads.
   const scope = locationScope(session);
-  if (scope.locationId && lead.locationId !== scope.locationId) return { ok: false, error: "Lead belongs to another location" };
+  if (session.role !== "ADMIN" && scope.locationId && lead.locationId !== scope.locationId)
+    return { ok: false, error: "Lead belongs to another location" };
 
   if (verdict === "FOLLOW") {
     const { count } = await db.lead.updateMany({
