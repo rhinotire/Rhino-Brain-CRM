@@ -40,3 +40,4 @@ export type {
 export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPECT_COUNTRIES, type ProspectCategory, type PipelineResult } from "./prospect-pipeline";
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
 export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";
+export { searchShipmentsPage, aggregateConsignees, type CustomsSearchField, type CustomsShipmentRow, type ConsigneeAggregate } from "./customs-collector";
