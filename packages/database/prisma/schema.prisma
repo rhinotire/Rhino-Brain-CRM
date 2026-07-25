@@ -52,6 +52,7 @@ enum CustomerSource {
   WEBSITE_DEALER_APP
   AI_ASSISTANT
   CONSUMER_REFERRAL
+  PROSPECTING
   OTHER
 }
 
@@ -92,6 +93,43 @@ enum LostReason {
   BAD_CREDIT
   WRONG_CUSTOMER_TYPE
   OTHER
+}
+
+enum ProspectPool {
+  A_BUYER    // direct buyer — can enter auto outreach once reviewed
+  B_PROJECT  // OEM / big retail — project pool, first-touch only
+  C_CHANNEL  // channel value unclear — manual verify
+  D_EXCLUDED // protected / competitor / invalid
+}
+
+enum ProspectConfidence {
+  H
+  M
+  L
+}
+
+enum ProspectProductLine {
+  P1_TRAILER_TIRE
+  P2_TRAILER_WHEEL
+  P3_PCR
+  P4_TBR
+  P5_OTR
+}
+
+enum ExclusionKind {
+  EXISTING_CUSTOMER
+  AGENT
+  COMPETITOR
+  OPTED_OUT
+  RISK
+}
+
+enum ProspectSourceKind {
+  SEED
+  REVIVAL
+  GOOGLE_PLACES
+  WEB_SCRAPE
+  CUSTOMS
 }
 
 enum ActivityType {
@@ -220,6 +258,7 @@ model User {
 
   customers      Customer[]     @relation("AssignedCustomers")
   leads          Lead[]         @relation("AssignedLeads")
+  reviewedLeads  Lead[]         @relation("ReviewedLeads")
   activities     Activity[]
   tasksAssigned  Task[]         @relation("TaskAssignee")
   tasksCreated   Task[]         @relation("TaskCreator")
@@ -340,6 +379,22 @@ model Lead {
   nextFollowUpAt DateTime?
   lastActivityAt DateTime?
 
+  // ---- AI prospecting (spec 2026-07-24) ----
+  pool        ProspectPool?
+  confidence  ProspectConfidence?
+  productLine ProspectProductLine?
+  country     String              @default("US")
+  score       Int?
+  scoreReasons Json? // six-check results: [{check, pass, evidence}]
+  enrichment  Json? // website extraction: emails, brandsSold, wholesale signals…
+  dedupeKey   String? @unique // domain || phone || name+city (prospect-dedupe.ts)
+  sourceRunId String?
+  sourceRun   SourceRun? @relation(fields: [sourceRunId], references: [id])
+  reviewedAt   DateTime? // calibration verdict timestamp
+  reviewedById String?
+  reviewedBy   User?     @relation("ReviewedLeads", fields: [reviewedById], references: [id])
+  rejectReason String?
+
   assignedRepId String?
   assignedRep   User?   @relation("AssignedLeads", fields: [assignedRepId], references: [id])
 
@@ -365,6 +420,41 @@ model Lead {
   @@index([convertedCustomerId])
   @@index([importBatchId])
   @@index([locationId])
+  @@index([pool, reviewedAt])
+}
+
+// Protection / suppression pool. Checked before ANY outreach — see
+// packages/services/src/exclusion-service.ts. Never auto-touch a match.
+model ExclusionList {
+  id          String        @id @default(cuid())
+  kind        ExclusionKind
+  companyName String
+  domain      String? // domainKey()-normalized
+  phone       String? // phoneKey()-normalized (last 10 digits)
+  reason      String?
+  reviewAt    DateTime? // when to re-check whether exclusion still applies
+  addedById   String?
+  createdAt   DateTime      @default(now())
+
+  @@index([domain])
+  @@index([phone])
+}
+
+// One collection run (Places sweep, seed import, …) — cost ledger + provenance.
+model SourceRun {
+  id           String             @id @default(cuid())
+  source       ProspectSourceKind
+  params       Json // {state, category, limit, …}
+  resultCount  Int                @default(0)
+  newLeadCount Int                @default(0)
+  dupCount     Int                @default(0)
+  excludedCount Int               @default(0)
+  apiCostUsd   Float              @default(0)
+  inputTokens  Int                @default(0)
+  outputTokens Int                @default(0)
+  createdAt    DateTime           @default(now())
+
+  leads Lead[]
 }
 
 model Activity {
