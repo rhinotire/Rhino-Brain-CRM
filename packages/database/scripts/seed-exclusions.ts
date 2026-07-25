@@ -4,6 +4,7 @@
  *  1. every existing Customer (kind=EXISTING_CUSTOMER)
  *  2. named competitors / supply-chain giants from the market analysis
  * Idempotent — re-running skips existing companyName+kind rows.
+ * NOT concurrency-safe — one-off manual seed; do not run two instances at once.
  *
  *   pnpm --filter @rhino/database exec tsx scripts/seed-exclusions.ts
  */
@@ -25,15 +26,16 @@ const COMPETITORS: Array<{ name: string; website?: string }> = [
 async function main() {
   const existing = new Set(
     (await db.exclusionList.findMany({ select: { companyName: true, kind: true } })).map(
-      (r) => `${r.kind}:${r.companyName.toLowerCase()}`
+      (r) => `${r.kind}:${r.companyName.trim().toLowerCase()}`
     )
   );
   let added = 0;
 
   for (const c of COMPETITORS) {
-    if (existing.has(`COMPETITOR:${c.name.toLowerCase()}`)) continue;
+    if (existing.has(`COMPETITOR:${c.name.trim().toLowerCase()}`)) continue;
+    existing.add(`COMPETITOR:${c.name.trim().toLowerCase()}`);
     await db.exclusionList.create({
-      data: { kind: "COMPETITOR", companyName: c.name, domain: domainKey(c.website) || null, reason: "market analysis 2026-07-24" },
+      data: { kind: "COMPETITOR", companyName: c.name.trim(), domain: domainKey(c.website) || null, reason: "market analysis 2026-07-24" },
     });
     added++;
   }
@@ -42,12 +44,12 @@ async function main() {
     select: { companyName: true, phone: true, contactCell: true, website: true },
   });
   for (const c of customers) {
-    if (!c.companyName || existing.has(`EXISTING_CUSTOMER:${c.companyName.toLowerCase()}`)) continue;
-    existing.add(`EXISTING_CUSTOMER:${c.companyName.toLowerCase()}`);
+    if (!c.companyName || existing.has(`EXISTING_CUSTOMER:${c.companyName.trim().toLowerCase()}`)) continue;
+    existing.add(`EXISTING_CUSTOMER:${c.companyName.trim().toLowerCase()}`);
     await db.exclusionList.create({
       data: {
         kind: "EXISTING_CUSTOMER",
-        companyName: c.companyName,
+        companyName: c.companyName.trim(),
         domain: domainKey(c.website) || null,
         phone: phoneKey(c.phone) || phoneKey(c.contactCell) || null,
         reason: "auto-import from Customer table",
