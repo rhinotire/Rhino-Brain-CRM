@@ -38,13 +38,29 @@ describe("scoreProspect", () => {
     expect(r.verdict).toMatchObject({ pool: "C_CHANNEL", confidence: "L", score: 0 });
   });
 
-  it("degrades NaN score to the fallback verdict", async () => {
+  it("zeroes a NaN score but keeps the otherwise-valid fields", async () => {
     const ask = (async () => ({
       json: { pool: "A_BUYER", confidence: "H", productLine: "P4_TBR", score: NaN, checks: [] },
       inputTokens: 1, outputTokens: 1,
     })) as never;
     const r = await scoreProspect({ companyName: "X", state: "TX", enrichment }, ask);
-    expect(r.verdict).toMatchObject({ pool: "C_CHANNEL", confidence: "L", score: 0 });
+    expect(r.verdict).toMatchObject({ pool: "A_BUYER", confidence: "H", score: 0 });
+  });
+
+  it("normalizes productLine shorthand like TBR/pcr (real-run 2026-07-25)", async () => {
+    const ask = (async () => ({
+      json: { pool: "D_EXCLUDED", confidence: "L", productLine: "TBR", score: 12, checks: [] },
+      inputTokens: 1, outputTokens: 1,
+    })) as never;
+    const r = await scoreProspect({ companyName: "X", state: "TX", enrichment }, ask);
+    expect(r.verdict).toMatchObject({ pool: "D_EXCLUDED", productLine: "P4_TBR", score: 12 });
+
+    const ask2 = (async () => ({
+      json: { pool: "A_BUYER", confidence: "M", productLine: "trailer tire", score: 60, checks: [] },
+      inputTokens: 1, outputTokens: 1,
+    })) as never;
+    const r2 = await scoreProspect({ companyName: "Y", state: "FL", enrichment }, ask2);
+    expect(r2.verdict.productLine).toBe("P1_TRAILER_TIRE");
   });
 
   it("clamps out-of-range scores and drops malformed checks", async () => {

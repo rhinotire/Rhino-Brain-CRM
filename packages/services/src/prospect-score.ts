@@ -33,7 +33,25 @@ Run six checks, each {check, pass, evidence}:
 Then output pool: A_BUYER = direct buyer (distributors, truck shops, fleets, transportation companies with bulk-buy logic); B_PROJECT = OEM/big retail needing vendor approval; C_CHANNEL = relevant but purchasing power unproven; D_EXCLUDED = irrelevant/invalid.
 confidence: H all six checks solid; M some unverified; L thin evidence.
 productLine: the single best-fit line. score: 0-100 (weight: purchasing logic 30, product match 25, real business 20, contact 15, entity 10).
-Reply ONLY JSON: {"pool","confidence","productLine","score","checks":[...]}.`;
+Reply ONLY JSON: {"pool","confidence","productLine","score","checks":[...]}.
+Field values MUST be these exact literals — pool: "A_BUYER"|"B_PROJECT"|"C_CHANNEL"|"D_EXCLUDED"; confidence: "H"|"M"|"L"; productLine: "P1_TRAILER_TIRE"|"P2_TRAILER_WHEEL"|"P3_PCR"|"P4_TBR"|"P5_OTR". Never abbreviate (not "TBR", not "A").`;
+
+// Real-run finding 2026-07-25: models return "TBR"/"PCR"-style shorthand for
+// productLine despite the prompt. Normalize before validating.
+const LINE_ALIASES: Record<string, ProspectVerdict["productLine"]> = {
+  P1: "P1_TRAILER_TIRE", ST: "P1_TRAILER_TIRE", TRAILER: "P1_TRAILER_TIRE", TRAILER_TIRE: "P1_TRAILER_TIRE", TRAILER_TIRES: "P1_TRAILER_TIRE",
+  P2: "P2_TRAILER_WHEEL", WHEEL: "P2_TRAILER_WHEEL", WHEELS: "P2_TRAILER_WHEEL", TRAILER_WHEEL: "P2_TRAILER_WHEEL", TRAILER_WHEELS: "P2_TRAILER_WHEEL",
+  P3: "P3_PCR", PCR: "P3_PCR", PASSENGER: "P3_PCR",
+  P4: "P4_TBR", TBR: "P4_TBR", TRUCK: "P4_TBR", COMMERCIAL: "P4_TBR",
+  P5: "P5_OTR", OTR: "P5_OTR", AG: "P5_OTR", AGRICULTURAL: "P5_OTR",
+};
+
+function normalizeLine(v: unknown): ProspectVerdict["productLine"] | null {
+  if (typeof v !== "string") return null;
+  const s = v.toUpperCase().trim().replace(/[\s-]+/g, "_");
+  if ((LINES as readonly string[]).includes(s)) return s as ProspectVerdict["productLine"];
+  return LINE_ALIASES[s] ?? null;
+}
 
 export async function scoreProspect(
   input: { companyName: string; state: string | null; enrichment: Enrichment },
@@ -45,20 +63,17 @@ export async function scoreProspect(
     maxTokens: 1200,
   });
   const o = (json ?? {}) as Record<string, unknown>;
-  const valid =
-    POOLS.includes(o.pool as never) && CONF.includes(o.confidence as never) &&
-    LINES.includes(o.productLine as never) && Number.isFinite(o.score as number);
   const checks: SixCheck[] = Array.isArray(o.checks)
     ? (o.checks as SixCheck[]).filter((c) => c && typeof c.check === "string" && typeof c.pass === "boolean" && typeof c.evidence === "string")
     : [];
-  const verdict: ProspectVerdict = valid
-    ? {
-        pool: o.pool as ProspectVerdict["pool"],
-        confidence: o.confidence as ProspectVerdict["confidence"],
-        productLine: o.productLine as ProspectVerdict["productLine"],
-        score: Math.max(0, Math.min(100, Math.round(o.score as number))),
-        checks,
-      }
-    : { pool: "C_CHANNEL", confidence: "L", productLine: "P4_TBR", score: 0, checks };
+  // Field-level validation: one malformed field must not throw away the rest
+  // of an otherwise-sound verdict (real-run finding 2026-07-25).
+  const verdict: ProspectVerdict = {
+    pool: POOLS.includes(o.pool as never) ? (o.pool as ProspectVerdict["pool"]) : "C_CHANNEL",
+    confidence: CONF.includes(o.confidence as never) ? (o.confidence as ProspectVerdict["confidence"]) : "L",
+    productLine: normalizeLine(o.productLine) ?? "P4_TBR",
+    score: Number.isFinite(o.score as number) ? Math.max(0, Math.min(100, Math.round(o.score as number))) : 0,
+    checks,
+  };
   return { verdict, inputTokens, outputTokens };
 }
