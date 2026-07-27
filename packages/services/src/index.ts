@@ -51,3 +51,7 @@ export {
   type FreightStopInfo,
 } from "./freight-email-templates";
 export { validateParsedReply, extractFreightQuote, type ParsedFreightReply, type FreightReplyVerdict } from "./freight-parse";
+export { refCodePrefix, nextRefCode } from "./freight-refcode";
+export { handleFreightReply } from "./freight-reply-handler";
+export { isFreightMailConfigured, sendFreightEmail } from "./freight-mailer";
+export { pollFreightInbox } from "./freight-inbox";
