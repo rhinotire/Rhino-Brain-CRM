@@ -50,3 +50,4 @@ export {
   type FreightEmailInput,
   type FreightStopInfo,
 } from "./freight-email-templates";
+export { validateParsedReply, extractFreightQuote, type ParsedFreightReply, type FreightReplyVerdict } from "./freight-parse";
