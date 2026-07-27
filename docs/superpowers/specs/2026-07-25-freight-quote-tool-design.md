@@ -22,8 +22,13 @@ Decisions confirmed with William:
 - **Carrier list defaults to all active carriers**, uncheckable per shipment.
 - **Award flow:** auto-send confirmation email to the winner, status → BOOKED;
   pickup/delivery status updated manually afterwards.
-- **Dedicated mailbox:** `luckywarehouse888@gmail.com` (confirmed 2026-07-25);
-  mailbox is configurable, stored in the shared `Mailbox` table.
+- **Dedicated mailbox:** `luckywarehouse888@gmail.com` (confirmed 2026-07-25).
+  *Implementation amendment (plan 2026-07-25):* transport is Gmail **SMTP send +
+  IMAP polling with an app password in env vars** (`FREIGHT_GMAIL_USER`,
+  `FREIGHT_GMAIL_APP_PASS`) — same env-based pattern as the existing Zoho
+  `email.ts` — instead of the Gmail-API-OAuth `Mailbox` table. Far less setup
+  for the owner (no Google Cloud console); prospecting can reuse the identical
+  pattern with its own env pair.
 - **Multi-stop pooled loads:** one truck may deliver to several customers
   (multiple drops). A shipment has 1..N ordered stops; drop order is specified
   by the user at creation and carriers quote an all-in rate for the full route
