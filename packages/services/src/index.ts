@@ -41,3 +41,12 @@ export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPEC
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
 export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";
 export { searchShipmentsPage, aggregateConsignees, type CustomsSearchField, type CustomsShipmentRow, type ConsigneeAggregate } from "./customs-collector";
+export {
+  buildQuoteRequestEmail,
+  buildConfirmationEmail,
+  buildRegretEmail,
+  routeSummary,
+  equipmentLabel,
+  type FreightEmailInput,
+  type FreightStopInfo,
+} from "./freight-email-templates";
