@@ -1,0 +1,6 @@
+{
+  "regions": ["pdx1"],
+  "crons": [
+    { "path": "/api/cron/freight-poll", "schedule": "*/10 * * * *" }
+  ]
+}
