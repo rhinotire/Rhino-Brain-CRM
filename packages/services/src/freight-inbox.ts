@@ -26,7 +26,7 @@ export async function pollFreightInbox(
     const lock = await client.getMailboxLock("INBOX");
     try {
       const unseen = await client.search({ seen: false });
-      for (const uid of unseen ?? []) {
+      for (const uid of unseen || []) {
         try {
           const raw = await client.download(String(uid), undefined, { uid: true });
           const parsed = await simpleParser(raw.content);
