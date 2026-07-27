@@ -242,6 +242,7 @@ model Location {
   brandConfigs  BrandConfig[]
   installers    Installer[]
   consumerLeads ConsumerLead[]
+  freightShipments FreightShipment[]
 }
 
 model User {
@@ -275,6 +276,7 @@ model User {
   installers     Installer[]
   consumerLeads  ConsumerLead[]
   specReviews    SpecProposal[]
+  freightShipments FreightShipment[]
 
   // "Assistant" access: this user can also see the customers of everyone in `assists`.
   assists    User[] @relation("RepAssists")
@@ -1368,4 +1370,129 @@ model SpecProposal {
 
   @@index([status])
   @@index([reviewedById])
+}
+
+// ---------------- Freight quoting (docs/superpowers/specs/2026-07-25-freight-quote-tool-design.md) ----------------
+
+enum FreightEquipment {
+  DRY_VAN_53
+  FLATBED_53
+}
+
+enum FreightShipmentStatus {
+  QUOTING
+  BOOKED
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum FreightQuoteStatus {
+  SENT
+  QUOTED
+  DECLINED
+  NEEDS_ATTENTION
+  SEND_FAILED
+}
+
+model FreightCarrier {
+  id             String             @id @default(cuid())
+  name           String
+  phone          String?
+  mcNumber       String?
+  equipmentTypes FreightEquipment[]
+  notes          String?
+  active         Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+
+  contacts FreightCarrierContact[]
+  quotes   FreightQuote[]
+}
+
+model FreightCarrierContact {
+  id        String         @id @default(cuid())
+  carrierId String
+  carrier   FreightCarrier @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+  name      String?
+  email     String
+  active    Boolean        @default(true)
+
+  @@index([carrierId])
+  @@index([email])
+}
+
+model FreightConsignee {
+  id            String   @id @default(cuid())
+  name          String // "Pearson GA – XXX Tire"
+  addressLine   String
+  city          String
+  state         String
+  zip           String
+  contactName   String?
+  phone         String?
+  deliveryNotes String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  stops FreightShipmentStop[]
+}
+
+model FreightShipment {
+  id                 String                @id @default(cuid())
+  refCode            String                @unique // RT-2607-001
+  originAddress      String
+  originLabel        String                @default("Orlando, FL") // for email subject
+  equipmentType      FreightEquipment
+  pickupDate         DateTime
+  commodity          String                @default("tires")
+  notes              String?
+  status             FreightShipmentStatus @default(QUOTING)
+  awardedQuoteId     String?               @unique // FreightQuote.id, no FK to avoid relation cycle
+  confirmationSentAt DateTime?
+  locationId         String?
+  location           Location?             @relation(fields: [locationId], references: [id])
+  createdById        String
+  createdBy          User                  @relation(fields: [createdById], references: [id])
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  stops  FreightShipmentStop[]
+  quotes FreightQuote[]
+
+  @@index([status])
+  @@index([locationId])
+}
+
+model FreightShipmentStop {
+  id          String           @id @default(cuid())
+  shipmentId  String
+  shipment    FreightShipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  sequence    Int // 1..N drop order (user-specified)
+  consigneeId String
+  consignee   FreightConsignee @relation(fields: [consigneeId], references: [id])
+  quantity    String? // free text: "250 tires / 4,800 lbs"
+  notes       String?
+
+  @@unique([shipmentId, sequence])
+  @@index([consigneeId])
+}
+
+model FreightQuote {
+  id              String             @id @default(cuid())
+  shipmentId      String
+  shipment        FreightShipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  carrierId       String
+  carrier         FreightCarrier     @relation(fields: [carrierId], references: [id])
+  status          FreightQuoteStatus @default(SENT)
+  price           Decimal?           @db.Decimal(10, 2)
+  transitDays     Int?
+  notes           String?
+  rawReplyExcerpt String?
+  parsedByAi      Boolean            @default(false)
+  sentAt          DateTime?
+  repliedAt       DateTime?
+  lastError       String?
+
+  @@unique([shipmentId, carrierId])
+  @@index([status])
 }
