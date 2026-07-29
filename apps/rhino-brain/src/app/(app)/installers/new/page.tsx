@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, isManager, adminLocFilter, locationScope } from "@/lib/auth";
-import { InstallerForm, EMPTY_INSTALLER, type InstallerFormValues } from "@/components/installer-form";
+import { InstallerForm } from "@/components/installer-form";
+import { EMPTY_INSTALLER, type InstallerFormValues } from "@/lib/installer-form-values";
 
 export const dynamic = "force-dynamic";
 

@@ -5,39 +5,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { createInstaller, updateInstaller, searchInstallerCandidates, type CustomerCandidate } from "@/actions/installers";
 import type { ActionResult } from "@/actions/auth";
 import { Button, Input, Select, Field, Card } from "@/components/ui/primitives";
-
-export type InstallerFormValues = {
-  id?: string;
-  storeName: string;
-  legalName: string;
-  phone: string;
-  email: string;
-  notifyEmail: string;
-  website: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  serviceRadiusMi: number;
-  preferredStatus: string;
-  customerId: string;
-  passenger: boolean;
-  lightTruck: boolean;
-  trailer: boolean;
-  tbr: boolean;
-  wheels: boolean;
-  mobileService: boolean;
-  appointmentEnabled: boolean;
-  sameDayEnabled: boolean;
-};
-
-export const EMPTY_INSTALLER: InstallerFormValues = {
-  storeName: "", legalName: "", phone: "", email: "", notifyEmail: "", website: "",
-  address: "", city: "", state: "", zip: "", serviceRadiusMi: 35, preferredStatus: "PARTNER",
-  customerId: "",
-  passenger: true, lightTruck: true, trailer: false, tbr: false, wheels: false, mobileService: false,
-  appointmentEnabled: true, sameDayEnabled: false,
-};
+import type { InstallerFormValues } from "@/lib/installer-form-values";
 
 const CAPS: { key: keyof InstallerFormValues & string; label: string }[] = [
   { key: "passenger", label: "Passenger tires" },
