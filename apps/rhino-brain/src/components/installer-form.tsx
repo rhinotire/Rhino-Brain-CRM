@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createInstaller, updateInstaller, searchInstallerCandidates, type CustomerCandidate } from "@/actions/installers";
 import type { ActionResult } from "@/actions/auth";
@@ -59,9 +59,15 @@ function CustomerPicker({ onPick }: { onPick: (c: CustomerCandidate) => void }) 
   const [results, setResults] = useState<CustomerCandidate[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // recent customers appear immediately — no typing needed to start picking
+  useEffect(() => {
+    let alive = true;
+    searchInstallerCandidates("").then((r) => { if (alive) setResults(r); });
+    return () => { alive = false; };
+  }, []);
+
   async function run(value: string) {
     setQ(value);
-    if (value.trim().length < 2) { setResults([]); return; }
     setSearching(true);
     try {
       setResults(await searchInstallerCandidates(value));
@@ -73,7 +79,7 @@ function CustomerPicker({ onPick }: { onPick: (c: CustomerCandidate) => void }) 
   return (
     <Card title="Convert an existing dealer customer" className="mb-4">
       <p className="mb-2 text-xs text-slate-500">
-        Search your customers (name, city or phone) and pick one — the form fills itself and stays linked to the customer record.
+        Pick a recent customer below, or search by name, city or phone — the form fills itself and stays linked to the customer record.
       </p>
       <Input value={q} onChange={(e) => run(e.target.value)} placeholder="e.g. llantera, Orlando, 407…" />
       {searching && <div className="mt-2 text-xs text-slate-400">Searching…</div>}

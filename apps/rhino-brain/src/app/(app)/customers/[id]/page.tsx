@@ -49,6 +49,10 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const reps = manager
     ? await db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } })
     : [];
+  // llanteras are installers — offer conversion (or jump to the linked profile)
+  const linkedInstaller = manager
+    ? await db.installer.findFirst({ where: { customerId: customer.id }, select: { id: true } })
+    : null;
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);
   const openTasks = customer.tasks.filter(t => t.status === "OPEN");
@@ -123,6 +127,17 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               assignedRepId: customer.assignedRepId ?? undefined,
             }}
           />
+          {manager && (linkedInstaller ? (
+            <Link href={`/installers/${linkedInstaller.id}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              🔧 Installer Profile
+            </Link>
+          ) : (
+            <Link href={`/installers/new?customer=${customer.id}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              🔧 Convert to Installer
+            </Link>
+          ))}
           </>}
         </div>
       </div>

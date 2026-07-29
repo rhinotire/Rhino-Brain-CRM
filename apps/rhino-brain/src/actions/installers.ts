@@ -116,20 +116,24 @@ export type CustomerCandidate = {
   zip: string | null;
 };
 
-/** Search dealer customers (company-scoped) to convert into installers. */
+/** Search dealer customers (company-scoped) to convert into installers.
+ * Empty query → most recent customers, so the picker works without typing. */
 export async function searchInstallerCandidates(query: string): Promise<CustomerCandidate[]> {
   const session = await requireSession();
   if (!isManager(session)) return [];
   const q = query.trim();
-  if (q.length < 2) return [];
   const rows = await db.customer.findMany({
     where: {
       ...locationScope(session),
-      OR: [
-        { companyName: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q } },
-      ],
+      ...(q.length >= 2
+        ? {
+            OR: [
+              { companyName: { contains: q, mode: "insensitive" } },
+              { city: { contains: q, mode: "insensitive" } },
+              { phone: { contains: q } },
+            ],
+          }
+        : {}),
     },
     select: {
       id: true, companyName: true, contactPerson: true, phone: true, email: true,
