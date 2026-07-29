@@ -237,7 +237,9 @@ export const PublicCatalogService = {
       orderBy: params.sort === "newest"
         ? [{ publishedAt: "desc" as const }, { sku: "asc" as const }]
         : [{ sizeSpec: "asc" as const }, { sku: "asc" as const }],
-      take: Math.min(params.take ?? 60, 200),
+      // 1000 cap: the sitemap needs every published product (200 was silently
+      // truncating it); public DTOs carry no dealer pricing, so a big page is safe
+      take: Math.min(params.take ?? 60, 1000),
       skip: params.skip ?? 0,
     });
     const logos = await brandLogoMap();
