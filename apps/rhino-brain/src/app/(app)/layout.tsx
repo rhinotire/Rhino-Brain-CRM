@@ -21,6 +21,7 @@ const managerGroups: NavGroup[] = [
     { href: "/leads", label: "Leads List", icon: "☰" },
     { href: "/prospecting", label: "Prospecting (AI)", icon: "🧭" },
     { href: "/consumer-leads", label: "Consumer Leads", icon: "🛞" },
+    { href: "/installers", label: "Installers", icon: "🔧" },
     { href: "/quotes", label: "Quotes", icon: "＄" },
     { href: "/portal-orders", label: "Portal Orders", icon: "🛒" },
     { href: "/opportunities", label: "Opportunities", icon: "◎" },
