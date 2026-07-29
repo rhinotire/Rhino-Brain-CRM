@@ -26,7 +26,7 @@ export function CheckRepliesButton() {
       disabled={pending}
       className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
     >
-      {pending ? "检查中…" : "📬 检查回复"}
+      {pending ? "Checking…" : "📬 Check Replies"}
     </button>
   );
 }
@@ -45,7 +45,7 @@ export function FreightQuoteTable({ shipmentStatus, awardedQuoteId, quotes }: {
     start(async () => {
       setMsg("");
       const r = await fn();
-      if (!r.ok) setMsg(r.error ?? "操作失败");
+      if (!r.ok) setMsg(r.error ?? "Action failed");
       router.refresh();
     });
 
@@ -58,7 +58,7 @@ export function FreightQuoteTable({ shipmentStatus, awardedQuoteId, quotes }: {
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-500">
-            <tr><th className="p-2">Carrier</th><th className="p-2">状态</th><th className="p-2">价格</th><th className="p-2">时效</th><th className="p-2">回复时间</th><th className="p-2">备注</th><th className="p-2" /></tr>
+            <tr><th className="p-2">Carrier</th><th className="p-2">Status</th><th className="p-2">Price</th><th className="p-2">Transit</th><th className="p-2">Replied</th><th className="p-2">Notes</th><th className="p-2" /></tr>
           </thead>
           <tbody>
             {quotes.map((q) => (
@@ -74,7 +74,7 @@ export function FreightQuoteTable({ shipmentStatus, awardedQuoteId, quotes }: {
               />
             ))}
             {quotes.length === 0 && (
-              <tr><td colSpan={7} className="p-6 text-center text-slate-400">还没有报价记录</td></tr>
+              <tr><td colSpan={7} className="p-6 text-center text-slate-400">No quotes yet</td></tr>
             )}
           </tbody>
         </table>
@@ -97,7 +97,7 @@ function QuoteRowView({ q, isBest, isAwarded, canAward, expanded, onToggle, edit
           {editing ? (
             <span className="flex items-center gap-1">
               $<input value={price} onChange={(e) => setPrice(e.target.value)} className="w-24 rounded border border-slate-300 p-1" />
-              <button onClick={onSaveEdit} className="text-xs font-semibold text-emerald-700">存</button>
+              <button onClick={onSaveEdit} className="text-xs font-semibold text-emerald-700">Save</button>
             </span>
           ) : (
             <span className={isBest ? "font-bold text-emerald-700" : ""}>
@@ -106,18 +106,18 @@ function QuoteRowView({ q, isBest, isAwarded, canAward, expanded, onToggle, edit
             </span>
           )}
         </td>
-        <td className="p-2">{q.transitDays !== null ? `${q.transitDays} 天` : "—"}</td>
+        <td className="p-2">{q.transitDays !== null ? `${q.transitDays} days` : "—"}</td>
         <td className="p-2 text-xs text-slate-500">{q.repliedAt ? q.repliedAt.slice(0, 16).replace("T", " ") : "—"}</td>
         <td className="max-w-56 truncate p-2 text-xs text-slate-500">{q.lastError ?? q.notes ?? ""}</td>
         <td className="p-2 text-right">
-          {q.rawReplyExcerpt && <button onClick={onToggle} className="mr-2 text-xs text-blue-600 hover:underline">{expanded ? "收起" : "原文"}</button>}
-          {q.status === "SEND_FAILED" && <button onClick={onResend} disabled={pending} className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-50">重发</button>}
+          {q.rawReplyExcerpt && <button onClick={onToggle} className="mr-2 text-xs text-blue-600 hover:underline">{expanded ? "Hide" : "Reply"}</button>}
+          {q.status === "SEND_FAILED" && <button onClick={onResend} disabled={pending} className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-50">Resend</button>}
           {canAward && (
             <button
-              onClick={() => onAward(confirm("给没中标的已报价 carrier 发一封'已安排'通知吗?\n确定=发,取消=不发"))}
+              onClick={() => onAward(confirm("Also notify the other quoted carriers that this load is covered?\nOK = notify them, Cancel = no notice"))}
               disabled={pending}
               className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
-            >选这家</button>
+            >Award</button>
           )}
         </td>
       </tr>
@@ -139,10 +139,10 @@ export function ShipmentStatusButtons({ shipmentId, status, confirmationSent }: 
 
   return (
     <div className="flex gap-2">
-      {status === "BOOKED" && !confirmationSent && <button onClick={resend} disabled={pending} className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400">重发确认邮件</button>}
-      {status === "BOOKED" && <button onClick={() => go("PICKED_UP")} disabled={pending} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50">已提货</button>}
-      {status === "PICKED_UP" && <button onClick={() => go("DELIVERED")} disabled={pending} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50">已送达</button>}
-      {(status === "QUOTING" || status === "BOOKED") && <button onClick={() => { if (confirm("确定取消这一单?")) go("CANCELLED"); }} disabled={pending} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">取消</button>}
+      {status === "BOOKED" && !confirmationSent && <button onClick={resend} disabled={pending} className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400">Resend Confirmation</button>}
+      {status === "BOOKED" && <button onClick={() => go("PICKED_UP")} disabled={pending} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50">Mark Picked Up</button>}
+      {status === "PICKED_UP" && <button onClick={() => go("DELIVERED")} disabled={pending} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50">Mark Delivered</button>}
+      {(status === "QUOTING" || status === "BOOKED") && <button onClick={() => { if (confirm("Cancel this shipment?")) go("CANCELLED"); }} disabled={pending} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Cancel Shipment</button>}
     </div>
   );
 }

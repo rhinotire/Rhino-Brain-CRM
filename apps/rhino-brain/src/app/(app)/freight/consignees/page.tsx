@@ -9,7 +9,7 @@ export default async function FreightConsigneesPage() {
   const consignees = await db.freightConsignee.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] });
   return (
     <div className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">收货方</h1>
+      <h1 className="text-xl font-bold">Consignees</h1>
       <FreightConsigneeManager
         consignees={consignees.map((c) => ({
           id: c.id, name: c.name, addressLine: c.addressLine, city: c.city, state: c.state, zip: c.zip,

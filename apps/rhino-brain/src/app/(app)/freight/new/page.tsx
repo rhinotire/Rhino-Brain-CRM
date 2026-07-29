@@ -12,7 +12,7 @@ export default async function FreightNewPage() {
   ]);
   return (
     <div className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">新询价</h1>
+      <h1 className="text-xl font-bold">New Quote Request</h1>
       <FreightNewForm
         consignees={consignees.map((c) => ({ id: c.id, name: c.name, city: c.city, state: c.state }))}
         carriers={carriers.map((c) => ({ id: c.id, name: c.name, contactCount: c.contacts.length }))}

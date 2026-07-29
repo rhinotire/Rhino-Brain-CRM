@@ -29,12 +29,12 @@ export default async function FreightPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Freight 物流</h1>
+        <h1 className="text-xl font-bold">Freight</h1>
         <div className="flex items-center gap-2">
           <CheckRepliesButton />
           <Link href="/freight/carriers" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Carriers</Link>
-          <Link href="/freight/consignees" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">收货方</Link>
-          <Link href="/freight/new" className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">+ 新询价</Link>
+          <Link href="/freight/consignees" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Consignees</Link>
+          <Link href="/freight/new" className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">+ New Quote Request</Link>
         </div>
       </div>
 
@@ -42,8 +42,8 @@ export default async function FreightPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-500">
             <tr>
-              <th className="p-2">单号</th><th className="p-2">线路</th><th className="p-2">提货日</th>
-              <th className="p-2">状态</th><th className="p-2">回复</th><th className="p-2">最低价</th>
+              <th className="p-2">Ref</th><th className="p-2">Route</th><th className="p-2">Pickup</th>
+              <th className="p-2">Status</th><th className="p-2">Replies</th><th className="p-2">Best Price</th>
             </tr>
           </thead>
           <tbody>
@@ -63,7 +63,7 @@ export default async function FreightPage() {
               );
             })}
             {shipments.length === 0 && (
-              <tr><td colSpan={6} className="p-6 text-center text-slate-400">还没有询价单 — 点右上角&quot;+ 新询价&quot;</td></tr>
+              <tr><td colSpan={6} className="p-6 text-center text-slate-400">No shipments yet — click &quot;+ New Quote Request&quot; above</td></tr>
             )}
           </tbody>
         </table>

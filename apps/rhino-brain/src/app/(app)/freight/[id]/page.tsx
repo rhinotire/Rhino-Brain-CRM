@@ -25,8 +25,8 @@ export default async function FreightDetailPage({ params }: { params: { id: stri
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
         <p><b>{s.originLabel}</b> → {s.stops.map((st) => `${st.sequence}. ${st.consignee.name} (${st.consignee.city}, ${st.consignee.state})${st.quantity ? ` — ${st.quantity}` : ""}`).join("  ·  ")}</p>
-        <p className="mt-1 text-slate-500">提货 {s.pickupDate.toISOString().slice(0, 10)} · {s.equipmentType === "DRY_VAN_53" ? "53' Dry Van" : "53' Flatbed"} · {s.commodity}{s.notes ? ` · ${s.notes}` : ""}</p>
-        {s.status === "BOOKED" && !s.confirmationSentAt && <p className="mt-1 font-semibold text-red-600">⚠ 确认邮件未发出 — 用下面的&quot;重发确认邮件&quot;</p>}
+        <p className="mt-1 text-slate-500">Pickup {s.pickupDate.toISOString().slice(0, 10)} · {s.equipmentType === "DRY_VAN_53" ? "53' Dry Van" : "53' Flatbed"} · {s.commodity}{s.notes ? ` · ${s.notes}` : ""}</p>
+        {s.status === "BOOKED" && !s.confirmationSentAt && <p className="mt-1 font-semibold text-red-600">⚠ Booking confirmation email not sent — use &quot;Resend Confirmation&quot; below</p>}
       </div>
 
       <FreightQuoteTable
