@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Request a Wholesale Quote",
   description:
     "Get wholesale pricing on tires, wheels and trailer parts. Tell us the sizes and quantities — a rep replies within one business day.",
-  alternates: { canonical: "/quote" },
+  alternates: { canonical: "/quote", languages: { en: "/quote", es: "/es/quote" } },
 };
 
 export default async function QuotePage({ searchParams }: { searchParams: { sku?: string } }) {

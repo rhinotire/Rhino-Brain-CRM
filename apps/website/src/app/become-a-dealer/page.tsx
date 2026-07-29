@@ -7,7 +7,7 @@ import { COPY } from "@/lib/brand-copy";
 export const metadata: Metadata = {
   title: "Become a Dealer — Wholesale Account Application",
   description: COPY.dealerMetaDescription,
-  alternates: { canonical: "/become-a-dealer" },
+  alternates: { canonical: "/become-a-dealer", languages: { en: "/become-a-dealer", es: "/es/become-a-dealer" } },
 };
 
 export default async function DealerPage() {

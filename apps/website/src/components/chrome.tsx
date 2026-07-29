@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { waLink, type Brand } from "@/lib/brand";
 import { MobileMenu } from "@/components/mobile-menu";
+import { LangSwitch } from "@/components/lang";
 import { MAIN_NAV, TIRES_MEGA } from "@/lib/site";
 import { COPY } from "@/lib/brand-copy";
 
@@ -64,6 +65,7 @@ export function Header({ brand }: { brand: Brand }) {
           </p>
           <p className="sm:hidden font-semibold text-white">{COPY.headerTagline}</p>
           <span className="flex shrink-0 items-center gap-3">
+            <LangSwitch />
             {waLink(`Hi ${brand.name} — I have a question about tires.`) && (
               <a href={waLink(`Hi ${brand.name} — I have a question about tires.`)!} target="_blank" rel="noopener"
                 className="hidden items-center gap-1 font-bold text-emerald-400 hover:text-emerald-300 sm:flex">

@@ -6,6 +6,7 @@ import { StockBadge } from "@/components/product-card";
 import { TireSpecs } from "@/components/tire-specs";
 import { JsonLd } from "@/components/json-ld";
 import { SITE, STOCK_LABEL } from "@/lib/site";
+import { COPY } from "@/lib/brand-copy";
 
 export const revalidate = 300;
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!p) return {};
   return {
     title: `${p.name} — Wholesale`,
-    description: `${p.name} (SKU ${p.sku})${p.sizeSpec ? `, size ${p.sizeSpec}` : ""}. ${STOCK_LABEL[p.stockStatus]}. Dealer tier pricing — request a wholesale quote.`,
+    description: `${p.name} (SKU ${p.sku})${p.sizeSpec ? `, size ${p.sizeSpec}` : ""}. ${STOCK_LABEL[p.stockStatus]} at our ${COPY.whShort} warehouses. Wholesale dealer pricing — request a quote or find local installation.`,
     alternates: { canonical: `/products/${params.slug}` },
     openGraph: p.images[0] ? { images: [{ url: p.images[0].url, alt: p.images[0].alt }] } : undefined,
   };

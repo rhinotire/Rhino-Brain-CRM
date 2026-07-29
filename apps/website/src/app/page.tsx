@@ -11,7 +11,7 @@ import { TireSearch } from "@/components/tire-search";
 export const metadata: Metadata = {
   title: COPY.homeTitle,
   description: COPY.homeDescription,
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", languages: { en: "/", es: "/es" } },
 };
 
 export default async function HomePage() {

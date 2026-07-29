@@ -7,7 +7,7 @@ export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, articles] = await Promise.all([
-    PublicCatalogService.listPublished({ take: 200 }),
+    PublicCatalogService.listPublished({ take: 1000 }),
     PublicArticleService.listPublished(BRAND_KEY),
   ]);
 
@@ -16,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/tools/tire-size-calculator", "/tools/trailer-load-calculator", "/tools/bolt-pattern-guide", "/tools/tire-size-converter", "/tools/cost-per-mile-calculator", "/tools/dot-date-decoder", "/tools/gear-ratio-calculator", "/tools/offset-backspacing-calculator", "/tools/tread-depth-guide", "/tools/temperature-pressure-calculator", "/tools/staggered-tire-calculator", "/find-installation",
     "/tires/by-size", "/tires/by-vehicle", "/tires/specialty", "/brands", "/deals", "/packages", "/supplies", "/dealer/quick-order",
     "/about", "/contact", "/service-area", "/fleet-solutions",
+    "/es", "/es/quote", "/es/become-a-dealer", "/es/find-installation",
     "/legal/privacy", "/legal/terms", "/legal/product-disclaimer", "/legal/accessibility",
   ].map((p) => ({
     url: `${SITE.url}${p}`,
