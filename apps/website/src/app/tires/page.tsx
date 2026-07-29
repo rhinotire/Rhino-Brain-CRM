@@ -8,7 +8,7 @@ import { COPY } from "@/lib/brand-copy";
 export const metadata: Metadata = {
   title: "Wholesale Tires — Trailer, Passenger, Light Truck & Commercial",
   description: `Browse wholesale tires by category: ST trailer, passenger, light truck and commercial truck. Live stock status from ${COPY.whOur}.`,
-  alternates: { canonical: "/tires" },
+  alternates: { canonical: "/tires", languages: { en: "/tires", es: "/es/tires" } },
 };
 
 export const revalidate = 300; // ISR — product edits in RHINO BRAIN show within minutes

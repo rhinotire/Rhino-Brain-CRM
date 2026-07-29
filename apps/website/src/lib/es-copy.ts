@@ -53,3 +53,19 @@ const EVERFLOW_ES: typeof RHINO_ES = {
 };
 
 export const ES_COPY = KEY === "EVERFLOW" ? EVERFLOW_ES : RHINO_ES;
+
+/** Spanish names for the tire category slugs (lib/site.ts CATEGORY_SLUGS). */
+export const CATEGORY_LABEL_ES: Record<string, string> = {
+  "st-trailer": "Llantas de Remolque ST",
+  passenger: "Llantas de Auto",
+  "light-truck": "Llantas de Camioneta",
+  "commercial-truck": "Llantas de Camión",
+};
+
+/** Popular sizes per category — same data as the English hub. */
+export const POPULAR_ES: Record<string, string[]> = {
+  "st-trailer": ["ST205/75R15", "ST225/75R15", "ST235/80R16"],
+  passenger: ["205/55R16", "225/65R17", "225/45R17"],
+  "light-truck": ["LT265/70R17", "LT285/75R16"],
+  "commercial-truck": ["11R22.5", "295/75R22.5"],
+};

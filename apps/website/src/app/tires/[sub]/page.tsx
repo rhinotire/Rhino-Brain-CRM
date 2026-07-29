@@ -65,7 +65,10 @@ export function generateMetadata({ params }: { params: Params }): Metadata {
   return {
     title: `${cat.label} — Wholesale Pricing & Live Stock`,
     description: `Wholesale ${cat.label.toLowerCase()} in stock in ${COPY.wh}. Dealer tier pricing — request a quote or apply for a dealer account.`,
-    alternates: { canonical: `/tires/${params.sub}` },
+    alternates: {
+      canonical: `/tires/${params.sub}`,
+      languages: { en: `/tires/${params.sub}`, es: `/es/tires/${params.sub}` },
+    },
   };
 }
 

@@ -52,6 +52,9 @@ const POPULAR_SIZES = ["ST205/75R15", "ST225/75R15", "ST235/80R16", "225/65R17",
  */
 export function TireSearch({ es }: { es?: boolean }) {
   const [tab, setTab] = useState<Tab>("Size");
+  const searchAction = es ? "/es/tires" : "/tires";
+  // tire category pages have Spanish twins; wheels/parts stay English for now
+  const esHref = (href: string) => (es && href.startsWith("/tires/") ? `/es${href}` : href);
 
   return (
     <div translate="no" className="notranslate rounded-2xl bg-white p-4 shadow-lift sm:p-5">
@@ -66,7 +69,7 @@ export function TireSearch({ es }: { es?: boolean }) {
       <div className="pt-4">
         {tab === "Size" && (
           <div>
-            <form action="/tires" method="get" className="flex gap-2">
+            <form action={searchAction} method="get" className="flex gap-2">
               <label htmlFor="ts-size" className="sr-only">{es ? "Medida de llanta" : "Tire size"}</label>
               {/* text-navy-900 is load-bearing: the hero section is text-white and
                   preflight makes inputs inherit color — white-on-white otherwise */}
@@ -78,7 +81,7 @@ export function TireSearch({ es }: { es?: boolean }) {
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-steel-500">{es ? ES.popular : "Popular:"}</span>
               {POPULAR_SIZES.map((s) => (
-                <Link key={s} href={`/tires?q=${encodeURIComponent(s)}`}
+                <Link key={s} href={`${searchAction}?q=${encodeURIComponent(s)}`}
                   className="rounded-md bg-steel-100 px-2 py-1 text-xs font-semibold text-navy-800 transition hover:bg-brand/20 hover:text-navy-900">
                   {s}
                 </Link>
@@ -87,7 +90,7 @@ export function TireSearch({ es }: { es?: boolean }) {
           </div>
         )}
         {tab === "Brand" && (
-          <form action="/tires" method="get" className="flex gap-2">
+          <form action={searchAction} method="get" className="flex gap-2">
             <label htmlFor="ts-brand" className="sr-only">{es ? "Marca" : "Brand"}</label>
             <input id="ts-brand" name="q" autoComplete="off"
               placeholder={es ? ES.brandPh : 'e.g. "Transeagle", "Kapsen", "Haida"'}
@@ -98,14 +101,14 @@ export function TireSearch({ es }: { es?: boolean }) {
         {tab === "Category" && (
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map(([label, href]) => (
-              <Link key={label} href={href} className={chip}>{es ? ES.categories[label] ?? label : label}</Link>
+              <Link key={label} href={esHref(href)} className={chip}>{es ? ES.categories[label] ?? label : label}</Link>
             ))}
           </div>
         )}
         {tab === "Application" && (
           <div className="flex flex-wrap gap-2">
             {APPLICATIONS.map(([label, href]) => (
-              <Link key={label} href={href} className={chip}>{es ? ES.applications[label] ?? label : label}</Link>
+              <Link key={label} href={esHref(href)} className={chip}>{es ? ES.applications[label] ?? label : label}</Link>
             ))}
           </div>
         )}

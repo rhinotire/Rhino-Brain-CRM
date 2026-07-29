@@ -17,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/tires/by-size", "/tires/by-vehicle", "/tires/specialty", "/brands", "/deals", "/packages", "/supplies", "/dealer/quick-order",
     "/about", "/contact", "/service-area", "/fleet-solutions",
     "/es", "/es/quote", "/es/become-a-dealer", "/es/find-installation",
+    "/es/tires", "/es/tires/st-trailer", "/es/tires/passenger", "/es/tires/light-truck", "/es/tires/commercial-truck",
     "/legal/privacy", "/legal/terms", "/legal/product-disclaimer", "/legal/accessibility",
   ].map((p) => ({
     url: `${SITE.url}${p}`,

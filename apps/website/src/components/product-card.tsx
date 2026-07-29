@@ -4,14 +4,20 @@ import { STOCK_LABEL } from "@/lib/site";
 import { TireGraphic } from "@/components/graphics";
 import { AddToOrder } from "@/components/dealer-cart";
 
-export function StockBadge({ status }: { status: PublicProductDTO["stockStatus"] }) {
+const STOCK_LABEL_ES: Record<string, string> = {
+  IN_STOCK: "En Existencia",
+  LIMITED: "Pocas Piezas",
+  CONTACT_FOR_AVAILABILITY: "Consultar Disponibilidad",
+};
+
+export function StockBadge({ status, es }: { status: PublicProductDTO["stockStatus"]; es?: boolean }) {
   const style =
     status === "IN_STOCK"
       ? "bg-emerald-100 text-emerald-800"
       : status === "LIMITED"
         ? "bg-amber-100 text-amber-800"
         : "bg-steel-100 text-steel-500";
-  return <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style}`}>{STOCK_LABEL[status]}</span>;
+  return <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style}`}>{es ? STOCK_LABEL_ES[status] : STOCK_LABEL[status]}</span>;
 }
 
 /** Logged-in dealer extras rendered on the card (read-only portal Phase 1). */
@@ -50,7 +56,7 @@ function SpecChips({ t }: { t: PublicProductDTO["tireSpec"] }) {
 }
 
 /** Premium product card: brand eyebrow, condensed name, big size, badges. */
-export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dealBadge?: boolean; dealer?: DealerCardInfo }) {
+export function ProductCard({ p, dealBadge, dealer, es }: { p: PublicProductDTO; dealBadge?: boolean; dealer?: DealerCardInfo; es?: boolean }) {
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
   const card = (
     <Link
@@ -117,14 +123,14 @@ export function ProductCard({ p, dealBadge, dealer }: { p: PublicProductDTO; dea
           </>
         ) : (
           <>
-            <StockBadge status={p.stockStatus} />
+            <StockBadge status={p.stockStatus} es={es} />
             {p.msrp !== null ? (
               <span className="text-right">
                 <span className="block font-display text-lg font-bold leading-none text-navy-900">${p.msrp.toFixed(2)}</span>
-                <span className="block text-[10px] font-semibold uppercase tracking-wide text-steel-400">MSRP · dealers save</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-steel-400">{es ? "MSRP · distribuidores ahorran" : "MSRP · dealers save"}</span>
               </span>
             ) : (
-              <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">Dealer price →</span>
+              <span className="text-xs font-bold text-brand-dark transition group-hover:translate-x-0.5">{es ? "Precio de distribuidor →" : "Dealer price →"}</span>
             )}
           </>
         )}

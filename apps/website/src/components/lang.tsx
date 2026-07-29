@@ -25,6 +25,11 @@ const EN_TO_ES: Record<string, string> = {
   "/quote": "/es/quote",
   "/become-a-dealer": "/es/become-a-dealer",
   "/find-installation": "/es/find-installation",
+  "/tires": "/es/tires",
+  "/tires/st-trailer": "/es/tires/st-trailer",
+  "/tires/passenger": "/es/tires/passenger",
+  "/tires/light-truck": "/es/tires/light-truck",
+  "/tires/commercial-truck": "/es/tires/commercial-truck",
 };
 
 /** Header language toggle. Lives in the navy microbar next to the phone number. */

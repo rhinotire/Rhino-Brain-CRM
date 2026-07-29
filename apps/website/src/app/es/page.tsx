@@ -76,14 +76,11 @@ export default async function HomePageEs() {
       {/* ============ categorías ============ */}
       <section>
         <h2 className="h-display text-3xl text-navy-900">Compre por Categoría</h2>
-        <p className="mt-2 max-w-2xl text-sm text-steel-500">
-          El catálogo completo está en inglés — las medidas y especificaciones son las mismas en ambos idiomas.
-        </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { href: "/tires/st-trailer", Icon: TrailerIcon, title: "Llantas de Remolque ST", blurb: "ST175/80R13 a ST235/85R16 — la especialidad de la casa" },
-            { href: "/tires/passenger", Icon: TireIcon, title: "Llantas de Auto y Camioneta", blurb: "Touring, LT y todo terreno a precio de mayoreo" },
-            { href: "/tires/commercial-truck", Icon: TruckIcon, title: "Llantas de Camión", blurb: "Posiciones de dirección, tracción y remolque" },
+            { href: "/es/tires/st-trailer", Icon: TrailerIcon, title: "Llantas de Remolque ST", blurb: "ST175/80R13 a ST235/85R16 — la especialidad de la casa" },
+            { href: "/es/tires/passenger", Icon: TireIcon, title: "Llantas de Auto y Camioneta", blurb: "Touring, LT y todo terreno a precio de mayoreo" },
+            { href: "/es/tires/commercial-truck", Icon: TruckIcon, title: "Llantas de Camión", blurb: "Posiciones de dirección, tracción y remolque" },
             { href: "/wheels", Icon: WheelIcon, title: "Rines y Refacciones", blurb: "Rines de remolque, birlos, masas y más" },
           ].map(({ href, Icon, title, blurb }) => (
             <Link key={href} href={href} className="group rounded-2xl border border-steel-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
