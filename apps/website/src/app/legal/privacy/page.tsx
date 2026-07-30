@@ -20,7 +20,7 @@ export default async function PrivacyPage() {
         <li>Information you submit in forms — quote requests, dealer applications, fleet inquiries, contact and installation requests (name, company, phone, email, address, and what you tell us about your needs).</li>
         <li>Files you choose to upload with an application (for example a resale certificate).</li>
         <li>Messages you send to the AI assistant on this site. Conversations may be logged to improve service.</li>
-        <li>Standard usage analytics (pages visited, device type) collected through analytics tools.</li>
+        <li>Standard usage analytics (pages visited, device type, approximate location, referral source) collected through Google Analytics and Vercel Analytics. These tools use cookies or similar identifiers to distinguish visits; they do not identify you personally to us.</li>
       </ul>
       <h2>How we use it</h2>
       <ul>
