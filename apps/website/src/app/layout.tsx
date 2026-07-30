@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/react";
 import { Inter, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 
@@ -66,6 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Footer brand={brand} />
         <MobileBar brand={brand} />
         <AssistantWidget />
+        <Analytics />
         {GA4_ID && (
           <>
             <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />
