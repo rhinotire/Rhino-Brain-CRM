@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { JsonLd } from "@/components/json-ld";
-import { CATEGORY_SLUGS, SITE, sizeToSlug } from "@/lib/site";
+import { CATEGORY_SLUGS, POPULAR_BY_CATEGORY, SITE } from "@/lib/site";
+import { SizeBrowser } from "@/components/size-browser";
 import { ES_COPY, CATEGORY_LABEL_ES } from "@/lib/es-copy";
 import { SetLang } from "@/components/lang";
 
@@ -72,7 +73,7 @@ export default async function SubcategoryPageEs({ params }: { params: Params }) 
   if (!cat) notFound();
   const label = CATEGORY_LABEL_ES[params.sub] ?? cat.label;
 
-  const products = await PublicCatalogService.listPublished({ category: cat.db, take: 200 });
+  const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
   return (
@@ -86,15 +87,7 @@ export default async function SubcategoryPageEs({ params }: { params: Params }) 
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{B2B_SECTIONS_ES[params.sub].intro}</p>
       )}
 
-      {sizes.length > 1 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {sizes.map((s) => (
-            <Link key={s} href={`/tires/${params.sub}/${sizeToSlug(s)}`} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold hover:border-brand">
-              {s}
-            </Link>
-          ))}
-        </div>
-      )}
+      <SizeBrowser sizes={sizes} hrefBase={`/tires/${params.sub}`} popular={POPULAR_BY_CATEGORY[params.sub]} es />
 
       {products.length ? (
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">

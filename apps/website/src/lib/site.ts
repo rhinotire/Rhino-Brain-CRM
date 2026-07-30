@@ -31,6 +31,14 @@ export const CATEGORY_SLUGS: Record<string, { db: string; label: string; parent:
 /** TireSpec.application values that count as "specialty" (ATV, golf, ag…). */
 export const SPECIALTY_APPLICATIONS = ["atv-utv", "golf-cart", "lawn-garden", "industrial", "agricultural"];
 
+/** The sizes dealers ask for most, per category — shown before the size browser. */
+export const POPULAR_BY_CATEGORY: Record<string, string[]> = {
+  "st-trailer": ["ST205/75R15", "ST225/75R15", "ST235/80R16"],
+  passenger: ["205/55R16", "225/65R17", "225/45R17"],
+  "light-truck": ["LT265/70R17", "LT285/75R16"],
+  "commercial-truck": ["11R22.5", "295/75R22.5"],
+};
+
 /**
  * Owner-approved main navigation (2026-07-13). Keep it merchandising-led;
  * technical filters belong on category and search-result pages, not here.
