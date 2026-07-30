@@ -54,7 +54,8 @@ export function SizeBrowser({
       )}
       <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
         {ordered.map(([dia, list]) => (
-          <details key={dia} className="rounded-xl border border-slate-200 bg-white open:sm:col-span-2">
+          // name= makes the accordion exclusive: opening one diameter closes the rest
+          <details key={dia} name="size-groups" className="rounded-xl border border-slate-200 bg-white open:sm:col-span-2">
             <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-bold text-slate-800 hover:text-brand-dark">
               {Number.isNaN(Number(dia)) ? dia : `${dia}″`}{" "}
               <span className="text-xs font-semibold text-slate-400">

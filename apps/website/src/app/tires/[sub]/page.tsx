@@ -80,17 +80,30 @@ export default async function SubcategoryPage({ params }: { params: Params }) {
   const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
+  // top 10 = the sizes with the most published products (deepest stock coverage)
+  const counts = new Map<string, number>();
+  for (const p of products) if (p.sizeSpec) counts.set(p.sizeSpec, (counts.get(p.sizeSpec) ?? 0) + 1);
+  const top10 = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([s]) => s);
+
   return (
     <div className="pt-8">
       <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
         <Link href="/">Home</Link> / <Link href="/tires">Tires</Link> / {cat.label}
       </nav>
-      <h1 className="mt-2 text-2xl font-black">{cat.label}</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <h1 className="text-2xl font-black">{cat.label}</h1>
+        <form action="/tires" method="get" className="flex gap-2">
+          <label htmlFor="cat-q" className="sr-only">Search tire size</label>
+          <input id="cat-q" name="q" placeholder='Search a size — "2055516"' autoComplete="off"
+            className="w-56 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <button className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-ink">Search</button>
+        </form>
+      </div>
       {B2B_SECTIONS[params.sub] && (
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{B2B_SECTIONS[params.sub].intro}</p>
       )}
 
-      <SizeBrowser sizes={sizes} hrefBase={`/tires/${params.sub}`} popular={POPULAR_BY_CATEGORY[params.sub]} />
+      <SizeBrowser sizes={sizes} hrefBase={`/tires/${params.sub}`} popular={top10.length ? top10 : POPULAR_BY_CATEGORY[params.sub]} />
 
       {products.length ? (
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">

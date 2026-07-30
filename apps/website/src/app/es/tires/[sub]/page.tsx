@@ -76,18 +76,31 @@ export default async function SubcategoryPageEs({ params }: { params: Params }) 
   const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
+  // top 10 = medidas con más productos publicados
+  const counts = new Map<string, number>();
+  for (const p of products) if (p.sizeSpec) counts.set(p.sizeSpec, (counts.get(p.sizeSpec) ?? 0) + 1);
+  const top10 = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([s]) => s);
+
   return (
     <div className="pt-8">
       <SetLang lang="es" />
       <nav aria-label="Ruta de navegación" className="text-xs text-slate-500">
         <Link href="/es">Inicio</Link> / <Link href="/es/tires">Llantas</Link> / {label}
       </nav>
-      <h1 className="mt-2 text-2xl font-black">{label}</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <h1 className="text-2xl font-black">{label}</h1>
+        <form action="/es/tires" method="get" className="flex gap-2">
+          <label htmlFor="cat-q" className="sr-only">Buscar medida</label>
+          <input id="cat-q" name="q" placeholder='Buscar medida — "2055516"' autoComplete="off"
+            className="w-56 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <button className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-ink">Buscar</button>
+        </form>
+      </div>
       {B2B_SECTIONS_ES[params.sub] && (
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{B2B_SECTIONS_ES[params.sub].intro}</p>
       )}
 
-      <SizeBrowser sizes={sizes} hrefBase={`/tires/${params.sub}`} popular={POPULAR_BY_CATEGORY[params.sub]} es />
+      <SizeBrowser sizes={sizes} hrefBase={`/tires/${params.sub}`} popular={top10.length ? top10 : POPULAR_BY_CATEGORY[params.sub]} es />
 
       {products.length ? (
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
