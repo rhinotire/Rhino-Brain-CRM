@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { JsonLd } from "@/components/json-ld";
-import { CATEGORY_SLUGS, POPULAR_BY_CATEGORY, SITE } from "@/lib/site";
+import { CATEGORY_SLUGS, MARKET_TOP_SIZES, POPULAR_BY_CATEGORY, SITE } from "@/lib/site";
 import { SizeBrowser } from "@/components/size-browser";
 import { ES_COPY, CATEGORY_LABEL_ES } from "@/lib/es-copy";
 import { SetLang } from "@/components/lang";
@@ -76,10 +76,12 @@ export default async function SubcategoryPageEs({ params }: { params: Params }) 
   const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
-  // top 10 = medidas con más productos publicados
+  // Más vendidas = top del mercado de reemplazo de EE. UU. que tenemos en existencia
   const counts = new Map<string, number>();
   for (const p of products) if (p.sizeSpec) counts.set(p.sizeSpec, (counts.get(p.sizeSpec) ?? 0) + 1);
-  const top10 = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([s]) => s);
+  const market = (MARKET_TOP_SIZES[params.sub] ?? []).filter((s) => counts.has(s));
+  const byStock = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).filter((s) => !market.includes(s));
+  const top10 = [...market, ...byStock].slice(0, 10);
 
   return (
     <div className="pt-8">

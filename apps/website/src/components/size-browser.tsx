@@ -46,23 +46,24 @@ export function SizeBrowser({
     <div className="mt-4">
       {popularInStock.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{es ? "Populares:" : "Popular:"}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{es ? "Más vendidas:" : "Top sellers:"}</span>
           {popularInStock.map((s) => (
             <Link key={s} href={`${hrefBase}/${sizeToSlug(s)}`} className={chip}>{s}</Link>
           ))}
         </div>
       )}
-      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+      {/* compact diameter tiles, 4–5 per row; the open one stretches full width */}
+      <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-5">
         {ordered.map(([dia, list]) => (
           // name= makes the accordion exclusive: opening one diameter closes the rest
-          <details key={dia} name="size-groups" className="rounded-xl border border-slate-200 bg-white open:sm:col-span-2">
-            <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-bold text-slate-800 hover:text-brand-dark">
-              {Number.isNaN(Number(dia)) ? dia : `${dia}″`}{" "}
-              <span className="text-xs font-semibold text-slate-400">
-                · {list.length} {es ? (list.length === 1 ? "medida" : "medidas") : list.length === 1 ? "size" : "sizes"}
+          <details key={dia} name="size-groups" className="rounded-lg border border-slate-200 bg-white open:col-span-full open:border-brand">
+            <summary className="cursor-pointer select-none list-none px-2 py-2 text-center text-sm font-bold text-slate-800 hover:text-brand-dark [&::-webkit-details-marker]:hidden">
+              {Number.isNaN(Number(dia)) ? dia : `${dia}″`}
+              <span className="block text-[10px] font-semibold leading-tight text-slate-400">
+                {list.length} {es ? (list.length === 1 ? "medida" : "medidas") : list.length === 1 ? "size" : "sizes"}
               </span>
             </summary>
-            <div className="flex flex-wrap gap-2 px-4 pb-3.5 pt-0.5">
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 px-3 py-3">
               {[...list].sort((a, b) => a.localeCompare(b, "en", { numeric: true })).map((s) => (
                 <Link key={s} href={`${hrefBase}/${sizeToSlug(s)}`} className={chip}>{s}</Link>
               ))}

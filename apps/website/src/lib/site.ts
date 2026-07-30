@@ -40,6 +40,32 @@ export const POPULAR_BY_CATEGORY: Record<string, string[]> = {
 };
 
 /**
+ * US replacement-market best-selling sizes per category, best first — the
+ * industry-cited lists (fitment frequency on the road), NOT our sales data.
+ * Category pages intersect these with in-stock sizes for the Top Sellers row.
+ */
+export const MARKET_TOP_SIZES: Record<string, string[]> = {
+  passenger: [
+    "225/65R17", "215/55R17", "205/55R16", "235/65R17", "225/60R17",
+    "215/60R16", "195/65R15", "225/45R17", "235/60R18", "215/65R16",
+    "225/55R17", "205/60R16", "235/55R18", "225/65R16", "215/50R17",
+  ],
+  "light-truck": [
+    "LT265/70R17", "LT245/75R16", "LT275/70R18", "LT285/70R17", "LT265/75R16",
+    "LT235/85R16", "LT225/75R16", "LT275/65R18", "33X12.50R20", "35X12.50R20",
+    "LT285/75R16", "LT265/60R20",
+  ],
+  "st-trailer": [
+    "ST205/75R15", "ST225/75R15", "ST235/80R16", "ST175/80R13", "ST205/75R14",
+    "ST215/75R14", "ST235/85R16", "ST185/80R13", "ST225/90R16", "ST235/75R15",
+  ],
+  "commercial-truck": [
+    "11R22.5", "295/75R22.5", "285/75R24.5", "11R24.5", "255/70R22.5",
+    "225/70R19.5", "245/70R19.5", "215/75R17.5", "385/65R22.5", "295/80R22.5",
+  ],
+};
+
+/**
  * Owner-approved main navigation (2026-07-13). Keep it merchandising-led;
  * technical filters belong on category and search-result pages, not here.
  */

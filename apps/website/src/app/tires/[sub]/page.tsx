@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
 import { JsonLd } from "@/components/json-ld";
-import { CATEGORY_SLUGS, POPULAR_BY_CATEGORY, SITE } from "@/lib/site";
+import { CATEGORY_SLUGS, MARKET_TOP_SIZES, POPULAR_BY_CATEGORY, SITE } from "@/lib/site";
 import { SizeBrowser } from "@/components/size-browser";
 import { COPY } from "@/lib/brand-copy";
 
@@ -80,10 +80,13 @@ export default async function SubcategoryPage({ params }: { params: Params }) {
   const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
-  // top 10 = the sizes with the most published products (deepest stock coverage)
+  // Top Sellers = US replacement-market best sellers we actually stock,
+  // topped up with our deepest-stocked sizes when fewer than 10 match
   const counts = new Map<string, number>();
   for (const p of products) if (p.sizeSpec) counts.set(p.sizeSpec, (counts.get(p.sizeSpec) ?? 0) + 1);
-  const top10 = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([s]) => s);
+  const market = (MARKET_TOP_SIZES[params.sub] ?? []).filter((s) => counts.has(s));
+  const byStock = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).filter((s) => !market.includes(s));
+  const top10 = [...market, ...byStock].slice(0, 10);
 
   return (
     <div className="pt-8">
