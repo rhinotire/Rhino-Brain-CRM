@@ -243,6 +243,7 @@ model Location {
   installers    Installer[]
   consumerLeads ConsumerLead[]
   freightShipments FreightShipment[]
+  employees     Employee[]
 }
 
 model User {
@@ -277,6 +278,8 @@ model User {
   consumerLeads  ConsumerLead[]
   specReviews    SpecProposal[]
   freightShipments FreightShipment[]
+  employee             Employee?
+  employeeDocsUploaded EmployeeDocument[] @relation("EmployeeDocsUploaded")
 
   // "Assistant" access: this user can also see the customers of everyone in `assists`.
   assists    User[] @relation("RepAssists")
@@ -1495,4 +1498,66 @@ model FreightQuote {
 
   @@unique([shipmentId, carrierId])
   @@index([status])
+}
+
+// ---------- HR module (spec 2026-08-01) ----------
+
+enum EmployeeStatus {
+  ACTIVE
+  TERMINATED
+}
+
+enum EmployeeDocType {
+  APPLICATION
+  DRIVER_LICENSE
+  WORK_PERMIT
+  DIRECT_DEPOSIT_AUTH
+  OFFER_LETTER
+  POLICY_ACK
+  W4_FORM
+  I9_FORM
+  EMERGENCY_CONTACT
+  OTHER
+}
+
+model Employee {
+  id         String         @id @default(cuid())
+  name       String
+  position   String?
+  phone      String?
+  email      String?
+  hireDate   DateTime?
+  status     EmployeeStatus @default(ACTIVE)
+  endDate    DateTime? // set when TERMINATED
+  notes      String?
+  // company isolation: Rhino FL vs Everflow TX — managers see own location only
+  locationId String
+  location   Location       @relation(fields: [locationId], references: [id])
+  userId     String?        @unique // optional link to CRM login
+  user       User?          @relation(fields: [userId], references: [id])
+  documents  EmployeeDocument[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([locationId, status])
+}
+
+model EmployeeDocument {
+  id           String          @id @default(cuid())
+  employeeId   String
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type         EmployeeDocType
+  fileName     String
+  storagePath  String // Supabase Storage object path (bucket employee-docs)
+  fileSize     Int
+  mimeType     String
+  expiresAt    DateTime? // driver license / work permit expiration
+  sensitive    Boolean         @default(false) // DL / work permit / direct deposit — ADMIN-only download
+  notes        String?
+  uploadedById String
+  uploadedBy   User            @relation("EmployeeDocsUploaded", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([type, expiresAt])
 }
