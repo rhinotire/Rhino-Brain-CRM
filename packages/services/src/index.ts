@@ -55,3 +55,4 @@ export { refCodePrefix, nextRefCode } from "./freight-refcode";
 export { handleFreightReply } from "./freight-reply-handler";
 export { isFreightMailConfigured, sendFreightEmail } from "./freight-mailer";
 export { pollFreightInbox } from "./freight-inbox";
+export { docExpiryStatus, worstExpiryStatus, canDownloadEmployeeDoc, canDeleteEmployeeDoc, coreDocsOnFile, type DocExpiryStatus } from "./hr";
