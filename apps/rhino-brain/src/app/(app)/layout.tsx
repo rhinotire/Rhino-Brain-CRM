@@ -43,6 +43,9 @@ const managerGroups: NavGroup[] = [
     { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
     { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
   ]},
+  { title: "HR", items: [
+    { href: "/hr", label: "Employees", icon: "👥" },
+  ]},
 ];
 
 const websiteGroup = (isAdmin: boolean): NavGroup => ({
