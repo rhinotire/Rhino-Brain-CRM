@@ -6,6 +6,10 @@ const nextConfig = {
       // document uploads (PDF / images) go through server actions
       bodySizeLimit: "10mb",
     },
+    // hr-templates route reads these at runtime; without tracing Vercel drops them
+    outputFileTracingIncludes: {
+      "/api/hr-templates/[file]": ["./files/hr-templates/*"],
+    },
   },
 };
 export default nextConfig;
