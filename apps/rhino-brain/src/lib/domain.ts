@@ -2,7 +2,7 @@ import { differenceInCalendarDays } from "date-fns";
 import type {
   CustomerType, CustomerStatus, CustomerSource, ProductCategory, PipelineStage,
   LostReason, ActivityType, TaskPriority, TaskStatus, TaskType, QuoteStatus,
-  Probability, OpportunityStatus, Role, Tier,
+  Probability, OpportunityStatus, Role, Tier, EmployeeDocType, EmployeeStatus,
 } from "@prisma/client";
 
 // ---------- Display labels ----------
@@ -271,3 +271,34 @@ export function daysSince(d: Date | null | undefined, now = new Date()): number 
   if (!d) return null;
   return differenceInCalendarDays(now, d);
 }
+
+// ---------- HR (client-safe: no @rhino/services imports here) ----------
+
+export const employeeStatusLabels: Record<EmployeeStatus, string> = {
+  ACTIVE: "Active",
+  TERMINATED: "Terminated",
+};
+
+export const employeeDocTypeLabels: Record<EmployeeDocType, string> = {
+  APPLICATION: "Employment Application",
+  DRIVER_LICENSE: "Driver License",
+  WORK_PERMIT: "Work Permit / EAD",
+  DIRECT_DEPOSIT_AUTH: "Direct Deposit Authorization",
+  OFFER_LETTER: "Offer Letter (signed)",
+  POLICY_ACK: "Policy Acknowledgments (signed)",
+  W4_FORM: "Form W-4",
+  I9_FORM: "Form I-9",
+  EMERGENCY_CONTACT: "Emergency Contact Form",
+  OTHER: "Other",
+};
+
+/** ADMIN-only download (license / immigration / bank info). */
+export const SENSITIVE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE", "WORK_PERMIT", "DIRECT_DEPOSIT_AUTH"];
+
+/** Upload form shows an expiration-date field for these. */
+export const EXPIRING_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE", "WORK_PERMIT"];
+
+/** Completeness = n/6. WORK_PERMIT excluded — only applicable to some employees. */
+export const CORE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = [
+  "APPLICATION", "DRIVER_LICENSE", "DIRECT_DEPOSIT_AUTH", "W4_FORM", "I9_FORM", "EMERGENCY_CONTACT",
+];
