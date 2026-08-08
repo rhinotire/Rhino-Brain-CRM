@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, defaultLocationId } from "@/lib/auth";
+import { requireSession, defaultLocationId, canWrite } from "@/lib/auth";
 import { activitySchema } from "@/lib/validations";
 import { computeCustomerScore, outcomeLabels } from "@/lib/domain";
 import type { ActionResult } from "./auth";
@@ -30,7 +30,8 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
   if (d.customerId) locId = (await db.customer.findUnique({ where: { id: d.customerId }, select: { locationId: true } }))?.locationId ?? null;
   else if (d.leadId) locId = (await db.lead.findUnique({ where: { id: d.leadId }, select: { locationId: true } }))?.locationId ?? null;
   if (!locId) locId = defaultLocationId(session, null);
-
+  // Company isolation: can't attach activity to another company's account.
+  if (!canWrite(session, { locationId: locId })) return { ok: false, error: "That account isn't in your company." };
 
   const activity = await db.activity.create({
     data: {
@@ -131,7 +132,10 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
 }
 
 export async function setCustomerFollowUp(customerId: string, date: string): Promise<ActionResult> {
-  await requireSession();
+  const session = await requireSession();
+  const cust = await db.customer.findUnique({ where: { id: customerId }, select: { locationId: true, assignedRepId: true } });
+  if (!cust) return { ok: false, error: "Customer not found." };
+  if (!canWrite(session, { locationId: cust.locationId, ownerId: cust.assignedRepId })) return { ok: false, error: "Not your customer." };
   await db.customer.update({ where: { id: customerId }, data: { nextFollowUpAt: new Date(date) } });
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/my-work");

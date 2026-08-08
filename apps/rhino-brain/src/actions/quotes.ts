@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager, defaultLocationId } from "@/lib/auth";
+import { requireSession, defaultLocationId, canWrite } from "@/lib/auth";
 import { quoteSchema, opportunitySchema, userSchema } from "@/lib/validations";
 import type { ActionResult } from "./auth";
 import type { QuoteStatus, OpportunityStatus } from "@prisma/client";
@@ -27,30 +27,36 @@ export async function createQuote(payload: unknown): Promise<ActionResult & { qu
   const total = items.reduce((s, i) => s + i.lineTotal, 0);
 
   const quoteCust = await db.customer.findUnique({ where: { id: d.customerId }, select: { locationId: true } });
-  const quote = await db.quote.create({
-    data: {
-      locationId: quoteCust?.locationId ?? defaultLocationId(session, null),
-      quoteNumber: await nextQuoteNumber(),
-      customerId: d.customerId,
-      repId: session.userId,
-      expirationDate: d.expirationDate,
-      competitorPrice: d.competitorPrice,
-      competitorBrand: d.competitorBrand,
-      nextFollowUpAt: d.nextFollowUpAt,
-      notes: d.notes,
-      total,
-      items: { create: items },
-    },
-  });
+  if (!quoteCust) return { ok: false, error: "Customer not found." };
+  if (!canWrite(session, { locationId: quoteCust.locationId })) return { ok: false, error: "That customer isn't in your company." };
+
+  const baseData = {
+    locationId: quoteCust.locationId ?? defaultLocationId(session, null),
+    customerId: d.customerId,
+    repId: session.userId,
+    expirationDate: d.expirationDate,
+    competitorPrice: d.competitorPrice,
+    competitorBrand: d.competitorBrand,
+    nextFollowUpAt: d.nextFollowUpAt,
+    notes: d.notes,
+    total,
+    items: { create: items },
+  };
+  // quoteNumber is count-based; on a concurrent-create collision (P2002) recompute & retry.
+  let quote: { id: string } | undefined;
+  for (let attempt = 0; ; attempt++) {
+    try { quote = await db.quote.create({ data: { ...baseData, quoteNumber: await nextQuoteNumber() } }); break; }
+    catch (e) { if ((e as { code?: string }).code === "P2002" && attempt < 4) continue; throw e; }
+  }
   revalidatePath("/quotes");
-  return { ok: true, quoteId: quote.id };
+  return { ok: true, quoteId: quote!.id };
 }
 
 export async function setQuoteStatus(quoteId: string, status: QuoteStatus): Promise<ActionResult> {
   const session = await requireSession();
   const quote = await db.quote.findUnique({ where: { id: quoteId } });
   if (!quote) return { ok: false, error: "Quote not found." };
-  if (!isManager(session) && quote.repId !== session.userId) return { ok: false, error: "Not your quote." };
+  if (!canWrite(session, { locationId: quote.locationId, ownerId: quote.repId })) return { ok: false, error: "Not allowed for this quote." };
 
   await db.quote.update({
     where: { id: quoteId },
@@ -81,7 +87,10 @@ export async function setQuoteStatus(quoteId: string, status: QuoteStatus): Prom
 }
 
 export async function setQuoteFollowUp(quoteId: string, date: string): Promise<ActionResult> {
-  await requireSession();
+  const session = await requireSession();
+  const quote = await db.quote.findUnique({ where: { id: quoteId }, select: { locationId: true, repId: true } });
+  if (!quote) return { ok: false, error: "Quote not found." };
+  if (!canWrite(session, { locationId: quote.locationId, ownerId: quote.repId })) return { ok: false, error: "Not allowed for this quote." };
   await db.quote.update({ where: { id: quoteId }, data: { nextFollowUpAt: new Date(date) } });
   revalidatePath("/quotes");
   return { ok: true };
@@ -94,13 +103,18 @@ export async function createOpportunity(_prev: ActionResult | null, formData: Fo
   const parsed = opportunitySchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
   const oppCust = await db.customer.findUnique({ where: { id: parsed.data.customerId }, select: { locationId: true } });
-  await db.opportunity.create({ data: { ...parsed.data, repId: session.userId, locationId: oppCust?.locationId ?? defaultLocationId(session, null) } });
+  if (!oppCust) return { ok: false, error: "Customer not found." };
+  if (!canWrite(session, { locationId: oppCust.locationId })) return { ok: false, error: "That customer isn't in your company." };
+  await db.opportunity.create({ data: { ...parsed.data, repId: session.userId, locationId: oppCust.locationId ?? defaultLocationId(session, null) } });
   revalidatePath("/opportunities");
   return { ok: true };
 }
 
 export async function setOpportunityStatus(id: string, status: OpportunityStatus): Promise<ActionResult> {
-  await requireSession();
+  const session = await requireSession();
+  const opp = await db.opportunity.findUnique({ where: { id }, select: { locationId: true, repId: true } });
+  if (!opp) return { ok: false, error: "Opportunity not found." };
+  if (!canWrite(session, { locationId: opp.locationId, ownerId: opp.repId })) return { ok: false, error: "Not allowed for this opportunity." };
   await db.opportunity.update({ where: { id }, data: { status } });
   revalidatePath("/opportunities");
   return { ok: true };

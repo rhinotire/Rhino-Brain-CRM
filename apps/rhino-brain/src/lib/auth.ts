@@ -66,6 +66,19 @@ export const seesAllLocations = (s: Session) => s.role === "ADMIN" || s.role ===
 /** Roles that see all records, not just their own (managers + accounting). */
 const seesAllReps = (s: Session) => isManager(s) || isAccounting(s);
 
+/**
+ * May this session create/modify a record with the given owner + company?
+ * ADMIN: anything. ACCOUNTING: nothing (read-only). MANAGER: only their own company.
+ * SALES_REP: only records they own (and in their company). Pass ownerId=null to skip the owner check.
+ */
+export function canWrite(s: Session, rec: { locationId?: string | null; ownerId?: string | null }): boolean {
+  if (s.role === "ACCOUNTING") return false;
+  if (s.role === "ADMIN") return true;
+  if (rec.locationId && s.locationId && rec.locationId !== s.locationId) return false; // company isolation
+  if (s.role === "SALES_REP" && rec.ownerId != null && rec.ownerId !== s.userId) return false; // reps: own only
+  return true;
+}
+
 /** Redirects non-accounting/non-manager users away. */
 export async function requireAccountingView(): Promise<Session> {
   const s = await requireSession();

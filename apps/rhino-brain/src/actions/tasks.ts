@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isSameDay } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, isManager, defaultLocationId } from "@/lib/auth";
+import { requireSession, isManager, defaultLocationId, canWrite } from "@/lib/auth";
 import { taskSchema } from "@/lib/validations";
 import type { ActionResult } from "./auth";
 
@@ -71,7 +71,10 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
 }
 
 export async function reopenTask(taskId: string): Promise<ActionResult> {
-  await requireSession();
+  const session = await requireSession();
+  const task = await db.task.findUnique({ where: { id: taskId }, select: { locationId: true, assigneeId: true } });
+  if (!task) return { ok: false, error: "Task not found." };
+  if (!canWrite(session, { locationId: task.locationId, ownerId: task.assigneeId })) return { ok: false, error: "Not your task." };
   await db.task.update({ where: { id: taskId }, data: { status: "OPEN", completedAt: null } });
   revalidatePath("/tasks");
   return { ok: true };
