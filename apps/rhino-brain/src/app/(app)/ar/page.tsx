@@ -74,6 +74,9 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
     : withBucket;
   // Worst first: most overdue at the top.
   filtered.sort((a, b) => b.days - a.days);
+  // Totals above are computed from ALL invoices; the table renders a bounded page to keep the DOM light.
+  const ROW_CAP = 300;
+  const shown = filtered.slice(0, ROW_CAP);
 
   return (
     <div className="space-y-4">
@@ -108,7 +111,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
       <Table>
         <THead cols={["Customer", "Rep", "Aging", "Days Past Due", "Amount", "Balance", "Due Date", "Location"]} />
         <tbody>
-          {filtered.map(({ inv, days, bucket }) => (
+          {shown.map(({ inv, days, bucket }) => (
             <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50">
               <td className="px-3 py-2 font-medium">
                 {inv.customer
@@ -131,6 +134,9 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
           {filtered.length === 0 && <EmptyRow colSpan={8} message="No open invoices in this view." />}
         </tbody>
       </Table>
+      {filtered.length > shown.length && (
+        <p className="text-xs text-slate-400">Showing the {shown.length} most overdue of {filtered.length} — filter by bucket or customer to narrow down. (Totals above cover all {filtered.length}.)</p>
+      )}
       <p className="text-xs text-slate-400">Aging is computed from each invoice&apos;s due date as of today. Imported from the accounting export on Jul 7, 2026.</p>
     </div>
   );
