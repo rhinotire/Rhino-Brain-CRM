@@ -2,6 +2,8 @@
 const nextConfig = {
   transpilePackages: ["@rhino/database", "@rhino/services"],
   experimental: {
+    // @react-pdf/renderer must run un-bundled in the Node runtime (server-side PDF generation)
+    serverComponentsExternalPackages: ["@react-pdf/renderer"],
     serverActions: {
       // document uploads (PDF / images) go through server actions
       bodySizeLimit: "10mb",

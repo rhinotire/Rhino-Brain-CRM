@@ -16,7 +16,10 @@ export function isEmailConfigured(): boolean {
   return Boolean(USER && PASS);
 }
 
-export async function sendEmail(to: string, subject: string, text: string): Promise<{ sent: boolean }> {
+export type EmailAttachment = { filename: string; content: Buffer; contentType?: string };
+export type EmailOptions = { html?: string; attachments?: EmailAttachment[]; replyTo?: string };
+
+export async function sendEmail(to: string, subject: string, text: string, opts?: EmailOptions): Promise<{ sent: boolean }> {
   if (!USER || !PASS) {
     console.warn(`[email] not configured — skipped "${subject}" to ${to}`);
     return { sent: false };
@@ -28,7 +31,7 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
     auth: { user: USER, pass: PASS },
   });
   try {
-    await transporter.sendMail({ from: USER, to, subject, text });
+    await transporter.sendMail({ from: USER, to, subject, text, html: opts?.html, attachments: opts?.attachments, replyTo: opts?.replyTo });
     return { sent: true };
   } catch (e) {
     console.error("[email] send failed:", e instanceof Error ? e.message : e);

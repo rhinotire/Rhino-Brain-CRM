@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, repScope, locationScope } from "@/lib/auth";
+import { isEmailConfigured } from "@rhino/services";
 import { brandAssetUrl } from "@/lib/storage";
 import { fmtMoney, fmtDate } from "@/lib/domain";
 import { QuoteSendBar } from "@/components/quote-send-bar";
@@ -29,6 +30,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   return (
     <div className="mx-auto max-w-[820px] bg-white p-8 text-slate-900 print:p-0">
       <QuoteSendBar
+        quoteId={quote.id} emailConfigured={isEmailConfigured()}
         email={c?.email} phone={c?.phone} whatsapp={c?.whatsapp}
         quoteNumber={quote.quoteNumber} total={fmtMoney(Number(quote.total))}
         company={companyName} contactName={c?.contactPerson}

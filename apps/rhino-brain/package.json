@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
     "@prisma/client": "^5.19.0",
+    "@react-pdf/renderer": "^4.5.1",
     "@rhino/database": "workspace:*",
     "@rhino/services": "workspace:*",
     "bcryptjs": "^2.4.3",
