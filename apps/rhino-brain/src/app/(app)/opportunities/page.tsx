@@ -47,26 +47,34 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
         <StatCard label="Won (this view)" value={String(opps.filter(o => o.status === "WON").length)} />
       </div>
 
-      <form className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3">
-        <Select name="status" defaultValue={searchParams.status ?? "OPEN"} className="w-36">
-          <option value="OPEN">Open</option>
-          <option value="WON">Won</option>
-          <option value="LOST">Lost</option>
-          <option value="ALL">All</option>
-        </Select>
-        <Select name="category" defaultValue={searchParams.category ?? ""} className="w-44">
-          <option value="">All categories</option>
-          {Object.entries(productLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        <Select name="probability" defaultValue={searchParams.probability ?? ""} className="w-44">
-          <option value="">All probabilities</option>
-          {Object.entries(probabilityLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {manager && (
-          <Select name="rep" defaultValue={searchParams.rep ?? ""} className="w-40">
-            <option value="">All reps</option>
-            {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+      <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-36">
+          <Select name="status" defaultValue={searchParams.status ?? "OPEN"}>
+            <option value="OPEN">Open</option>
+            <option value="WON">Won</option>
+            <option value="LOST">Lost</option>
+            <option value="ALL">All</option>
           </Select>
+        </div>
+        <div className="w-44">
+          <Select name="category" defaultValue={searchParams.category ?? ""}>
+            <option value="">All categories</option>
+            {Object.entries(productLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+        </div>
+        <div className="w-44">
+          <Select name="probability" defaultValue={searchParams.probability ?? ""}>
+            <option value="">All probabilities</option>
+            {Object.entries(probabilityLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+        </div>
+        {manager && (
+          <div className="w-40">
+            <Select name="rep" defaultValue={searchParams.rep ?? ""}>
+              <option value="">All reps</option>
+              {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </Select>
+          </div>
         )}
         <Button type="submit" variant="secondary">Filter</Button>
       </form>

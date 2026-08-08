@@ -134,30 +134,38 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: S
       )}
 
       <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
-        <Select name="type" defaultValue={searchParams.type ?? ""} className="w-40">
-          <option value="">All types</option>
-          {Object.entries(activityTypeLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        <Select name="outcome" defaultValue={selectedOutcome} className="w-52">
-          <option value="">All outcomes</option>
-          {outcomeGroups.map(g => (
-            <optgroup key={g.label} label={g.label}>
-              {g.codes.map(c => <option key={c} value={c}>{outcomeLabels[c]}</option>)}
-            </optgroup>
-          ))}
-        </Select>
-        {manager && (
-          <Select name="rep" defaultValue={searchParams.rep ?? ""} className="w-40">
-            <option value="">All reps</option>
-            {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+        <div className="w-40">
+          <Select name="type" defaultValue={searchParams.type ?? ""}>
+            <option value="">All types</option>
+            {Object.entries(activityTypeLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
+        </div>
+        <div className="w-56">
+          <Select name="outcome" defaultValue={selectedOutcome}>
+            <option value="">All outcomes</option>
+            {outcomeGroups.map(g => (
+              <optgroup key={g.label} label={g.label}>
+                {g.codes.map(c => <option key={c} value={c}>{outcomeLabels[c]}</option>)}
+              </optgroup>
+            ))}
+          </Select>
+        </div>
+        {manager && (
+          <div className="w-40">
+            <Select name="rep" defaultValue={searchParams.rep ?? ""}>
+              <option value="">All reps</option>
+              {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </Select>
+          </div>
         )}
-        <Input name="from" type="date" defaultValue={searchParams.from} className="w-36" />
-        <Input name="to" type="date" defaultValue={searchParams.to} className="w-36" />
-        <Select name="untouched" defaultValue={searchParams.untouched ?? ""} className="w-48">
-          <option value="">Untouched: off</option>
-          {[7, 14, 30, 60, 90].map(d => <option key={d} value={d}>No contact {d}+ days</option>)}
-        </Select>
+        <div className="w-[150px]"><Input name="from" type="date" defaultValue={searchParams.from} /></div>
+        <div className="w-[150px]"><Input name="to" type="date" defaultValue={searchParams.to} /></div>
+        <div className="w-44">
+          <Select name="untouched" defaultValue={searchParams.untouched ?? ""}>
+            <option value="">Untouched: off</option>
+            {[7, 14, 30, 60, 90].map(d => <option key={d} value={d}>No contact {d}+ days</option>)}
+          </Select>
+        </div>
         <Button type="submit" variant="secondary">Apply</Button>
       </form>
 

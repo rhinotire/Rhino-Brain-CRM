@@ -51,20 +51,24 @@ export default async function QuotesPage({ searchParams }: { searchParams: Searc
         </div>
       </div>
 
-      <form className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3">
-        <Select name="status" defaultValue={searchParams.status ?? ""} className="w-44">
-          <option value="">All statuses</option>
-          {Object.entries(quoteStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {manager && (
-          <Select name="rep" defaultValue={searchParams.rep ?? ""} className="w-40">
-            <option value="">All reps</option>
-            {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+      <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-44">
+          <Select name="status" defaultValue={searchParams.status ?? ""}>
+            <option value="">All statuses</option>
+            {Object.entries(quoteStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
+        </div>
+        {manager && (
+          <div className="w-40">
+            <Select name="rep" defaultValue={searchParams.rep ?? ""}>
+              <option value="">All reps</option>
+              {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </Select>
+          </div>
         )}
-        <Input name="customer" placeholder="Customer name…" defaultValue={searchParams.customer} className="w-48" />
-        <Input name="from" type="date" defaultValue={searchParams.from} className="w-40" />
-        <Input name="to" type="date" defaultValue={searchParams.to} className="w-40" />
+        <div className="w-48"><Input name="customer" placeholder="Customer name…" defaultValue={searchParams.customer} /></div>
+        <div className="w-[150px]"><Input name="from" type="date" defaultValue={searchParams.from} /></div>
+        <div className="w-[150px]"><Input name="to" type="date" defaultValue={searchParams.to} /></div>
         <Button type="submit" variant="secondary">Filter</Button>
       </form>
 

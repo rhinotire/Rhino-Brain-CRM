@@ -49,21 +49,27 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         </div>
       </div>
 
-      <form className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3">
-        <Input name="q" placeholder="Search name / phone / email / city…" defaultValue={searchParams.q} className="w-64" />
-        <Select name="stage" defaultValue={searchParams.stage ?? ""} className="w-44">
-          <option value="">All stages</option>
-          {Object.entries(stageLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        <Select name="source" defaultValue={searchParams.source ?? ""} className="w-44">
-          <option value="">All sources</option>
-          {Object.entries(customerSourceLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {manager && (
-          <Select name="rep" defaultValue={searchParams.rep ?? ""} className="w-40">
-            <option value="">All reps</option>
-            {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+      <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-64"><Input name="q" placeholder="Search name / phone / email / city…" defaultValue={searchParams.q} /></div>
+        <div className="w-44">
+          <Select name="stage" defaultValue={searchParams.stage ?? ""}>
+            <option value="">All stages</option>
+            {Object.entries(stageLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
+        </div>
+        <div className="w-44">
+          <Select name="source" defaultValue={searchParams.source ?? ""}>
+            <option value="">All sources</option>
+            {Object.entries(customerSourceLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+        </div>
+        {manager && (
+          <div className="w-40">
+            <Select name="rep" defaultValue={searchParams.rep ?? ""}>
+              <option value="">All reps</option>
+              {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </Select>
+          </div>
         )}
         <Button type="submit" variant="secondary">Filter</Button>
       </form>

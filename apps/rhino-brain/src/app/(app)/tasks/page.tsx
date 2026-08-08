@@ -47,22 +47,28 @@ export default async function TasksPage({ searchParams }: { searchParams: Search
         <NewTaskButton customers={customers} users={users} canAssign={manager} selfId={session.userId} />
       </div>
 
-      <form className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3">
-        <Select name="status" defaultValue={searchParams.status ?? "OPEN"} className="w-40">
-          <option value="OPEN">Open</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="CANCELED">Canceled</option>
-          <option value="ALL">All</option>
-        </Select>
-        <Select name="priority" defaultValue={searchParams.priority ?? ""} className="w-40">
-          <option value="">All priorities</option>
-          {Object.entries(taskPriorityLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {manager && (
-          <Select name="assignee" defaultValue={searchParams.assignee ?? ""} className="w-44">
-            <option value="">All assignees</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+      <form className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-40">
+          <Select name="status" defaultValue={searchParams.status ?? "OPEN"}>
+            <option value="OPEN">Open</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELED">Canceled</option>
+            <option value="ALL">All</option>
           </Select>
+        </div>
+        <div className="w-40">
+          <Select name="priority" defaultValue={searchParams.priority ?? ""}>
+            <option value="">All priorities</option>
+            {Object.entries(taskPriorityLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+        </div>
+        {manager && (
+          <div className="w-44">
+            <Select name="assignee" defaultValue={searchParams.assignee ?? ""}>
+              <option value="">All assignees</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </Select>
+          </div>
         )}
         <Button type="submit" variant="secondary">Filter</Button>
       </form>
