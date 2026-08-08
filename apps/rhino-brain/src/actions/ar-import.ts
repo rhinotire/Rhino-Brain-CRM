@@ -62,8 +62,10 @@ export async function importArInvoices(fileName: string, rows: ArRow[]): Promise
     };
   });
 
-  // snapshot semantics: replace everything
-  await db.invoice.deleteMany();
+  // snapshot semantics: replace only the A/R for the companies this report covers,
+  // plus unmatched (null-location) orphans — never wipe another company's invoices.
+  const locIds = [...new Set(data.map(d => d.locationId).filter((x): x is string => !!x))];
+  await db.invoice.deleteMany({ where: { OR: [{ locationId: { in: locIds } }, { locationId: null }] } });
   for (let i = 0; i < data.length; i += 500) {
     await db.invoice.createMany({ data: data.slice(i, i + 500) });
   }

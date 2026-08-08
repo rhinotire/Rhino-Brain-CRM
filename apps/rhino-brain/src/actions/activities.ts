@@ -113,16 +113,14 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
       await db.lead.update({ where: { id: d.leadId }, data: { stage: "CONTACTED" } });
     }
   }
-  // Following up on a quote resets its 3-day follow-up clock
+  // Following up on a quote resets its 3-day follow-up clock — but ONLY for a quote
+  // that is still SENT and belongs to this same customer. updateMany won't throw on
+  // no match and won't touch ACCEPTED/REJECTED/DRAFT quotes (no more "resurrecting" won deals).
   if (d.quoteId) {
-    await db.quote.update({
-      where: { id: d.quoteId },
-      data: {
-        lastFollowUpAt: new Date(),
-        nextFollowUpAt: d.nextFollowUpAt ?? undefined,
-        ...(d.type !== "QUOTE" ? { status: "SENT" } : {}),
-      },
-    }).catch(() => {});
+    await db.quote.updateMany({
+      where: { id: d.quoteId, status: "SENT", ...(d.customerId ? { customerId: d.customerId } : {}) },
+      data: { lastFollowUpAt: new Date(), nextFollowUpAt: d.nextFollowUpAt ?? undefined },
+    });
   }
 
   revalidatePath("/my-work");

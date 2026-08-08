@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, isAccounting, defaultLocationId } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, defaultLocationId, locationScope } from "@/lib/auth";
 import { customerSchema } from "@/lib/validations";
 import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
@@ -97,6 +97,9 @@ export async function updateCustomer(customerId: string, _prev: ActionResult | n
 export async function deleteCustomer(customerId: string): Promise<ActionResult> {
   const session = await requireSession();
   if (!isManager(session)) return { ok: false, error: "Only managers can delete customers." };
+  // Company isolation: a manager can only delete a customer in their own company.
+  const target = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { id: true } });
+  if (!target) return { ok: false, error: "Customer not found in your company." };
   await db.customer.delete({ where: { id: customerId } });
   revalidatePath("/customers");
   redirect("/customers");
