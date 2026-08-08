@@ -8,6 +8,7 @@ import { QuickLogButton } from "@/components/quick-log";
 import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
 import { EditCustomerButton } from "@/components/edit-customer-button";
+import { MarkInactiveButton, ReactivateButton } from "@/components/inactive-button";
 import { TaskActions } from "@/components/task-form";
 import { CustomerDocuments } from "@/components/customer-documents";
 import { DealerPortalAccess } from "@/components/dealer-portal-access";
@@ -75,6 +76,14 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           </p>
         </div>
       )}
+      {customer.status === "INACTIVE" && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-800">⏸ INACTIVE customer</p>
+          {customer.inactiveReason
+            ? <p className="mt-0.5 text-sm text-amber-700">Reason: {customer.inactiveReason}</p>
+            : <p className="mt-0.5 text-sm text-amber-600">No reason on file — click Reactivate then Mark Inactive to add one.</p>}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -138,6 +147,9 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
               🔧 Convert to Installer
             </Link>
           ))}
+          {customer.status === "INACTIVE"
+            ? <ReactivateButton customerId={customer.id} />
+            : <MarkInactiveButton customerId={customer.id} />}
           </>}
         </div>
       </div>

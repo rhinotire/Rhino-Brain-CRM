@@ -319,6 +319,7 @@ model Customer {
   zip            String?
   type           CustomerType    @default(TIRE_SHOP)
   status         CustomerStatus  @default(LEAD)
+  inactiveReason String? // why this customer was marked INACTIVE
   source         CustomerSource  @default(OTHER)
   // primary product interest + full interest list
   mainInterest   ProductCategory @default(PCR_TIRES)

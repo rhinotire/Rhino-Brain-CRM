@@ -102,6 +102,36 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
   redirect("/customers");
 }
 
+/** Mark a customer INACTIVE with a reason (logged to the activity trail). */
+export async function setCustomerInactive(customerId: string, reason: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
+  const existing = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true, locationId: true } });
+  if (!existing) return { ok: false, error: "Customer not found." };
+  if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
+  const r = reason.trim().slice(0, 500);
+  if (!r) return { ok: false, error: "Please give a reason." };
+  await db.customer.update({ where: { id: customerId }, data: { status: "INACTIVE", inactiveReason: r } });
+  await db.activity.create({ data: { type: "INTERNAL_NOTE", subject: "Marked INACTIVE", notes: r, customerId, repId: session.userId, locationId: existing.locationId, meaningful: false } });
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
+/** Reactivate an INACTIVE customer (clears the reason, logged to the trail). */
+export async function reactivateCustomer(customerId: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
+  const existing = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true, locationId: true } });
+  if (!existing) return { ok: false, error: "Customer not found." };
+  if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
+  await db.customer.update({ where: { id: customerId }, data: { status: "ACTIVE", inactiveReason: null } });
+  await db.activity.create({ data: { type: "INTERNAL_NOTE", subject: "Reactivated customer", customerId, repId: session.userId, locationId: existing.locationId, meaningful: false } });
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
 // ---------- CSV import ----------
 
 const typeMap: Record<string, CustomerType> = {
