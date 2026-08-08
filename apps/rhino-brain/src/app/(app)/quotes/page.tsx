@@ -77,7 +77,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Searc
         <tbody>
           {quotes.map(q => (
             <tr key={q.id} className="border-b border-slate-50 hover:bg-slate-50">
-              <td className="px-3 py-2 font-medium">{q.quoteNumber}</td>
+              <td className="px-3 py-2 font-medium"><Link href={`/quote-print/${q.id}`} target="_blank" className="text-brand-700 hover:underline">{q.quoteNumber}</Link></td>
               <td className="px-3 py-2"><Link href={`/customers/${q.customer.id}`} className="text-brand-700 hover:underline">{q.customer.companyName}</Link></td>
               <td className="px-3 py-2 text-xs text-slate-500">
                 {q.items.slice(0, 2).map((i, x) => <div key={x}>{i.quantity}× {i.brand ? `${i.brand} ` : ""}{i.description}{i.sizeSku ? ` (${i.sizeSku})` : ""}</div>)}
