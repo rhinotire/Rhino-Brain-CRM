@@ -33,10 +33,10 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       assignedRep: { select: { id: true, name: true } },
       tags: { include: { tag: true } },
       activities: { orderBy: { occurredAt: "desc" }, take: 50, include: { rep: { select: { name: true } }, quote: { select: { quoteNumber: true } } } },
-      quotes: { orderBy: { quoteDate: "desc" }, include: { rep: { select: { name: true } } } },
-      tasks: { orderBy: { dueDate: "asc" }, include: { assignee: { select: { name: true } } } },
-      opportunities: { orderBy: { createdAt: "desc" } },
-      documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
+      quotes: { orderBy: { quoteDate: "desc" }, take: 50, include: { rep: { select: { name: true } } } },
+      tasks: { orderBy: { dueDate: "asc" }, take: 50, include: { assignee: { select: { name: true } } } },
+      opportunities: { orderBy: { createdAt: "desc" }, take: 50 },
+      documents: { orderBy: { createdAt: "desc" }, take: 50, include: { uploadedBy: { select: { name: true } } } },
       orders: { orderBy: { orderDate: "desc" }, take: 12 },
       dealerUsers: { orderBy: { createdAt: "asc" } },
     },
@@ -57,6 +57,18 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);
   const openTasks = customer.tasks.filter(t => t.status === "OPEN");
+  // True order totals from the DB (not just the 12 orders loaded for the list).
+  const _now = new Date();
+  const _d90 = new Date(_now.getTime() - 90 * 86400000);
+  const _d180 = new Date(_now.getTime() - 180 * 86400000);
+  const [ordLifetime, ordLast90, ordPrior90] = await Promise.all([
+    db.order.aggregate({ where: { customerId: customer.id }, _sum: { total: true } }),
+    db.order.aggregate({ where: { customerId: customer.id, orderDate: { gte: _d90 } }, _sum: { total: true } }),
+    db.order.aggregate({ where: { customerId: customer.id, orderDate: { gte: _d180, lt: _d90 } }, _sum: { total: true } }),
+  ]);
+  const lifetimeTotal = Number(ordLifetime._sum.total ?? 0);
+  const last90Total = Number(ordLast90._sum.total ?? 0);
+  const prior90Total = Number(ordPrior90._sum.total ?? 0);
   // Owner rule: bad-credit/fraud companies are blacklisted centrally; every
   // rep opening this page must see the warning before engaging.
   const blacklisted = await findBlacklistMatch({
@@ -234,20 +246,14 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
             </div>
           </Card>
 
-          {customer.orders.length > 0 && (() => {
-            const now = new Date();
-            const d90 = new Date(now.getTime() - 90 * 86400000);
-            const d180 = new Date(now.getTime() - 180 * 86400000);
-            const lifetime = customer.orders.reduce((s, o) => s + Number(o.total), 0);
-            const last90 = customer.orders.filter(o => o.orderDate >= d90).reduce((s, o) => s + Number(o.total), 0);
-            const prior90 = customer.orders.filter(o => o.orderDate < d90 && o.orderDate >= d180).reduce((s, o) => s + Number(o.total), 0);
-            const dropping = prior90 >= 500 && last90 < prior90 * 0.5;
+          {(lifetimeTotal > 0 || customer.orders.length > 0) && (() => {
+            const dropping = prior90Total >= 500 && last90Total < prior90Total * 0.5;
             return (
               <Card title="🧾 Order History">
                 <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-                  <div><div className="text-xs text-slate-400">Lifetime (shown)</div><div className="font-bold text-slate-800">{fmtMoney(lifetime)}</div></div>
-                  <div><div className="text-xs text-slate-400">Last 90d</div><div className={`font-bold ${dropping ? "text-red-600" : "text-slate-800"}`}>{fmtMoney(last90)}</div></div>
-                  <div><div className="text-xs text-slate-400">Prior 90d</div><div className="font-bold text-slate-800">{fmtMoney(prior90)}</div></div>
+                  <div><div className="text-xs text-slate-400">Lifetime</div><div className="font-bold text-slate-800">{fmtMoney(lifetimeTotal)}</div></div>
+                  <div><div className="text-xs text-slate-400">Last 90d</div><div className={`font-bold ${dropping ? "text-red-600" : "text-slate-800"}`}>{fmtMoney(last90Total)}</div></div>
+                  <div><div className="text-xs text-slate-400">Prior 90d</div><div className="font-bold text-slate-800">{fmtMoney(prior90Total)}</div></div>
                 </div>
                 {dropping && <div className="mb-2 rounded-md bg-red-50 p-2 text-xs font-medium text-red-700">⚠ Buying is down sharply vs the prior 90 days — worth a check-in.</div>}
                 <div className="space-y-1">

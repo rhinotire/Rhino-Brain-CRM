@@ -15,13 +15,16 @@ export default async function DashboardPage() {
   const loc = locationScope(session);
   const showAllLocations = session.role === "ADMIN" && !adminLocFilter();
   const locSummaries = showAllLocations
-    ? await Promise.all((await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" } })).map(async L => ({
-        loc: L,
-        customers: await db.customer.count({ where: { locationId: L.id, status: "ACTIVE" } }),
-        openLeads: await db.lead.count({ where: { locationId: L.id, stage: { notIn: ["LOST", "ACTIVE_CUSTOMER"] } } }),
-        pendingQuotes: await db.quote.count({ where: { locationId: L.id, status: { in: ["SENT", "FOLLOW_UP_NEEDED"] } } }),
-        wonMtd: Number((await db.quote.aggregate({ where: { locationId: L.id, status: "ACCEPTED", decidedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }, _sum: { total: true } }))._sum.total ?? 0),
-      })))
+    ? await Promise.all((await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" } })).map(async L => {
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const [customers, openLeads, pendingQuotes, wonAgg] = await Promise.all([
+          db.customer.count({ where: { locationId: L.id, status: "ACTIVE" } }),
+          db.lead.count({ where: { locationId: L.id, stage: { notIn: ["LOST", "ACTIVE_CUSTOMER"] } } }),
+          db.quote.count({ where: { locationId: L.id, status: { in: ["SENT", "FOLLOW_UP_NEEDED"] } } }),
+          db.quote.aggregate({ where: { locationId: L.id, status: "ACCEPTED", decidedAt: { gte: monthStart } }, _sum: { total: true } }),
+        ]);
+        return { loc: L, customers, openLeads, pendingQuotes, wonMtd: Number(wonAgg._sum.total ?? 0) };
+      }))
     : [];
   const now = new Date();
   const today = startOfDay(now);
