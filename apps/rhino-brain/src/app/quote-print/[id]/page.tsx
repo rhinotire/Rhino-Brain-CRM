@@ -30,7 +30,7 @@ export default async function QuotePrintPage({ params }: { params: { id: string 
   return (
     <div className="mx-auto max-w-[820px] bg-white p-8 text-slate-900 print:p-0">
       <QuoteSendBar
-        quoteId={quote.id} emailConfigured={isEmailConfigured()}
+        quoteId={quote.id} emailConfigured={isEmailConfigured(brand?.key)}
         email={c?.email} phone={c?.phone} whatsapp={c?.whatsapp}
         quoteNumber={quote.quoteNumber} total={fmtMoney(Number(quote.total))}
         company={companyName} contactName={c?.contactPerson}

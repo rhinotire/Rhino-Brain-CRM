@@ -22,11 +22,13 @@ export async function emailQuote(quoteId: string): Promise<ActionResult> {
   if (!quote) return { ok: false, error: "Quote not found." };
   const c = quote.customer;
   if (!c?.email) return { ok: false, error: "This customer has no email on file — add one, or use WhatsApp / Print." };
-  if (!isEmailConfigured()) return { ok: false, error: "Email isn't set up yet — admin: add ZOHO_SMTP_USER / ZOHO_SMTP_PASS. You can still Print or WhatsApp." };
 
   const brand = quote.locationId ? await db.brandConfig.findFirst({ where: { locationId: quote.locationId } }) : null;
   const loc = quote.locationId ? await db.location.findUnique({ where: { id: quote.locationId }, select: { name: true } }) : null;
   const company = brand?.name ?? loc?.name ?? "Rhino Tire USA";
+
+  // Send from THIS brand's mailbox (Everflow quotes never go out from the Rhino address).
+  if (!isEmailConfigured(brand?.key)) return { ok: false, error: `Email isn't set up for ${company} yet — admin: add its ZOHO_SMTP_USER_${(brand?.key ?? "RHINO")} / ZOHO_SMTP_PASS_${(brand?.key ?? "RHINO")}. You can still Print or WhatsApp.` };
 
   const pdf = await generateQuotePdf({
     quoteNumber: quote.quoteNumber,
@@ -48,6 +50,7 @@ export async function emailQuote(quoteId: string): Promise<ActionResult> {
   const body = `${hi}\n\nPlease find attached quote ${quote.quoteNumber} from ${company} — total ${fmtMoney(Number(quote.total))}.\nLet me know if you'd like to proceed or have any questions.\n\nThank you,\n${quote.rep?.name ?? ""}\n${company}`;
 
   const res = await sendEmail(c.email, `Quote ${quote.quoteNumber} — ${company}`, body, {
+    mailboxKey: brand?.key,
     attachments: [{ filename: `Quote-${quote.quoteNumber}.pdf`, content: pdf, contentType: "application/pdf" }],
     replyTo: session.email,
   });
