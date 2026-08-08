@@ -55,7 +55,7 @@ export default async function MyWorkPage() {
       },
       orderBy: { lastContactAt: "asc" }, take: 10,
     }),
-    db.customer.findMany({ where: { assignedRepId: me }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
+    db.customer.findMany({ where: { assignedRepId: me }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" } }),
   ]);
 
   const quotesToFollowUp = quotesRaw.filter(q => q.status === "FOLLOW_UP_NEEDED" || quoteNeedsFollowUp(q, now));

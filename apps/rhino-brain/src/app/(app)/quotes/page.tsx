@@ -31,7 +31,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Searc
         items: { select: { description: true, sizeSku: true, brand: true, quantity: true } },
       },
     }),
-    db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" }, take: 500 }),
+    db.customer.findMany({ where: { ...repScope(session), ...locationScope(session) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" } }),
     manager ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true } }) : Promise.resolve([]),
   ]);
 
