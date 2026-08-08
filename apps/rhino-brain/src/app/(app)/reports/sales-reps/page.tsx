@@ -34,28 +34,50 @@ export default async function SalesRepReport({ searchParams }: { searchParams: S
   });
   const allReps = await db.user.findMany({ where: { active: true, role: { in: ["SALES_REP", "MANAGER"] }, ...locWhere }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 
-  const rows = await Promise.all(reps.map(async rep => {
-    const period = { gte: start, lte: end };
-    const [calls, meaningful, activities, quotesSent, quotesAccepted, acceptedValue, newLeads, converted, tasksDone, newCustomers] = await Promise.all([
-      db.activity.count({ where: { repId: rep.id, occurredAt: period, type: { in: ["CALL", "NO_ANSWER", "VOICEMAIL"] } } }),
-      db.activity.count({ where: { repId: rep.id, occurredAt: period, meaningful: true } }),
-      db.activity.count({ where: { repId: rep.id, occurredAt: period } }),
-      db.quote.count({ where: { repId: rep.id, sentAt: period } }),
-      db.quote.count({ where: { repId: rep.id, decidedAt: period, status: "ACCEPTED" } }),
-      db.quote.aggregate({ where: { repId: rep.id, decidedAt: period, status: "ACCEPTED" }, _sum: { total: true } }),
-      db.lead.count({ where: { assignedRepId: rep.id, createdAt: period } }),
-      db.lead.count({ where: { assignedRepId: rep.id, convertedAt: period } }),
-      db.task.count({ where: { assigneeId: rep.id, completedAt: period } }),
-      db.customer.count({ where: { assignedRepId: rep.id, createdAt: period } }),
-    ]);
-    const decided = await db.quote.count({ where: { repId: rep.id, decidedAt: period, status: { in: ["ACCEPTED", "REJECTED"] } } });
-    const winRate = decided > 0 ? Math.round((quotesAccepted / decided) * 100) : null;
+  // One groupBy per metric (10 queries total, independent of rep count) instead of ~12 per rep.
+  const period = { gte: start, lte: end };
+  const inReps = { in: reps.map(r => r.id) };
+  const [actAll, actCalls, actMean, qSent, qAcc, qDecided, lNew, lConv, tDone, cNew] = await Promise.all([
+    db.activity.groupBy({ by: ["repId"], where: { repId: inReps, occurredAt: period }, _count: { _all: true } }),
+    db.activity.groupBy({ by: ["repId"], where: { repId: inReps, occurredAt: period, type: { in: ["CALL", "NO_ANSWER", "VOICEMAIL"] } }, _count: { _all: true } }),
+    db.activity.groupBy({ by: ["repId"], where: { repId: inReps, occurredAt: period, meaningful: true }, _count: { _all: true } }),
+    db.quote.groupBy({ by: ["repId"], where: { repId: inReps, sentAt: period }, _count: { _all: true } }),
+    db.quote.groupBy({ by: ["repId"], where: { repId: inReps, decidedAt: period, status: "ACCEPTED" }, _count: { _all: true }, _sum: { total: true } }),
+    db.quote.groupBy({ by: ["repId"], where: { repId: inReps, decidedAt: period, status: { in: ["ACCEPTED", "REJECTED"] } }, _count: { _all: true } }),
+    db.lead.groupBy({ by: ["assignedRepId"], where: { assignedRepId: inReps, createdAt: period }, _count: { _all: true } }),
+    db.lead.groupBy({ by: ["assignedRepId"], where: { assignedRepId: inReps, convertedAt: period }, _count: { _all: true } }),
+    db.task.groupBy({ by: ["assigneeId"], where: { assigneeId: inReps, completedAt: period }, _count: { _all: true } }),
+    db.customer.groupBy({ by: ["assignedRepId"], where: { assignedRepId: inReps, createdAt: period }, _count: { _all: true } }),
+  ]);
+  const cntMap = (arr: { _count: { _all: number } }[], key: string) => {
+    const m = new Map<string, number>();
+    for (const r of arr) { const id = (r as Record<string, unknown>)[key] as string | null; if (id) m.set(id, r._count._all); }
+    return m;
+  };
+  const mActAll = cntMap(actAll, "repId"), mCalls = cntMap(actCalls, "repId"), mMean = cntMap(actMean, "repId");
+  const mSent = cntMap(qSent, "repId"), mAcc = cntMap(qAcc, "repId"), mDecided = cntMap(qDecided, "repId");
+  const mNew = cntMap(lNew, "assignedRepId"), mConv = cntMap(lConv, "assignedRepId"), mTasks = cntMap(tDone, "assigneeId"), mCust = cntMap(cNew, "assignedRepId");
+  const mAccVal = new Map<string, number>();
+  for (const r of qAcc) { if (r.repId) mAccVal.set(r.repId, Number(r._sum.total ?? 0)); }
+
+  const rows = reps.map(rep => {
+    const quotesAccepted = mAcc.get(rep.id) ?? 0;
+    const decided = mDecided.get(rep.id) ?? 0;
     return {
-      rep, calls, meaningful, activities, quotesSent, quotesAccepted,
-      acceptedValue: Number(acceptedValue._sum.total ?? 0),
-      winRate, newLeads, converted, tasksDone, newCustomers,
+      rep,
+      calls: mCalls.get(rep.id) ?? 0,
+      meaningful: mMean.get(rep.id) ?? 0,
+      activities: mActAll.get(rep.id) ?? 0,
+      quotesSent: mSent.get(rep.id) ?? 0,
+      quotesAccepted,
+      acceptedValue: mAccVal.get(rep.id) ?? 0,
+      winRate: decided > 0 ? Math.round((quotesAccepted / decided) * 100) : null,
+      newLeads: mNew.get(rep.id) ?? 0,
+      converted: mConv.get(rep.id) ?? 0,
+      tasksDone: mTasks.get(rep.id) ?? 0,
+      newCustomers: mCust.get(rep.id) ?? 0,
     };
-  }));
+  });
 
   const totals = rows.reduce((t, r) => ({
     calls: t.calls + r.calls, meaningful: t.meaningful + r.meaningful, activities: t.activities + r.activities,
