@@ -157,27 +157,46 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
       location: { select: { name: true } },
       activities: { orderBy: { occurredAt: "desc" }, take: 5, select: { type: true, subject: true, notes: true, occurredAt: true } },
       invoices: { where: { balance: { gt: 0 } }, select: { balance: true, dueDate: true } },
+      quotes: { orderBy: { quoteDate: "desc" }, take: 2, select: { quoteNumber: true, quoteDate: true, status: true, items: { select: { description: true, sizeSku: true, brand: true, quantity: true, unitPrice: true } } } },
+      orders: { orderBy: { orderDate: "desc" }, take: 5, select: { orderDate: true, total: true, items: { take: 3, select: { rawDescription: true, quantity: true } } } },
+      lostSales: { orderBy: { occurredAt: "desc" }, take: 3, select: { item: true, reason: true, occurredAt: true, competitor: true } },
     },
   });
   if (!customer) return { error: "Pick a customer from the list first." };
   if (session.role === "SALES_REP" && customer.assignedRepId !== session.userId) return { error: "Not your customer." };
 
+  const d = (x: Date) => x.toISOString().slice(0, 10);
   const owed = customer.invoices.reduce((s, i) => s + Number(i.balance), 0);
+  const lastOrderAt = customer.orders[0]?.orderDate;
+  const daysSinceOrder = lastOrderAt ? Math.round((Date.now() - lastOrderAt.getTime()) / 86400000) : null;
   const context = [
     `Customer: ${customer.companyName}${customer.contactPerson ? ` (contact: ${customer.contactPerson})` : ""}`,
     `Type: ${customer.type} · Tier ${customer.tier} · Interested in: ${customer.mainInterest}`,
     customer.city ? `Location: ${customer.city}, ${customer.state ?? ""}` : null,
     customer.paymentTerms ? `Payment terms: ${customer.paymentTerms}` : null,
     owed > 0 ? `Open balance: ${fmtMoney(owed)}` : null,
-    customer.lastContactAt ? `Last contact: ${customer.lastContactAt.toISOString().slice(0, 10)}` : "Never contacted",
-    customer.activities.length ? `Recent activity: ${customer.activities.map(a => `[${a.occurredAt.toISOString().slice(0, 10)}] ${a.type}: ${a.subject}`).join("; ")}` : null,
+    customer.lastContactAt ? `Last contact: ${d(customer.lastContactAt)}` : "Never contacted",
+    customer.notes ? `Rep notes on file: ${customer.notes.slice(0, 300)}` : null,
+    // Real quotes — products, sizes, quantities, prices
+    customer.quotes.length ? `Recent quotes: ${customer.quotes.map(q =>
+      `${q.quoteNumber} (${d(q.quoteDate)}, ${q.status})${q.items.length ? ": " + q.items.slice(0, 4).map(i =>
+        `${i.quantity}× ${i.sizeSku || i.description}${i.brand ? " " + i.brand : ""} @ ${fmtMoney(Number(i.unitPrice))}`).join(", ") : ""}`).join(" | ")}` : null,
+    // Buying pattern — what & how recently they order
+    customer.orders.length ? `Order history: ${customer.orders.map(o =>
+      `${d(o.orderDate)} ${fmtMoney(Number(o.total))}${o.items.length ? " [" + o.items.map(i => `${i.quantity}× ${i.rawDescription}`).join(", ") + "]" : ""}`).join(" | ")}` : null,
+    daysSinceOrder != null ? `Last order was ${daysSinceOrder} days ago.` : "No orders on record yet.",
+    // What we lost — win-back angles
+    customer.lostSales.length ? `Lost sales: ${customer.lostSales.map(l =>
+      `wanted ${l.item} on ${d(l.occurredAt)} (${l.reason}${l.competitor ? `, to ${l.competitor}` : ""})`).join("; ")}` : null,
+    customer.activities.length ? `Recent activity: ${customer.activities.map(a =>
+      `[${d(a.occurredAt)}] ${a.type}: ${a.subject}${a.notes ? ` — ${a.notes.slice(0, 80)}` : ""}`).join("; ")}` : null,
     extra ? `Extra context from the rep: ${extra}` : null,
   ].filter(Boolean).join("\n");
 
   try {
     const raw = await askClaude(
       SYSTEM,
-      `Task: ${SCENARIOS[scenario] ?? scenario}.\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\n${context}\n\nWrite two versions:\n1. A short email (subject line + body, under 120 words)\n2. A text/WhatsApp message (under 40 words)\n\nFormat your reply EXACTLY as:\nEMAIL:\n<email here>\nSMS:\n<sms here>`,
+      `Task: ${SCENARIOS[scenario] ?? scenario}.\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\n${context}\n\nGround the message in the specifics above — reference the actual products, sizes, quantities, prices, recent quote, buying pattern, or lost item when they're relevant to the goal. Be concrete, not generic. Never invent numbers, prices, or products that aren't in the context.\n\nWrite two versions:\n1. A short email (subject line + body, under 120 words)\n2. A text/WhatsApp message (under 40 words)\n\nFormat your reply EXACTLY as:\nEMAIL:\n<email here>\nSMS:\n<sms here>`,
       1200,
     );
     const emailMatch = raw.match(/EMAIL:\s*([\s\S]*?)\nSMS:/);
