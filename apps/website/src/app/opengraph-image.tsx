@@ -52,8 +52,9 @@ export default function OgImage() {
           <div style={{ marginTop: 34, color: GOLD, fontSize: 34, fontWeight: 700, letterSpacing: 6 }}>
             WHOLESALE TIRES · WHEELS · PARTS
           </div>
+          {/* single template string — Satori rejects a non-flex div holding multiple text nodes */}
           <div style={{ marginTop: 18, color: "#94a3b8", fontSize: 28, letterSpacing: 2 }}>
-            {COPY.heroTagline.split("·").slice(1).join("·").trim() || "USA"} · {host}
+            {`${COPY.heroTagline.split("·").slice(1).join("·").trim() || "USA"} · ${host}`}
           </div>
           <div
             style={{
@@ -69,7 +70,7 @@ export default function OgImage() {
               letterSpacing: 1,
             }}
           >
-            DEALER PRICING · {SITE.phoneDisplay}
+            {`DEALER PRICING · ${SITE.phoneDisplay}`}
           </div>
         </div>
 
