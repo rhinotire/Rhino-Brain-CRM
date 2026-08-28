@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { SITE } from "@/lib/site";
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BrandsPage() {
-  const brands = await PublicCatalogService.listPublishedBrands();
+  const brands = await PublicCatalogService.listPublishedBrands(BRAND_KEY);
 
   return (
     <div className="pt-8">

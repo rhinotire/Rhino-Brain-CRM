@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
@@ -77,7 +78,7 @@ export default async function SubcategoryPage({ params }: { params: Params }) {
   const cat = CATEGORY_SLUGS[params.sub];
   if (!cat) notFound();
 
-  const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
   // Top Sellers = US replacement-market best sellers we actually stock,

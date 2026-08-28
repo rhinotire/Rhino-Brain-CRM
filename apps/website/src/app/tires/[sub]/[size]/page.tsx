@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCatalogService, normalizeSizeInput, type PublicProductDTO } from "@rhino/services";
@@ -121,7 +122,7 @@ export default async function SizePage({ params }: { params: Params }) {
   const cat = CATEGORY_SLUGS[params.sub];
   if (!cat) notFound();
 
-  const all = await PublicCatalogService.listPublished({ category: cat.db, take: 200 });
+  const all = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, category: cat.db, take: 200 });
   const wanted = sizeKey(params.size);
   const products = all.filter((p) => p.sizeSpec && sizeKey(p.sizeSpec) === wanted);
   if (!products.length) notFound();

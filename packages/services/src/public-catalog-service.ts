@@ -46,7 +46,7 @@ type PublishedRow = Prisma.ProductGetPayload<{
  * Explicit field-by-field mapping — NEVER spread the Prisma row. cost and
  * priceA–D must not reach the anonymous tier (docs/architecture.md hard rule).
  */
-function toPublicDTO(p: PublishedRow, logos?: Map<string, string>): PublicProductDTO {
+function toPublicDTO(p: PublishedRow, logos?: Map<string, string>, locId?: string | null): PublicProductDTO {
   const tire: PublicTireSpecDTO | null = p.tireSpec
     ? {
         width: p.tireSpec.width,
@@ -114,7 +114,9 @@ function toPublicDTO(p: PublishedRow, logos?: Map<string, string>): PublicProduc
     countryOfOrigin: p.countryOfOrigin,
     warrantySummary: p.warrantySummary,
     features: Array.isArray(p.featuresJson) ? (p.featuresJson as unknown[]).map(String) : [],
-    stockStatus: toStockStatus(p.inventory.reduce((sum, i) => sum + i.quantity, 0)),
+    stockStatus: toStockStatus(
+      p.inventory.filter((i) => !locId || i.locationId === locId).reduce((sum, i) => sum + i.quantity, 0)
+    ),
     images: p.images.length
       ? p.images
           .slice()
@@ -143,6 +145,26 @@ const PUBLISHED_INCLUDE = {
   wheelSpec: true,
   partSpec: true,
 } as const;
+
+/**
+ * brandKey → warehouse locationId (BrandConfig). The two companies share one
+ * DB but carry different catalogs: a brand's site lists only products with an
+ * inventory row at its own warehouse, and stock buckets count that warehouse
+ * only. No brandKey (or no location) → unscoped, the pre-split behavior.
+ */
+const brandLocCache = new Map<string, { id: string | null; at: number }>();
+async function brandLocationId(brandKey?: string): Promise<string | null> {
+  if (!brandKey) return null;
+  const hit = brandLocCache.get(brandKey);
+  if (hit && Date.now() - hit.at < 60_000) return hit.id;
+  const cfg = await db.brandConfig.findUnique({ where: { key: brandKey }, select: { locationId: true } });
+  const id = cfg?.locationId ?? null;
+  brandLocCache.set(brandKey, { id, at: Date.now() });
+  return id;
+}
+
+const carriedAt = (locId: string | null): Prisma.ProductWhereInput =>
+  locId ? { inventory: { some: { locationId: locId } } } : {};
 
 /**
  * The ONLY service the anonymous website tier may call for products.
@@ -185,8 +207,9 @@ function boltNeedles(raw: string): string[] {
 
 export const PublicCatalogService = {
   async listPublished(
-    params: { category?: string; query?: string; boltPattern?: string; take?: number; skip?: number; specialOffer?: boolean; bestSeller?: boolean; applications?: string[]; assemblies?: boolean; sort?: "newest" } = {}
+    params: { category?: string; query?: string; boltPattern?: string; take?: number; skip?: number; specialOffer?: boolean; bestSeller?: boolean; applications?: string[]; assemblies?: boolean; sort?: "newest"; brandKey?: string } = {}
   ): Promise<PublicProductDTO[]> {
+    const locId = await brandLocationId(params.brandKey);
     const bolt = params.boltPattern?.trim();
     const boltVariants = bolt ? boltNeedles(bolt) : [];
     // unparseable bolt input still filters as a plain text needle
@@ -199,6 +222,7 @@ export const PublicCatalogService = {
     const rows = await db.product.findMany({
       where: {
         ...PUBLISHED_WHERE,
+        ...carriedAt(locId),
         ...(params.category ? { category: params.category as PublishedRow["category"] } : {}),
         ...(params.specialOffer ? { specialOffer: true } : {}),
         ...(params.bestSeller ? { bestSeller: true } : {}),
@@ -243,24 +267,26 @@ export const PublicCatalogService = {
       skip: params.skip ?? 0,
     });
     const logos = await brandLogoMap();
-    return rows.map((r) => toPublicDTO(r, logos));
+    return rows.map((r) => toPublicDTO(r, logos, locId));
   },
 
-  async getBySlug(slug: string): Promise<PublicProductDTO | null> {
+  async getBySlug(slug: string, brandKey?: string): Promise<PublicProductDTO | null> {
     if (!slug) return null;
+    const locId = await brandLocationId(brandKey);
     const row = await db.product.findFirst({
-      where: { ...PUBLISHED_WHERE, slug },
+      where: { ...PUBLISHED_WHERE, ...carriedAt(locId), slug },
       include: PUBLISHED_INCLUDE,
     });
-    return row ? toPublicDTO(row, await brandLogoMap()) : null;
+    return row ? toPublicDTO(row, await brandLogoMap(), locId) : null;
   },
 
   /** Brands with at least one published product — powers /brands. Name, count and owner-uploaded logo. */
-  async listPublishedBrands(): Promise<{ brand: string; count: number; logoUrl: string | null }[]> {
+  async listPublishedBrands(brandKey?: string): Promise<{ brand: string; count: number; logoUrl: string | null }[]> {
+    const locId = await brandLocationId(brandKey);
     const [rows, logos] = await Promise.all([
       db.product.groupBy({
         by: ["brand"],
-        where: { ...PUBLISHED_WHERE, brand: { not: null } },
+        where: { ...PUBLISHED_WHERE, ...carriedAt(locId), brand: { not: null } },
         _count: { _all: true },
       }),
       db.productBrandLogo.findMany(),

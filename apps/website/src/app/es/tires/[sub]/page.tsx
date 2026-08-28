@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
@@ -73,7 +74,7 @@ export default async function SubcategoryPageEs({ params }: { params: Params }) 
   if (!cat) notFound();
   const label = CATEGORY_LABEL_ES[params.sub] ?? cat.label;
 
-  const products = await PublicCatalogService.listPublished({ category: cat.db, take: 1000 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, category: cat.db, take: 1000 });
   const sizes = [...new Set(products.map((p) => p.sizeSpec).filter((s): s is string => !!s))];
 
   // Más vendidas = top del mercado de reemplazo de EE. UU. que tenemos en existencia

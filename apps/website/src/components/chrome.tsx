@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { waLink, type Brand } from "@/lib/brand";
+import { waLink, brandAddressLine, type Brand } from "@/lib/brand";
 import { MobileMenu } from "@/components/mobile-menu";
 import { LangSwitch } from "@/components/lang";
 import { MAIN_NAV, TIRES_MEGA } from "@/lib/site";
@@ -140,7 +140,7 @@ export function Footer({ brand }: { brand: Brand }) {
           <p className="mt-3 text-sm leading-relaxed">
             {brand.legalName}
             <br />
-            {brand.address.streetAddress}
+            {brandAddressLine(brand)}
             <br />
             <a href={`tel:${brand.phone}`} className="font-bold text-white hover:text-brand-light">{brand.phoneDisplay}</a>
             {waLink("Hi — I have a question about tires.") && (

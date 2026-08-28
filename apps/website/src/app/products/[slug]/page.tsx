@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCatalogService } from "@rhino/services";
@@ -18,7 +19,7 @@ export function generateStaticParams(): { slug: string }[] {
 type Params = { slug: string };
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const p = await PublicCatalogService.getBySlug(params.slug);
+  const p = await PublicCatalogService.getBySlug(params.slug, BRAND_KEY);
   if (!p) return {};
   return {
     title: `${p.name} — Wholesale`,
@@ -48,7 +49,7 @@ function SpecTable({ rows }: { rows: [string, string | number | null][] }) {
 }
 
 export default async function ProductPage({ params }: { params: Params }) {
-  const p = await PublicCatalogService.getBySlug(params.slug);
+  const p = await PublicCatalogService.getBySlug(params.slug, BRAND_KEY);
   if (!p) notFound();
   const img = p.images.find((i) => i.isPrimary) ?? p.images[0];
 

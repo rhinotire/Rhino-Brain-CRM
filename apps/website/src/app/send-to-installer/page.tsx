@@ -17,7 +17,7 @@ export default async function SendToInstallerPage({ searchParams }: { searchPara
   let productLabel: string | undefined;
   let productId: string | undefined;
   if (searchParams.product) {
-    const p = await PublicCatalogService.getBySlug(searchParams.product);
+    const p = await PublicCatalogService.getBySlug(searchParams.product, BRAND_KEY);
     if (p) {
       productId = p.id;
       productLabel = `${p.name} (SKU ${p.sku})`;

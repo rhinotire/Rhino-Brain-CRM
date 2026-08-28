@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -23,7 +24,7 @@ const POPULAR_ASSEMBLIES = [
 export default async function PackagesPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim();
   // assemblies only — the search here never returns bare tires or bare wheels
-  const products = await PublicCatalogService.listPublished({ assemblies: true, query: q || undefined, take: 200 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, assemblies: true, query: q || undefined, take: 200 });
 
   return (
     <div className="pt-8">

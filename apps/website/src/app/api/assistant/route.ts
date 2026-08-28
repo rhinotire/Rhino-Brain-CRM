@@ -72,7 +72,7 @@ const searchCatalog = betaTool({
   },
   run: async (input: { query?: string; category?: string; boltPattern?: string }) => {
     const products = await PublicCatalogService.listPublished({
-      query: input.query || undefined,
+      brandKey: BRAND_KEY, query: input.query || undefined,
       category: input.category || undefined,
       boltPattern: input.boltPattern || undefined,
       take: 8,

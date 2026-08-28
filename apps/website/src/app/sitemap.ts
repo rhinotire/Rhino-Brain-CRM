@@ -7,7 +7,7 @@ export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, articles] = await Promise.all([
-    PublicCatalogService.listPublished({ take: 1000 }),
+    PublicCatalogService.listPublished({ brandKey: BRAND_KEY, take: 1000 }),
     PublicArticleService.listPublished(BRAND_KEY),
   ]);
 

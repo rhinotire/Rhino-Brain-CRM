@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -17,7 +18,7 @@ const POPULAR = ["hub", "axle", "bearing", "fender", "coupler", "jack"];
 
 export default async function PartsPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim();
-  const products = await PublicCatalogService.listPublished({ category: "TRAILER_PARTS", query: q || undefined, take: 200 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, category: "TRAILER_PARTS", query: q || undefined, take: 200 });
 
   return (
     <div>

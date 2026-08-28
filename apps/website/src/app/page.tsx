@@ -18,9 +18,9 @@ export default async function HomePage() {
   const [brand, articles, hot, deals, arrivals] = await Promise.all([
     getBrand(),
     PublicArticleService.listPublished(BRAND_KEY),
-    PublicCatalogService.listPublished({ bestSeller: true, take: 8 }),
-    PublicCatalogService.listPublished({ specialOffer: true, take: 8 }),
-    PublicCatalogService.listPublished({ sort: "newest", take: 8 }),
+    PublicCatalogService.listPublished({ brandKey: BRAND_KEY, bestSeller: true, take: 8 }),
+    PublicCatalogService.listPublished({ brandKey: BRAND_KEY, specialOffer: true, take: 8 }),
+    PublicCatalogService.listPublished({ brandKey: BRAND_KEY, sort: "newest", take: 8 }),
   ]);
   return (
     <div className="space-y-16">

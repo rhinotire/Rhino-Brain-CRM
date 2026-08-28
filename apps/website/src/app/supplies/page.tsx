@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -15,7 +16,7 @@ export const revalidate = 300;
 
 export default async function SuppliesPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim();
-  const products = await PublicCatalogService.listPublished({ category: "OIL_LUBRICANTS", query: q || undefined, take: 200 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, category: "OIL_LUBRICANTS", query: q || undefined, take: 200 });
 
   return (
     <div>

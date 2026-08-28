@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService, sizeSuggestion } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -15,7 +16,7 @@ export const revalidate = 300; // ISR — product edits in RHINO BRAIN show with
 
 export default async function TiresHub({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q?.trim();
-  const results = q ? await PublicCatalogService.listPublished({ query: q, take: 60 }) : null;
+  const results = q ? await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, query: q, take: 60 }) : null;
 
   const POPULAR: Record<string, string[]> = {
     "st-trailer": ["ST205/75R15", "ST225/75R15", "ST235/80R16"],

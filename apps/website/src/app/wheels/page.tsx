@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -20,7 +21,7 @@ export default async function WheelsPage({ searchParams }: { searchParams: { q?:
   const q = searchParams.q?.trim();
   const bolt = searchParams.bolt?.trim();
   const products = await PublicCatalogService.listPublished({
-    category: "WHEELS",
+    brandKey: BRAND_KEY, category: "WHEELS",
     query: q || undefined,
     boltPattern: bolt || undefined,
     take: 200,

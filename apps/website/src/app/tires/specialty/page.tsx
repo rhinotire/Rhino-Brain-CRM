@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND_KEY } from "@/lib/brand";
 import Link from "next/link";
 import { PublicCatalogService } from "@rhino/services";
 import { ProductCard } from "@/components/product-card";
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SpecialtyTiresPage() {
-  const products = await PublicCatalogService.listPublished({ applications: SPECIALTY_APPLICATIONS, take: 200 });
+  const products = await PublicCatalogService.listPublished({ brandKey: BRAND_KEY, applications: SPECIALTY_APPLICATIONS, take: 200 });
 
   return (
     <div className="pt-8">
