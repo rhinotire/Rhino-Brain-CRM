@@ -51,21 +51,23 @@ async function main() {
   });
 
   if (everflow) {
+    const everflowConfig = {
+      key: "EVERFLOW",
+      domain: "everflowtireusa.com", // owner-confirmed 2026-07-22
+      name: "Everflow Tires & Wheels",
+      legalName: "EVERFLOW TIRES & WHEELS LLC",
+      phone: "+19033376132", // Edward Henry, owner-confirmed
+      phoneDisplay: "(903) 337-6132",
+      contactEmail: "everflowtire@gmail.com",
+      addressJson: { streetAddress: "5091 Pulaski St", addressLocality: "Dallas", addressRegion: "TX", postalCode: "75247", addressCountry: "US" },
+      networkName: "EVERFLOW Preferred Dealer Network",
+      active: true, // EVERFLOW launch (Phase D)
+      locationId: everflow.id,
+    };
     await db.brandConfig.upsert({
       where: { key: "EVERFLOW" },
-      update: { locationId: everflow.id },
-      create: {
-        key: "EVERFLOW",
-        domain: "everflowtires.com",
-        name: "Everflow Tires & Wheels",
-        legalName: "EVERFLOW TIRES & WHEELS",
-        phone: "+12140000000", // TODO before EVERFLOW launch
-        phoneDisplay: "(214) 000-0000",
-        addressJson: { streetAddress: "Dallas, TX", addressLocality: "Dallas", addressRegion: "TX", addressCountry: "US" },
-        networkName: "EVERFLOW Preferred Dealer Network",
-        locationId: everflow.id,
-        active: false, // owner decision: RHINO ships first
-      },
+      update: everflowConfig,
+      create: everflowConfig,
     });
   }
 
