@@ -85,7 +85,7 @@ export function Header({ brand }: { brand: Brand }) {
             <img src={brand.logoUrl} alt={brand.name} width={200} height={44} className="h-10 w-auto max-w-[210px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[210px]" />
           ) : brand.key === "EVERFLOW" ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/everflow-logo.png" alt="Everflow Tires & Wheels" width={500} height={193} className="h-10 w-auto max-w-[200px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[200px]" />
+            <img src="/everflow-logo.png" alt="Everflow Tires & Wheels" width={500} height={193} className="h-12 w-auto max-w-[220px] object-contain sm:h-14 sm:max-w-[260px]" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/rhino-logo.svg" alt="Rhino Tires USA" className="h-10 w-auto max-w-[200px] object-contain sm:h-11 xl:max-w-[170px] 2xl:max-w-[200px]" />

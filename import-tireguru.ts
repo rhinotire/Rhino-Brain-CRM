@@ -58,6 +58,10 @@ const arg = (name: string) => {
 };
 const APPLY = args.includes("--apply");
 const STOCKED_ONLY = args.includes("--stocked-only"); // skip price-report items with zero stock
+// --inventory-only: upsert location snapshots but NEVER update matched products
+// (for lower-fidelity sources like the Everflow PDF report, whose truncated
+// size/cost fields must not overwrite clean shared product records)
+const INVENTORY_ONLY = args.includes("--inventory-only");
 const stockPath = arg("stock");
 const pricePath = arg("price");
 const locationTag = arg("location");
@@ -238,7 +242,9 @@ async function main() {
     };
     const found = existingBySku.get(r.sku);
     const product = found
-      ? await db.product.update({ where: { id: found.id }, data: base })
+      ? INVENTORY_ONLY
+        ? found
+        : await db.product.update({ where: { id: found.id }, data: base })
       : await db.product.create({
           data: { sku: r.sku, description: r.description, category: guessCategory(r), ...base },
         });
