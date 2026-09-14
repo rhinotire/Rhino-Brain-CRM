@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireSession, isAccounting, repScope, locationScope } from "@/lib/auth";
-import { fmtMoney } from "@/lib/domain";
+import { fmtMoney, customerStatusLabels } from "@/lib/domain";
+import type { CustomerStatus } from "@prisma/client";
 import { isAiConfigured } from "@/actions/ai";
 import { CollectionsActions } from "@/components/collections-actions";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
@@ -19,9 +20,21 @@ const BUCKET_STYLE: Record<string, string> = {
   "120+": "bg-red-600 text-white",
 };
 
-export default async function CollectionsPage() {
+/** Dead-account statuses — real collection effort is wasted here. */
+const DEAD_STATUSES = ["INACTIVE", "LOST", "DO_NOT_CONTACT"] as const;
+const STATUS_BADGE: Record<string, string> = {
+  ACTIVE: "bg-emerald-100 text-emerald-800",
+  PROSPECT: "bg-sky-100 text-sky-800",
+  LEAD: "bg-slate-100 text-slate-600",
+  INACTIVE: "bg-slate-200 text-slate-500",
+  LOST: "bg-red-100 text-red-700",
+  DO_NOT_CONTACT: "bg-red-100 text-red-700",
+};
+
+export default async function CollectionsPage({ searchParams }: { searchParams: { dead?: string } }) {
   const session = await requireSession();
   const now = new Date();
+  const showDead = searchParams.dead === "1";
 
   // overdue, positive, matched to a customer, inside the caller's scope
   const where: Prisma.InvoiceWhereInput = {
@@ -38,7 +51,7 @@ export default async function CollectionsPage() {
         customerId: true, balance: true, dueDate: true,
         customer: {
           select: {
-            companyName: true, phone: true, email: true,
+            companyName: true, phone: true, email: true, status: true,
             assignedRep: { select: { name: true } },
             tasks: { where: { status: "OPEN", title: { startsWith: "Collect " } }, select: { id: true, assignee: { select: { name: true } } }, take: 1 },
           },
@@ -49,7 +62,7 @@ export default async function CollectionsPage() {
   ]);
 
   type Row = {
-    customerId: string; name: string; phone: string | null; rep: string | null;
+    customerId: string; name: string; phone: string | null; rep: string | null; status: string;
     total: number; worstDays: number; items: number; openTask: string | null;
   };
   const byCustomer = new Map<string, Row>();
@@ -61,6 +74,7 @@ export default async function CollectionsPage() {
       name: inv.customer!.companyName,
       phone: inv.customer!.phone,
       rep: inv.customer!.assignedRep?.name ?? null,
+      status: inv.customer!.status,
       total: 0, worstDays: 0, items: 0,
       openTask: inv.customer!.tasks[0] ? (inv.customer!.tasks[0].assignee?.name ?? "assigned") : null,
     };
@@ -69,9 +83,14 @@ export default async function CollectionsPage() {
     row.items++;
     byCustomer.set(id, row);
   }
-  const rows = [...byCustomer.values()].filter(r => r.total > 0.005).sort((a, b) => b.total - a.total);
-  const grand = rows.reduce((s, r) => s + r.total, 0);
-  const over120 = rows.filter(r => r.worstDays > 120);
+  const all = [...byCustomer.values()].filter(r => r.total > 0.005).sort((a, b) => b.total - a.total);
+  const isDead = (r: Row) => (DEAD_STATUSES as readonly string[]).includes(r.status);
+  const live = all.filter(r => !isDead(r));
+  const dead = all.filter(isDead);
+  const rows = showDead ? all : live;
+  const grand = live.reduce((s, r) => s + r.total, 0);
+  const deadTotal = dead.reduce((s, r) => s + r.total, 0);
+  const over120 = live.filter(r => r.worstDays > 120);
 
   return (
     <div className="space-y-4">
@@ -85,22 +104,38 @@ export default async function CollectionsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Customers overdue" value={rows.length} />
-        <StatCard label="Total to collect" value={fmtMoney(grand)} tone="danger" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <StatCard label="Active customers overdue" value={live.length} />
+        <StatCard label="Collectable (active)" value={fmtMoney(grand)} tone="danger" />
         <StatCard label="120+ day customers" value={over120.length} tone="danger" hint={fmtMoney(over120.reduce((s, r) => s + r.total, 0))} />
-        <StatCard label="With open task" value={rows.filter(r => r.openTask).length} tone="good" hint="already being worked" />
+        <StatCard label="With open task" value={live.filter(r => r.openTask).length} tone="good" hint="already being worked" />
+        <StatCard label="Inactive / dead accounts" value={dead.length} tone="warn" hint={`${fmtMoney(deadTotal)} — hidden below`} />
       </div>
 
+      {dead.length > 0 && (
+        <div className="text-sm">
+          {showDead ? (
+            <Link href="/ar/collections" className="font-medium text-brand-700 hover:underline">Hide the {dead.length} inactive/lost accounts</Link>
+          ) : (
+            <Link href="/ar/collections?dead=1" className="font-medium text-brand-700 hover:underline">
+              Show the {dead.length} inactive/lost accounts ({fmtMoney(deadTotal)}) — likely write-offs
+            </Link>
+          )}
+        </div>
+      )}
+
       <Table>
-        <THead cols={["Customer", "Rep", "Overdue", "Oldest", "Items", "Task", ...(isAccounting(session) ? [] : ["Actions"])]} />
+        <THead cols={["Customer", "Status", "Rep", "Overdue", "Oldest", "Items", "Task", ...(isAccounting(session) ? [] : ["Actions"])]} />
         <tbody className="divide-y divide-slate-100">
-          {rows.length === 0 && <EmptyRow colSpan={7} message="No overdue balances — nothing to collect. 🎉" />}
+          {rows.length === 0 && <EmptyRow colSpan={8} message="No overdue balances — nothing to collect. 🎉" />}
           {rows.map(r => (
-            <tr key={r.customerId}>
+            <tr key={r.customerId} className={isDead(r) ? "opacity-60" : ""}>
               <td className="px-3 py-2.5">
                 <Link href={`/customers/${r.customerId}`} className="font-medium text-brand-700 hover:underline">{r.name}</Link>
                 {r.phone && <div className="text-xs text-slate-400">{r.phone}</div>}
+              </td>
+              <td className="px-3 py-2.5">
+                <Badge className={STATUS_BADGE[r.status] ?? "bg-slate-100 text-slate-600"}>{customerStatusLabels[r.status as CustomerStatus] ?? r.status}</Badge>
               </td>
               <td className="px-3 py-2.5 text-slate-600">{r.rep ?? <span className="text-slate-300">—</span>}</td>
               <td className="px-3 py-2.5 font-semibold tabular-nums">{fmtMoney(r.total)}</td>
