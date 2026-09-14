@@ -12,6 +12,7 @@ const H = {
   amount: ["amount", "amt", "original amount", "invoice amount", "original amt", "open amount"],
   balance: ["balance", "open balance", "bal", "balance due", "amount due", "outstanding"],
   dueDate: ["due date", "duedate", "due", "date due"],
+  invoiceNo: ["invoice", "invoice #", "invoice no", "invoice number", "inv #", "inv", "number", "ref #", "reference"],
   daysPastDue: ["days past due", "days overdue", "aging days", "days", "past due days"],
   phone: ["phone", "phone numbers", "business phone", "phones"],
 };
@@ -45,6 +46,7 @@ function mapInvoiceRows(records: Record<string, unknown>[], headers: string[]): 
   const cDue = findCol(headers, H.dueDate);
   const cDays = findCol(headers, H.daysPastDue);
   const cPhone = findCol(headers, H.phone);
+  const cInv = findCol(headers, H.invoiceNo);
   if (!cCustomer || (!cBalance && !cAmount)) {
     return { error: `Could not find the needed columns. Found: ${headers.join(", ")}. Need at least Customer + Balance (or Amount).` };
   }
@@ -69,6 +71,7 @@ function mapInvoiceRows(records: Record<string, unknown>[], headers: string[]): 
       amount: isNaN(amount) ? balance : amount,
       balance,
       dueDate: dueDate.toISOString(),
+      invoiceNo: cInv ? String(raw[cInv] ?? "").trim() || undefined : undefined,
       phones: cPhone ? phonesIn(String(raw[cPhone] ?? "")) : undefined,
     });
   }

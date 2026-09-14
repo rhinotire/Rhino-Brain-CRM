@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, canWrite } from "@/lib/auth";
+import { sendEmail, isEmailConfigured } from "@rhino/services";
 import { fmtMoney } from "@/lib/domain";
 import type { ActionResult } from "./auth";
 
@@ -64,4 +65,50 @@ export async function assignCollectionTask(customerId: string): Promise<ActionRe
   revalidatePath("/tasks");
   const assigneeName = assigneeId === session.userId ? "you" : customer.assignedRep?.name ?? "the rep";
   return { ok: true, assignee: assigneeName };
+}
+
+/**
+ * Send the reviewed collection email straight from the brand mailbox.
+ * CC: the AR/finance mailbox when AR_FINANCE_EMAIL is set; Reply-To: the sender,
+ * so customer replies land with the person doing the collecting.
+ */
+export async function sendCollectionEmail(customerId: string, subject: string, body: string): Promise<ActionResult> {
+  const session = await requireSession();
+  const s = subject.trim().slice(0, 200);
+  const b = body.trim().slice(0, 8000);
+  if (!s || !b) return { ok: false, error: "Draft the email first." };
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { companyName: true, email: true, locationId: true, assignedRepId: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+  if (!canWrite(session, { locationId: customer.locationId })) return { ok: false, error: "Not your company's customer." };
+  if (session.role === "SALES_REP" && customer.assignedRepId !== session.userId) return { ok: false, error: "Not your customer." };
+  if (!customer.email) return { ok: false, error: "This customer has no email on file — add one on the customer page first." };
+
+  const brand = customer.locationId ? await db.brandConfig.findFirst({ where: { locationId: customer.locationId } }) : null;
+  if (!isEmailConfigured(brand?.key)) {
+    return { ok: false, error: `Email isn't set up for this company yet — admin: add ZOHO_SMTP_USER_${brand?.key ?? "RHINO"} / ZOHO_SMTP_PASS_${brand?.key ?? "RHINO"}. Use Copy for now.` };
+  }
+
+  const financeCc = process.env.AR_FINANCE_EMAIL?.trim() || undefined;
+  const res = await sendEmail(customer.email, s, b, {
+    mailboxKey: brand?.key,
+    cc: financeCc,
+    replyTo: session.email,
+  });
+  if (!res.sent) return { ok: false, error: "Email failed to send — check mail settings, or use Copy." };
+
+  await db.activity.create({
+    data: {
+      type: "EMAIL",
+      subject: `Collection email sent to ${customer.email}`,
+      notes: s,
+      customerId, repId: session.userId, locationId: customer.locationId, meaningful: true,
+    },
+  });
+  await db.customer.update({ where: { id: customerId }, data: { lastContactAt: new Date() } });
+  revalidatePath("/ar/collections");
+  return { ok: true };
 }

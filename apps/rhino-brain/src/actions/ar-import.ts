@@ -9,6 +9,7 @@ export type ArRow = {
   amount: number;
   balance: number;   // negative = customer credit / prepayment
   dueDate: string;   // ISO date
+  invoiceNo?: string; // present in per-invoice reports; aged trial balances have none
   phones?: string[]; // any phone numbers from the report, used as a matching fallback
 };
 
@@ -62,6 +63,7 @@ export async function importArInvoices(fileName: string, rows: ArRow[]): Promise
       amount: r.amount,
       balance: r.balance,
       dueDate: new Date(r.dueDate),
+      invoiceNo: r.invoiceNo?.trim().slice(0, 40) || null,
       // unmatched rows still belong to the report's company — never null, so
       // they stay visible under the company filter and can't leak elsewhere
       locationId: targetLoc,

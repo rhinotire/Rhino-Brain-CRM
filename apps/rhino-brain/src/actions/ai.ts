@@ -211,15 +211,20 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
 
 // ---------- 2b. Collection email (A/R Collections view) ----------
 
-export async function draftCollectionEmail(customerId: string): Promise<{ ok?: boolean; subject?: string; body?: string; toEmail?: string | null; error?: string }> {
+export type CollectionDraft = {
+  ok?: boolean; subject?: string; body?: string; smsText?: string;
+  toEmail?: string | null; phone?: string | null; error?: string;
+};
+
+export async function draftCollectionEmail(customerId: string): Promise<CollectionDraft> {
   const session = await requireSession();
   if (!process.env.ANTHROPIC_API_KEY) return { error: "AI is not configured yet — ask the admin to add ANTHROPIC_API_KEY." };
 
   const customer = await db.customer.findUnique({
     where: { id: customerId },
     select: {
-      companyName: true, contactPerson: true, email: true, paymentTerms: true, locationId: true,
-      assignedRepId: true, location: { select: { name: true } },
+      companyName: true, contactPerson: true, email: true, phone: true, contactCell: true,
+      paymentTerms: true, locationId: true, assignedRepId: true, location: { select: { name: true } },
     },
   });
   if (!customer) return { error: "Customer not found." };
@@ -230,13 +235,29 @@ export async function draftCollectionEmail(customerId: string): Promise<{ ok?: b
   const overdue = await db.invoice.findMany({
     where: { customerId, balance: { gt: 0 }, dueDate: { lt: now } },
     orderBy: { dueDate: "asc" },
-    select: { balance: true, dueDate: true },
+    select: { balance: true, dueDate: true, invoiceNo: true },
   });
   if (!overdue.length) return { error: "No overdue balance for this customer." };
   const total = overdue.reduce((s, i) => s + Number(i.balance), 0);
-  const worstDays = Math.floor((now.getTime() - overdue[0].dueDate.getTime()) / 86400000);
-  const lines = overdue.slice(0, 12).map(i =>
-    `due ${i.dueDate.toISOString().slice(0, 10)} (${Math.floor((now.getTime() - i.dueDate.getTime()) / 86400000)} days past): ${fmtMoney(Number(i.balance))}`).join("\n");
+  const days = (d: Date) => Math.floor((now.getTime() - d.getTime()) / 86400000);
+  const worstDays = days(overdue[0].dueDate);
+
+  // The itemized statement is BUILT IN CODE, never by the AI — numbers must be exact.
+  const hasInvNos = overdue.some(i => i.invoiceNo);
+  const statement = [
+    hasInvNos ? "Invoice        Due date      Days past due   Amount" : "Due date      Days past due   Amount",
+    ...overdue.map(i => {
+      const cols = [
+        ...(hasInvNos ? [(i.invoiceNo ?? "—").padEnd(14)] : []),
+        i.dueDate.toISOString().slice(0, 10).padEnd(13),
+        `${days(i.dueDate)}`.padEnd(15),
+        fmtMoney(Number(i.balance)),
+      ];
+      return cols.join(" ");
+    }),
+    "".padEnd(44, "-"),
+    `TOTAL PAST DUE: ${fmtMoney(total)}`,
+  ].join("\n");
 
   const tone = worstDays > 120
     ? "Final-notice firm: payment or a payment plan this week, mention that further orders may require prepayment until the balance clears. Still professional, never threatening legal action."
@@ -247,12 +268,28 @@ export async function draftCollectionEmail(customerId: string): Promise<{ ok?: b
   try {
     const raw = await askClaude(
       SYSTEM,
-      `Task: write a collections (accounts receivable) email for an overdue wholesale customer.\nTone: ${tone}\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\nCustomer: ${customer.companyName}${customer.contactPerson ? ` (contact: ${customer.contactPerson})` : ""}\n${customer.paymentTerms ? `Payment terms: ${customer.paymentTerms}\n` : ""}Total overdue: ${fmtMoney(total)} across ${overdue.length} item(s), oldest ${worstDays} days past due.\nOverdue detail:\n${lines}\n\nRules: write in English; include the total and the oldest-days figure; ask for payment or a concrete payment date; offer to review the statement together if anything looks off; do NOT invent payment methods, fees, or interest. Under 150 words.\n\nFormat your reply EXACTLY as:\nSUBJECT: <subject line>\nBODY:\n<email body>`,
+      `Task: write a collections (accounts receivable) email for an overdue wholesale customer.\nTone: ${tone}\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\nCustomer: ${customer.companyName}${customer.contactPerson ? ` (contact: ${customer.contactPerson})` : ""}\n${customer.paymentTerms ? `Payment terms: ${customer.paymentTerms}\n` : ""}Total overdue: ${fmtMoney(total)} across ${overdue.length} invoice(s), oldest ${worstDays} days past due.\n\nThe email MUST include the exact placeholder token [[STATEMENT]] on its own line where the itemized invoice list belongs (the system replaces it with the real statement — do not write any amounts or invoice numbers yourself).\n\nRules: write in English; mention the total ${fmtMoney(total)} and the oldest-days figure; ask for payment or a concrete payment date; offer to review the statement together if anything looks off; do NOT invent payment methods, fees, or interest. Under 130 words excluding the placeholder.\n\nFormat your reply EXACTLY as:\nSUBJECT: <subject line>\nBODY:\n<email body containing [[STATEMENT]]>`,
       800,
     );
     const subject = raw.match(/SUBJECT:\s*(.*)/)?.[1]?.trim() ?? `Past-due balance — ${customer.companyName}`;
-    const body = raw.match(/BODY:\s*([\s\S]*)$/)?.[1]?.trim() ?? raw;
-    return { ok: true, subject, body, toEmail: customer.email };
+    let body = raw.match(/BODY:\s*([\s\S]*)$/)?.[1]?.trim() ?? raw;
+    body = body.includes("[[STATEMENT]]")
+      ? body.replace("[[STATEMENT]]", statement)
+      : `${body}\n\n${statement}`;
+
+    // short text-message version — top 3 items + total, built in code
+    const top = overdue.slice(0, 3).map(i =>
+      `${i.invoiceNo ? `#${i.invoiceNo} ` : ""}${fmtMoney(Number(i.balance))} (${days(i.dueDate)}d)`).join(", ");
+    const more = overdue.length > 3 ? ` +${overdue.length - 3} more` : "";
+    const smsText =
+      `${customer.location?.name ?? "Rhino Tire USA"}: your account shows ${fmtMoney(total)} past due — ${top}${more}. ` +
+      `Full statement sent by email. Please reply or call to arrange payment. ${session.name}`;
+
+    return {
+      ok: true, subject, body, smsText,
+      toEmail: customer.email,
+      phone: customer.contactCell || customer.phone || null,
+    };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "AI request failed" };
   }

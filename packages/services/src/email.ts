@@ -58,7 +58,7 @@ export function isEmailConfigured(key?: string | null): boolean {
 }
 
 export type EmailAttachment = { filename: string; content: Buffer; contentType?: string };
-export type EmailOptions = { html?: string; attachments?: EmailAttachment[]; replyTo?: string; mailboxKey?: string | null };
+export type EmailOptions = { html?: string; attachments?: EmailAttachment[]; replyTo?: string; cc?: string | string[]; mailboxKey?: string | null };
 
 export async function sendEmail(to: string, subject: string, text: string, opts?: EmailOptions): Promise<{ sent: boolean }> {
   const mb = resolveMailbox(opts?.mailboxKey);
@@ -73,7 +73,7 @@ export async function sendEmail(to: string, subject: string, text: string, opts?
     auth: { user: mb.user, pass: mb.pass },
   });
   try {
-    await transporter.sendMail({ from: mb.from, to, subject, text, html: opts?.html, attachments: opts?.attachments, replyTo: opts?.replyTo });
+    await transporter.sendMail({ from: mb.from, to, cc: opts?.cc, subject, text, html: opts?.html, attachments: opts?.attachments, replyTo: opts?.replyTo });
     return { sent: true };
   } catch (e) {
     console.error("[email] send failed:", e instanceof Error ? e.message : e);

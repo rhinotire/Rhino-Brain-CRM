@@ -1030,6 +1030,7 @@ model AiUsage {
 
 // A/R aging — open receivable invoices imported from the accounting export
 model Invoice {
+  invoiceNo String? // external invoice # — only present when a per-invoice report was imported
   id           String   @id @default(cuid())
   customerId   String?
   customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
