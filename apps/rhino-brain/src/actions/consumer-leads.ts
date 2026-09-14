@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, locationScope } from "@/lib/auth";
+import { requireSession, isAccounting, locationScope } from "@/lib/auth";
 
 /** Manual working statuses for the front desk / sales (MVP-A). */
 const ALLOWED: string[] = [
@@ -17,6 +17,7 @@ const ALLOWED: string[] = [
 
 export async function updateConsumerLeadStatus(id: string, status: string): Promise<{ ok?: boolean; error?: string }> {
   const session = await requireSession();
+  if (isAccounting(session)) return { error: "Accounting is read-only." };
   if (!ALLOWED.includes(status)) return { error: "Invalid status." };
   // company isolation: the lead must be visible to this user's location scope
   const lead = await db.consumerLead.findFirst({ where: { id, ...locationScope(session) }, select: { id: true, status: true } });
@@ -33,10 +34,12 @@ export async function updateConsumerLeadStatus(id: string, status: string): Prom
 
 export async function assignConsumerLead(id: string, repId: string): Promise<{ ok?: boolean; error?: string }> {
   const session = await requireSession();
+  if (isAccounting(session)) return { error: "Accounting is read-only." };
   const lead = await db.consumerLead.findFirst({ where: { id, ...locationScope(session) }, select: { id: true } });
   if (!lead) return { error: "Not found." };
-  const rep = await db.user.findFirst({ where: { id: repId, active: true }, select: { id: true } });
-  if (!rep) return { error: "Rep not found." };
+  // rep must belong to the same company scope — no cross-company assignment
+  const rep = await db.user.findFirst({ where: { id: repId, active: true, ...locationScope(session) }, select: { id: true } });
+  if (!rep) return { error: "Rep not found in your company." };
   await db.consumerLead.update({ where: { id }, data: { assignedRepId: repId } });
   revalidatePath("/consumer-leads");
   return { ok: true };

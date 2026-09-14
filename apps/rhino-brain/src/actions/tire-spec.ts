@@ -108,5 +108,6 @@ export async function saveTireSpec(_prev: unknown, formData: FormData): Promise<
   }
 
   revalidatePath("/products");
+  revalidatePath(`/products/${productId}/specs`);
   return { ok: true, appliedToPattern };
 }

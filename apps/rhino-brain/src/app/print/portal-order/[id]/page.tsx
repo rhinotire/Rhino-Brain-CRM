@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth";
+import { requireSession, repScope, locationScope } from "@/lib/auth";
 import { AutoPrint } from "@/components/auto-print";
 
 /**
@@ -8,9 +8,10 @@ import { AutoPrint } from "@/components/auto-print";
  * entry sheet. Lives outside the (app) layout group so no sidebar/chrome prints.
  */
 export default async function PortalOrderPrintPage({ params, searchParams }: { params: { id: string }; searchParams?: { auto?: string } }) {
-  await requireSession();
-  const o = await db.dealerOrderRequest.findUnique({
-    where: { id: params.id },
+  const session = await requireSession();
+  // same scoping as the portal-orders list — no cross-company printing by id
+  const o = await db.dealerOrderRequest.findFirst({
+    where: { id: params.id, customer: { ...repScope(session), ...locationScope(session) } },
     include: {
       customer: {
         select: {

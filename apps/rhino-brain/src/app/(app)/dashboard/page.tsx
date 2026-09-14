@@ -60,6 +60,7 @@ export default async function DashboardPage() {
     // Customers needing attention: good tier but not contacted in 14+ days, or never
     db.customer.findMany({
       where: {
+        ...loc, // company isolation — every other dashboard query spreads this
         status: { in: ["ACTIVE", "PROSPECT", "INACTIVE"] },
         OR: [{ lastContactAt: { lt: subDays(now, 14) } }, { lastContactAt: null }],
       },

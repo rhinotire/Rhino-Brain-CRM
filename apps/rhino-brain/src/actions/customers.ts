@@ -74,8 +74,9 @@ export async function updateCustomer(customerId: string, _prev: ActionResult | n
   const parsed = parseForm(formData);
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
 
-  const existing = await db.customer.findUnique({ where: { id: customerId } });
-  if (!existing) return { ok: false, error: "Customer not found." };
+  // company isolation first, then rep ownership
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) } });
+  if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId)
     return { ok: false, error: "You can only edit customers assigned to you." };
 
@@ -109,8 +110,8 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
 export async function setCustomerInactive(customerId: string, reason: string): Promise<ActionResult> {
   const session = await requireSession();
   if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
-  const existing = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true, locationId: true } });
-  if (!existing) return { ok: false, error: "Customer not found." };
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { assignedRepId: true, locationId: true } });
+  if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
   const r = reason.trim().slice(0, 500);
   if (!r) return { ok: false, error: "Please give a reason." };
@@ -125,8 +126,8 @@ export async function setCustomerInactive(customerId: string, reason: string): P
 export async function reactivateCustomer(customerId: string): Promise<ActionResult> {
   const session = await requireSession();
   if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
-  const existing = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true, locationId: true } });
-  if (!existing) return { ok: false, error: "Customer not found." };
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { assignedRepId: true, locationId: true } });
+  if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
   await db.customer.update({ where: { id: customerId }, data: { status: "ACTIVE", inactiveReason: null } });
   await db.activity.create({ data: { type: "INTERNAL_NOTE", subject: "Reactivated customer", customerId, repId: session.userId, locationId: existing.locationId, meaningful: false } });

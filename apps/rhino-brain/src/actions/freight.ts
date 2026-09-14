@@ -14,7 +14,7 @@ import {
   type FreightStopInfo,
 } from "@rhino/services";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, locationScope } from "@/lib/auth";
 
 // ---------- carriers / consignees ----------
 
@@ -243,9 +243,9 @@ export async function createShipmentAndSend(raw: unknown): Promise<{ ok: boolean
 }
 
 export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
-  const quote = await db.freightQuote.findUnique({
-    where: { id: quoteId },
+  const session = await requireManager();
+  const quote = await db.freightQuote.findFirst({
+    where: { id: quoteId, shipment: { ...locationScope(session) } },
     include: {
       carrier: { include: { contacts: { where: { active: true } } } },
       shipment: { include: { stops: { include: { consignee: true }, orderBy: { sequence: "asc" } } } },
@@ -265,9 +265,9 @@ export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error
 }
 
 export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
-  const quote = await db.freightQuote.findUnique({
-    where: { id: quoteId },
+  const session = await requireManager();
+  const quote = await db.freightQuote.findFirst({
+    where: { id: quoteId, shipment: { ...locationScope(session) } },
     include: {
       carrier: { include: { contacts: { where: { active: true } } } },
       shipment: {
@@ -312,13 +312,13 @@ export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }
 
   revalidatePath(`/freight/${s.id}`);
   revalidatePath("/freight");
-  return r.sent ? { ok: true } : { ok: false, error: `Booked, but confirmation email failed: ${r.error}. Use "重发确认邮件".` };
+  return r.sent ? { ok: true } : { ok: false, error: `Booked, but confirmation email failed: ${r.error}. Use "Resend Confirmation".` };
 }
 
 export async function resendConfirmation(shipmentId: string): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
-  const s = await db.freightShipment.findUnique({
-    where: { id: shipmentId },
+  const session = await requireManager();
+  const s = await db.freightShipment.findFirst({
+    where: { id: shipmentId, ...locationScope(session) },
     include: {
       stops: { include: { consignee: true }, orderBy: { sequence: "asc" } },
       quotes: { include: { carrier: { include: { contacts: { where: { active: true } } } } } },
@@ -347,8 +347,8 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" | "DELIVERED" | "CANCELLED"): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
-  const s = await db.freightShipment.findUnique({ where: { id: shipmentId }, select: { status: true } });
+  const session = await requireManager();
+  const s = await db.freightShipment.findFirst({ where: { id: shipmentId, ...locationScope(session) }, select: { status: true } });
   if (!s) return { ok: false, error: "Not found" };
   if (!TRANSITIONS[s.status]?.includes(to)) return { ok: false, error: `Cannot go ${s.status} -> ${to}` };
   await db.freightShipment.update({ where: { id: shipmentId }, data: { status: to } });
@@ -359,9 +359,9 @@ export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" |
 
 /** Manual price entry / correction — human input supersedes AI (spec §5). */
 export async function overrideQuote(quoteId: string, data: { price: number; transitDays?: number | null }): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
+  const session = await requireManager();
   if (!Number.isFinite(data.price) || data.price <= 0) return { ok: false, error: "Invalid price" };
-  const quote = await db.freightQuote.findUnique({ where: { id: quoteId }, select: { shipmentId: true } });
+  const quote = await db.freightQuote.findFirst({ where: { id: quoteId, shipment: { ...locationScope(session) } }, select: { shipmentId: true } });
   if (!quote) return { ok: false, error: "Not found" };
   await db.freightQuote.update({
     where: { id: quoteId },

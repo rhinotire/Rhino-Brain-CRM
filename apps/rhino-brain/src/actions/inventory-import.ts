@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, canWrite } from "@/lib/auth";
 import { InventoryService } from "@rhino/services";
 
 export type InvRow = { sku: string; quantity: number };
@@ -15,6 +15,8 @@ export type InvRow = { sku: string; quantity: number };
 export async function importInventory(fileName: string, locationId: string, rows: InvRow[]): Promise<{ ok?: boolean; matched?: number; unknown?: number; unknownSample?: string[]; error?: string }> {
   const session = await requireManager();
   if (!locationId) return { error: "Pick which warehouse this file is for." };
+  // company isolation: a manager can only replace their OWN company's snapshot
+  if (!canWrite(session, { locationId })) return { error: "You can only upload inventory for your own company." };
   if (rows.length === 0) return { error: "No stock rows found in the file." };
   if (rows.length > 20000) return { error: "Too many rows (max 20000)." };
 

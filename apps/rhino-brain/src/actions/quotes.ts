@@ -10,10 +10,16 @@ import bcrypt from "bcryptjs";
 
 // ---------- Quotes ----------
 
-async function nextQuoteNumber(): Promise<string> {
+async function nextQuoteNumber(bump = 0): Promise<string> {
   const year = new Date().getFullYear();
-  const count = await db.quote.count({ where: { quoteNumber: { startsWith: `Q${year}-` } } });
-  return `Q${year}-${String(count + 1).padStart(4, "0")}`;
+  // max-based, not count-based: counts re-collide forever once a quote is deleted
+  const last = await db.quote.findFirst({
+    where: { quoteNumber: { startsWith: `Q${year}-` } },
+    orderBy: { quoteNumber: "desc" },
+    select: { quoteNumber: true },
+  });
+  const lastN = last ? Number(last.quoteNumber.slice(6)) || 0 : 0;
+  return `Q${year}-${String(lastN + 1 + bump).padStart(4, "0")}`;
 }
 
 /** Create quote from a JSON payload (client builds the line-item array). */
@@ -42,10 +48,10 @@ export async function createQuote(payload: unknown): Promise<ActionResult & { qu
     total,
     items: { create: items },
   };
-  // quoteNumber is count-based; on a concurrent-create collision (P2002) recompute & retry.
+  // on a concurrent-create collision (P2002) retry with a bumped number
   let quote: { id: string } | undefined;
   for (let attempt = 0; ; attempt++) {
-    try { quote = await db.quote.create({ data: { ...baseData, quoteNumber: await nextQuoteNumber() } }); break; }
+    try { quote = await db.quote.create({ data: { ...baseData, quoteNumber: await nextQuoteNumber(attempt) } }); break; }
     catch (e) { if ((e as { code?: string }).code === "P2002" && attempt < 4) continue; throw e; }
   }
   revalidatePath("/quotes");
@@ -76,6 +82,8 @@ export async function setQuoteStatus(quoteId: string, status: QuoteStatus): Prom
         customerId: quote.customerId,
         repId: session.userId,
         quoteId: quote.id,
+        // without locationId the activity vanishes from every location-scoped view
+        locationId: quote.locationId,
         meaningful: true,
       },
     });

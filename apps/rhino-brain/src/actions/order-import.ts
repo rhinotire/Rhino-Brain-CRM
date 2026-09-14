@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, defaultLocationId } from "@/lib/auth";
 
 export type OrderRow = {
   invoice: string;      // external invoice #
@@ -23,14 +23,17 @@ export async function importOrders(fileName: string, rows: OrderRow[]): Promise<
   if (rows.length === 0) return { error: "No order rows found in the file." };
   if (rows.length > 50000) return { error: "Too many rows (max 50000)." };
 
-  const customers = await db.customer.findMany({ select: { id: true, companyName: true, locationId: true } });
+  // company isolation: sales history belongs to ONE company — match only its customers
+  const targetLoc = defaultLocationId(session, null);
+  if (!targetLoc) return { error: "Select which company this sales file is for (sidebar switcher) before importing." };
+
+  const customers = await db.customer.findMany({ where: { locationId: targetLoc }, select: { id: true, companyName: true, locationId: true } });
   const byName = new Map(customers.map(c => [norm(c.companyName), c]));
   for (const c of customers) {
     const stripped = norm(c.companyName.replace(/^,\s*\S+\s+/, ""));
     if (stripped && !byName.has(stripped)) byName.set(stripped, c);
   }
-  const defaultLoc = (await db.location.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
-  if (!defaultLoc) return { error: "No location configured." };
+  const defaultLoc = targetLoc;
 
   let matched = 0;
   const unmatched = new Set<string>();

@@ -125,6 +125,16 @@ export function defaultLocationId(s: Session, requested?: string | null): string
   return s.locationId ?? null;
 }
 
+/**
+ * May this session READ a record belonging to the given company?
+ * ADMIN/ACCOUNTING: yes (they see all locations). Others: own location only.
+ * Use canWrite() for mutations — it additionally blocks ACCOUNTING.
+ */
+export function inLocation(s: Session, locationId: string | null | undefined): boolean {
+  if (seesAllLocations(s)) return true;
+  return !locationId || !s.locationId || locationId === s.locationId;
+}
+
 /** Re-check the user still exists and is active (used at login-sensitive spots). */
 export async function getActiveUser(s: Session) {
   return db.user.findFirst({ where: { id: s.userId, active: true } });

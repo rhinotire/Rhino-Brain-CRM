@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, defaultLocationId } from "@/lib/auth";
 
 export type ArRow = {
   customerName: string;
@@ -25,7 +25,12 @@ export async function importArInvoices(fileName: string, rows: ArRow[]): Promise
   if (rows.length === 0) return { error: "No valid rows found in the file." };
   if (rows.length > 8000) return { error: "Too many rows (max 8000) — is this the right file?" };
 
-  const customers = await db.customer.findMany({ select: { id: true, companyName: true, locationId: true, phone: true, contactCell: true } });
+  // A/R reports belong to ONE company. Matching and the snapshot-replace below
+  // are hard-scoped to it so an upload can never touch the other company's books.
+  const targetLoc = defaultLocationId(session, null);
+  if (!targetLoc) return { error: "Select which company this report is for (sidebar switcher) before importing." };
+
+  const customers = await db.customer.findMany({ where: { locationId: targetLoc }, select: { id: true, companyName: true, locationId: true, phone: true, contactCell: true } });
   const byName = new Map(customers.map(c => [norm(c.companyName), c]));
   for (const c of customers) {
     // some CRM names carry a ", FirstName " prefix from the original import
@@ -57,15 +62,16 @@ export async function importArInvoices(fileName: string, rows: ArRow[]): Promise
       amount: r.amount,
       balance: r.balance,
       dueDate: new Date(r.dueDate),
-      locationId: cust?.locationId ?? null,
+      // unmatched rows still belong to the report's company — never null, so
+      // they stay visible under the company filter and can't leak elsewhere
+      locationId: targetLoc,
       source: `UPLOAD:${fileName}`.slice(0, 100),
     };
   });
 
-  // snapshot semantics: replace only the A/R for the companies this report covers,
-  // plus unmatched (null-location) orphans — never wipe another company's invoices.
-  const locIds = [...new Set(data.map(d => d.locationId).filter((x): x is string => !!x))];
-  await db.invoice.deleteMany({ where: { OR: [{ locationId: { in: locIds } }, { locationId: null }] } });
+  // snapshot semantics: replace ONLY this company's A/R (plus legacy null-location
+  // orphans from before rows carried a company).
+  await db.invoice.deleteMany({ where: { OR: [{ locationId: targetLoc }, { locationId: null }] } });
   for (let i = 0; i < data.length; i += 500) {
     await db.invoice.createMany({ data: data.slice(i, i + 500) });
   }

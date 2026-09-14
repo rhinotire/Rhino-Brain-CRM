@@ -11,7 +11,8 @@ async function assertLeadAccess(leadId: string) {
   const session = await requireSession();
   const lead = await db.lead.findUnique({ where: { id: leadId } });
   if (!lead) throw new Error("Lead not found");
-  if (!isManager(session) && lead.assignedRepId !== session.userId) throw new Error("Not your lead");
+  // company isolation + rep ownership (canWrite also blocks read-only ACCOUNTING)
+  if (!canWrite(session, { locationId: lead.locationId, ownerId: lead.assignedRepId })) throw new Error("Not your lead");
   return { session, lead };
 }
 

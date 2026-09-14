@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requireManager, defaultLocationId, canWrite } from "@/lib/auth";
 import type { CustomerType } from "@prisma/client";
 
 export type MasterRow = {
@@ -33,12 +33,19 @@ export async function importCustomerMaster(fileName: string, rows: MasterRow[], 
   const session = await requireManager();
   if (rows.length === 0) return { error: "No customer rows found." };
   if (rows.length > 20000) return { error: "Too many rows (max 20000)." };
-  const loc = locationId ? await db.location.findUnique({ where: { id: locationId }, select: { id: true } }) : null;
 
-  const users = await db.user.findMany({ select: { id: true, name: true } });
+  // company isolation: the whole import (matching, rep lookup, writes) is
+  // hard-scoped to ONE company so it can never overwrite the other's customers
+  const targetLoc = defaultLocationId(session, locationId);
+  if (!targetLoc) return { error: "Select which company this list is for (sidebar switcher) before importing." };
+  if (!canWrite(session, { locationId: targetLoc })) return { error: "You can only import customers for your own company." };
+  const loc = await db.location.findUnique({ where: { id: targetLoc }, select: { id: true } });
+  if (!loc) return { error: "Unknown company/location." };
+
+  const users = await db.user.findMany({ where: { locationId: targetLoc }, select: { id: true, name: true } });
   const userByName = new Map(users.map(u => [norm(u.name), u.id]));
 
-  const existing = await db.customer.findMany({ select: { id: true, companyName: true, phone: true, contactCell: true, tireguruId: true } });
+  const existing = await db.customer.findMany({ where: { locationId: targetLoc }, select: { id: true, companyName: true, phone: true, contactCell: true, tireguruId: true } });
   const byPhone = new Map<string, string>();
   for (const c of existing) for (const p of [c.phone, c.contactCell]) { const d = last10(p ?? ""); if (d.length === 10 && !byPhone.has(d)) byPhone.set(d, c.id); }
   const byTgid = new Map(existing.filter(c => c.tireguruId).map(c => [c.tireguruId!, c.id]));
@@ -70,7 +77,7 @@ export async function importCustomerMaster(fileName: string, rows: MasterRow[], 
       creditLimit: money(r.credit ?? "") ?? undefined,
       ...(type ? { type } : {}),
       ...(repId ? { assignedRepId: repId } : {}),
-      ...(loc ? { locationId: loc.id } : {}),
+      locationId: targetLoc,
       ...(r.custNo?.trim() ? { tireguruId: r.custNo.trim() } : {}),
     };
 

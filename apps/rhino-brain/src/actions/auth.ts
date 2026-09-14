@@ -33,7 +33,8 @@ export async function logout() {
 export async function setLocationFilter(formData: FormData) {
   const { requireSession, setAdminLocFilterCookie } = await import("@/lib/auth");
   const session = await requireSession();
-  if (session.role !== "ADMIN") return;
+  // ACCOUNTING sees all locations too — the sidebar switcher must work for them
+  if (session.role !== "ADMIN" && session.role !== "ACCOUNTING") return;
   const v = String(formData.get("locationId") || "");
   setAdminLocFilterCookie(v || null);
   const { revalidatePath } = await import("next/cache");

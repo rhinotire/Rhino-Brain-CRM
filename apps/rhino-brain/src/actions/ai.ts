@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, repScope, locationScope, seesAllLocations } from "@/lib/auth";
+import { requireSession, repScope, locationScope, seesAllLocations, inLocation } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { fmtMoney } from "@/lib/domain";
 
@@ -163,6 +163,8 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
     },
   });
   if (!customer) return { error: "Pick a customer from the list first." };
+  // company isolation first (managers included), then rep ownership
+  if (!inLocation(session, customer.locationId)) return { error: "Customer is not in your company." };
   if (session.role === "SALES_REP" && customer.assignedRepId !== session.userId) return { error: "Not your customer." };
 
   const d = (x: Date) => x.toISOString().slice(0, 10);
@@ -229,7 +231,7 @@ export async function askBrain(_prev: unknown, formData: FormData): Promise<{ ok
       where: { balance: { gt: 0 }, ...invScope },
       _sum: { balance: true }, _count: true,
     }),
-    db.lostSale.aggregate({ where: { occurredAt: { gte: subDays(now, 30) }, ...repScope(session, "repId") }, _sum: { estValue: true }, _count: true }),
+    db.lostSale.aggregate({ where: { occurredAt: { gte: subDays(now, 30) }, ...repScope(session, "repId"), ...locationScope(session) }, _sum: { estValue: true }, _count: true }),
     db.invoice.findMany({
       where: { balance: { gt: 0 }, dueDate: { lt: now }, ...invScope },
       orderBy: { balance: "desc" }, take: 10,

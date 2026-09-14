@@ -3,7 +3,8 @@ import { z } from "zod";
 const optionalStr = z.string().trim().max(500).optional().or(z.literal("")).transform(v => v || undefined);
 const optionalDate = z.string().optional().or(z.literal("")).transform(v => (v ? new Date(v) : undefined));
 const optionalNum = z.string().optional().or(z.literal("")).transform(v => (v ? Number(v) : undefined))
-  .refine(v => v === undefined || !Number.isNaN(v), "Must be a number");
+  // isFinite (not just !isNaN): "Infinity" would blow up the Decimal column with a 500
+  .refine(v => v === undefined || Number.isFinite(v), "Must be a number");
 
 export const loginSchema = z.object({
   email: z.string().email(),

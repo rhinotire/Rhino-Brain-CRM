@@ -4,7 +4,7 @@ import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, inLocation } from "@/lib/auth";
 
 /**
  * Dealer portal account management (portal Phase 3). Reps manage logins for
@@ -21,10 +21,12 @@ const tempPassword = () => {
 
 async function canManage(customerId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await requireSession();
-  if (isManager(session)) return { ok: true };
-  const c = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true } });
+  if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
+  const c = await db.customer.findUnique({ where: { id: customerId }, select: { assignedRepId: true, locationId: true } });
   if (!c) return { ok: false, error: "Customer not found" };
-  if (c.assignedRepId !== session.userId) return { ok: false, error: "Not your customer" };
+  // company isolation applies to managers too — only their own company's customers
+  if (!inLocation(session, c.locationId)) return { ok: false, error: "Customer is not in your company." };
+  if (!isManager(session) && c.assignedRepId !== session.userId) return { ok: false, error: "Not your customer" };
   return { ok: true };
 }
 

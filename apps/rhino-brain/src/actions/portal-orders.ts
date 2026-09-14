@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager } from "@/lib/auth";
+import { requireSession, isManager, locationScope } from "@/lib/auth";
 import type { DealerOrderStatus } from "@prisma/client";
 
 const ALLOWED: DealerOrderStatus[] = ["SUBMITTED", "CONFIRMED", "FULFILLED", "CANCELLED"];
@@ -13,6 +13,9 @@ export async function updatePortalOrderStatus(id: string, status: string): Promi
   if (!isManager(session)) return { ok: false, error: "Only managers can update dealer orders." };
   if (!ALLOWED.includes(status as DealerOrderStatus)) return { ok: false, error: "Invalid status" };
   try {
+    // company isolation: the order's customer must be in the manager's company
+    const target = await db.dealerOrderRequest.findFirst({ where: { id, customer: { ...locationScope(session) } }, select: { id: true } });
+    if (!target) return { ok: false, error: "Order not found in your company." };
     await db.dealerOrderRequest.update({ where: { id }, data: { status: status as DealerOrderStatus } });
     revalidatePath("/portal-orders");
     return { ok: true };

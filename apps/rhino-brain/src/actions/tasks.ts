@@ -13,8 +13,13 @@ export async function createTask(_prev: ActionResult | null, formData: FormData)
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
 
   const d = parsed.data;
-  // Reps can only create tasks for themselves; managers can assign anyone.
+  // Reps can only create tasks for themselves; managers can assign anyone IN THEIR COMPANY.
   const assigneeId = isManager(session) ? d.assigneeId : session.userId;
+  if (assigneeId && assigneeId !== session.userId) {
+    const assignee = await db.user.findUnique({ where: { id: assigneeId }, select: { locationId: true, active: true } });
+    if (!assignee?.active || !canWrite(session, { locationId: assignee.locationId }))
+      return { ok: false, error: "Assignee must be an active user in your company." };
+  }
 
     let locId: string | null = null;
   if (d.customerId) locId = (await db.customer.findUnique({ where: { id: d.customerId }, select: { locationId: true } }))?.locationId ?? null;
@@ -47,7 +52,7 @@ export async function completeTask(taskId: string): Promise<ActionResult> {
   const session = await requireSession();
   const task = await db.task.findUnique({ where: { id: taskId } });
   if (!task) return { ok: false, error: "Task not found." };
-  if (!isManager(session) && task.assigneeId !== session.userId)
+  if (!canWrite(session, { locationId: task.locationId, ownerId: task.assigneeId }))
     return { ok: false, error: "Not your task." };
 
   await db.task.update({ where: { id: taskId }, data: { status: "COMPLETED", completedAt: new Date() } });
@@ -61,8 +66,8 @@ export async function cancelTask(taskId: string): Promise<ActionResult> {
   const session = await requireSession();
   const task = await db.task.findUnique({ where: { id: taskId } });
   if (!task) return { ok: false, error: "Task not found." };
-  if (!isManager(session) && task.creatorId !== session.userId)
-    return { ok: false, error: "Only the creator or a manager can cancel a task." };
+  if (!canWrite(session, { locationId: task.locationId, ownerId: task.creatorId }))
+    return { ok: false, error: "Only the creator or a manager in the task's company can cancel it." };
 
   await db.task.update({ where: { id: taskId }, data: { status: "CANCELED" } });
   revalidatePath("/tasks");

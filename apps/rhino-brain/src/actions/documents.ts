@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager, isAccounting } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, canWrite, inLocation } from "@/lib/auth";
 import { uploadObject, createSignedUrl, deleteObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
 import type { DocumentType } from "@prisma/client";
@@ -24,10 +24,10 @@ export async function uploadCustomerDocument(_prev: ActionResult | null, formDat
   if (file.size > MAX_SIZE) return { ok: false, error: "File is too large (max 10 MB)." };
   if (!ALLOWED_MIME.includes(file.type)) return { ok: false, error: "Only PDF and image files are allowed." };
 
-  const customer = await db.customer.findUnique({ where: { id: customerId }, select: { id: true, assignedRepId: true } });
+  const customer = await db.customer.findUnique({ where: { id: customerId }, select: { id: true, assignedRepId: true, locationId: true } });
   if (!customer) return { ok: false, error: "Customer not found." };
-  if (!isManager(session) && customer.assignedRepId !== session.userId)
-    return { ok: false, error: "You can only upload documents for your own customers." };
+  if (!canWrite(session, { locationId: customer.locationId, ownerId: customer.assignedRepId }))
+    return { ok: false, error: "You can only upload documents for your own company's customers." };
 
   const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-100);
   const storagePath = `${customerId}/${type}/${Date.now()}-${safeName}`;
@@ -52,8 +52,10 @@ export async function uploadCustomerDocument(_prev: ActionResult | null, formDat
 
 export async function getDocumentDownloadUrl(documentId: string): Promise<{ url?: string; error?: string }> {
   const session = await requireSession();
-  const doc = await db.customerDocument.findUnique({ where: { id: documentId }, include: { customer: { select: { assignedRepId: true } } } });
+  const doc = await db.customerDocument.findUnique({ where: { id: documentId }, include: { customer: { select: { assignedRepId: true, locationId: true } } } });
   if (!doc) return { error: "Document not found." };
+  // company isolation: managers see only their own company's documents (admin/accounting see all)
+  if (!inLocation(session, doc.customer.locationId)) return { error: "Not your company's customer." };
   // Accounting can pull credit-card authorizations (billing) but not driver licenses.
   const acctCanView = isAccounting(session) && doc.type === "CREDIT_CARD_AUTH";
   if (doc.sensitive && !isManager(session) && !acctCanView) return { error: "Only managers can download this document." };
@@ -68,8 +70,9 @@ export async function getDocumentDownloadUrl(documentId: string): Promise<{ url?
 export async function deleteCustomerDocument(documentId: string): Promise<ActionResult> {
   const session = await requireSession();
   if (!isManager(session)) return { ok: false, error: "Only managers can delete documents." };
-  const doc = await db.customerDocument.findUnique({ where: { id: documentId } });
+  const doc = await db.customerDocument.findUnique({ where: { id: documentId }, include: { customer: { select: { locationId: true } } } });
   if (!doc) return { ok: false, error: "Document not found." };
+  if (!canWrite(session, { locationId: doc.customer.locationId })) return { ok: false, error: "Not your company's customer." };
   await deleteObject(doc.storagePath).catch(() => {});
   await db.customerDocument.delete({ where: { id: documentId } });
   revalidatePath(`/customers/${doc.customerId}`);
