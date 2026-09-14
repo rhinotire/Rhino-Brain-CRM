@@ -77,6 +77,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">{seesAll ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
         <div className="flex gap-2">
+          {manager && <Link href="/customers/duplicates" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">🧬 Merge Duplicates</Link>}
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
           {canWrite && <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />}
         </div>
