@@ -80,7 +80,10 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{manager ? "A/R Aging" : "My A/R"} <span className="text-sm font-normal text-slate-400">({invoices.length} open invoices)</span></h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold">{manager ? "A/R Aging" : "My A/R"} <span className="text-sm font-normal text-slate-400">({invoices.length} open invoices)</span></h1>
+        <Link href="/ar/collections" className="inline-flex h-9 items-center rounded-md bg-brand-600 px-3.5 text-sm font-medium text-white hover:bg-brand-700">📞 Collections Workbench</Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         <StatCard label="Net outstanding" value={fmtMoney(grandTotal)} />

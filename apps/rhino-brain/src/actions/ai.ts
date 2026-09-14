@@ -209,6 +209,55 @@ export async function draftMessage(_prev: unknown, formData: FormData): Promise<
   }
 }
 
+// ---------- 2b. Collection email (A/R Collections view) ----------
+
+export async function draftCollectionEmail(customerId: string): Promise<{ ok?: boolean; subject?: string; body?: string; toEmail?: string | null; error?: string }> {
+  const session = await requireSession();
+  if (!process.env.ANTHROPIC_API_KEY) return { error: "AI is not configured yet — ask the admin to add ANTHROPIC_API_KEY." };
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: {
+      companyName: true, contactPerson: true, email: true, paymentTerms: true, locationId: true,
+      assignedRepId: true, location: { select: { name: true } },
+    },
+  });
+  if (!customer) return { error: "Customer not found." };
+  if (!inLocation(session, customer.locationId)) return { error: "Customer is not in your company." };
+  if (session.role === "SALES_REP" && customer.assignedRepId !== session.userId) return { error: "Not your customer." };
+
+  const now = new Date();
+  const overdue = await db.invoice.findMany({
+    where: { customerId, balance: { gt: 0 }, dueDate: { lt: now } },
+    orderBy: { dueDate: "asc" },
+    select: { balance: true, dueDate: true },
+  });
+  if (!overdue.length) return { error: "No overdue balance for this customer." };
+  const total = overdue.reduce((s, i) => s + Number(i.balance), 0);
+  const worstDays = Math.floor((now.getTime() - overdue[0].dueDate.getTime()) / 86400000);
+  const lines = overdue.slice(0, 12).map(i =>
+    `due ${i.dueDate.toISOString().slice(0, 10)} (${Math.floor((now.getTime() - i.dueDate.getTime()) / 86400000)} days past): ${fmtMoney(Number(i.balance))}`).join("\n");
+
+  const tone = worstDays > 120
+    ? "Final-notice firm: payment or a payment plan this week, mention that further orders may require prepayment until the balance clears. Still professional, never threatening legal action."
+    : worstDays > 60
+      ? "Firm but partnership-minded: ask for a payment date this week."
+      : "Friendly reminder: likely an oversight.";
+
+  try {
+    const raw = await askClaude(
+      SYSTEM,
+      `Task: write a collections (accounts receivable) email for an overdue wholesale customer.\nTone: ${tone}\nSign as ${session.name}, ${customer.location?.name ?? "Rhino Tire USA"}.\n\nCustomer: ${customer.companyName}${customer.contactPerson ? ` (contact: ${customer.contactPerson})` : ""}\n${customer.paymentTerms ? `Payment terms: ${customer.paymentTerms}\n` : ""}Total overdue: ${fmtMoney(total)} across ${overdue.length} item(s), oldest ${worstDays} days past due.\nOverdue detail:\n${lines}\n\nRules: write in English; include the total and the oldest-days figure; ask for payment or a concrete payment date; offer to review the statement together if anything looks off; do NOT invent payment methods, fees, or interest. Under 150 words.\n\nFormat your reply EXACTLY as:\nSUBJECT: <subject line>\nBODY:\n<email body>`,
+      800,
+    );
+    const subject = raw.match(/SUBJECT:\s*(.*)/)?.[1]?.trim() ?? `Past-due balance — ${customer.companyName}`;
+    const body = raw.match(/BODY:\s*([\s\S]*)$/)?.[1]?.trim() ?? raw;
+    return { ok: true, subject, body, toEmail: customer.email };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "AI request failed" };
+  }
+}
+
 // ---------- 3. Ask box ----------
 
 export async function askBrain(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; answer?: string; error?: string }> {
