@@ -18,6 +18,12 @@ const SUBJECT_PRESETS = [
   "Payment reminder", "New product intro", "Check-in", "Price negotiation",
 ];
 
+/** Outside-sales presets — shown when the type is an in-person VISIT. */
+const VISIT_PRESETS = [
+  "Store visit", "New prospect visit", "Delivery / drop-off", "Sample drop-off",
+  "Collected payment", "Checked their inventory", "Met the owner", "Resolved issue on site",
+];
+
 /**
  * Quick "Log Call / Add Note / …" button + modal.
  * Pass a fixed customerId/leadId (customer page) or a customers list (My Work page).
@@ -36,15 +42,34 @@ export function QuickLogButton({
   const [open, setOpen] = useState(false);
   const [outcome, setOutcome] = useState("");
   const [subject, setSubject] = useState("");
+  const [type, setType] = useState<string>(defaultType);
   const [pickedCustomerId, setPickedCustomerId] = useState("");
   const [lostItem, setLostItem] = useState("");
   const [lostStockNote, setLostStockNote] = useState("");
+  const [visitLocation, setVisitLocation] = useState("");
+  const [locating, setLocating] = useState(false);
   const [state, action] = useFormState(logActivity, null);
   const toast = useToast();
   const isLost = outcome.startsWith("LOST");
+  const isVisit = type === "VISIT";
+
+  const checkIn = () => {
+    if (!navigator.geolocation) { toast("This device has no location service", "error"); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setVisitLocation(`https://maps.google.com/?q=${latitude.toFixed(6)},${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`);
+        setLocating(false);
+        toast("Location captured");
+      },
+      () => { setLocating(false); toast("Could not get location — allow location access and try again", "error"); },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
 
   useEffect(() => {
-    if (state?.ok) { toast("Activity logged"); setOpen(false); setSubject(""); setOutcome(""); setLostItem(""); setLostStockNote(""); }
+    if (state?.ok) { toast("Activity logged"); setOpen(false); setSubject(""); setOutcome(""); setLostItem(""); setLostStockNote(""); setVisitLocation(""); }
     if (state?.error) toast(state.error, "error");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -72,9 +97,9 @@ export function QuickLogButton({
               </>
             </Field>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Activity Type">
-              <Select name="type" defaultValue={defaultType}>
+              <Select name="type" value={type} onChange={e => setType(e.target.value)}>
                 {Object.entries(activityTypeLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </Field>
@@ -82,10 +107,27 @@ export function QuickLogButton({
               <Input name="nextFollowUpAt" type="date" />
             </Field>
           </div>
+          {isVisit && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2.5">
+              {visitLocation ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-800">
+                  <span>📍 Checked in</span>
+                  <a href={visitLocation.split(" ")[0]} target="_blank" rel="noopener" className="font-medium underline">view on map</a>
+                  <button type="button" className="text-xs text-slate-500 underline" onClick={() => setVisitLocation("")}>remove</button>
+                </div>
+              ) : (
+                <button type="button" onClick={checkIn} disabled={locating}
+                  className="text-sm font-medium text-emerald-700 hover:text-emerald-900">
+                  {locating ? "Getting your location…" : "📍 Check in at this location (proof of visit)"}
+                </button>
+              )}
+              <input type="hidden" name="visitLocation" value={visitLocation} />
+            </div>
+          )}
           <Field label="Subject *">
             <>
               <div className="mb-1.5 flex flex-wrap gap-1.5">
-                {SUBJECT_PRESETS.map(s => (
+                {(isVisit ? VISIT_PRESETS : SUBJECT_PRESETS).map(s => (
                   <button key={s} type="button" onClick={() => setSubject(s)}
                     className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs text-slate-600 hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
                     {s}
@@ -119,7 +161,7 @@ export function QuickLogButton({
           </Field>
           {isLost && (
             <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Item / size they wanted">
                   <>
                     <ProductPicker value={lostItem} customerId={customerId || pickedCustomerId || undefined}
@@ -135,12 +177,12 @@ export function QuickLogButton({
                   <Input name="lostQty" type="number" min={0} defaultValue={48} />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Est. lost value $">
                   <Input name="lostValue" type="number" min={0} step="0.01" placeholder="2500" />
                 </Field>
                 {outcome === "LOST_PRICE" && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Field label="Competitor">
                       <Input name="lostCompetitor" placeholder="ATD / Horizon…" />
                     </Field>

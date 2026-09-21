@@ -33,12 +33,16 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
   // Company isolation: can't attach activity to another company's account.
   if (!canWrite(session, { locationId: locId })) return { ok: false, error: "That account isn't in your company." };
 
+  // Outside-sales check-in: the dialog captured GPS at log time (VISIT type)
+  const visitLoc = String(raw.visitLocation ?? "").trim().slice(0, 200);
+  const notes = [d.notes, visitLoc ? `📍 On-site check-in: ${visitLoc}` : null].filter(Boolean).join("\n") || undefined;
+
   const activity = await db.activity.create({
     data: {
       locationId: locId,
       type: d.type,
       subject: d.subject,
-      notes: d.notes,
+      notes,
       outcome: d.outcome ? outcomeLabels[d.outcome] ?? d.outcome : undefined,
       meaningful,
       followUpRequired: d.followUpRequired,
