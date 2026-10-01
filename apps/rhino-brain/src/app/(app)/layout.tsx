@@ -30,6 +30,7 @@ const managerGroups: NavGroup[] = [
   { title: "Daily Work", items: [
     { href: "/tasks", label: "Tasks", icon: "✓" },
     { href: "/activities", label: "Activities", icon: "☎" },
+    { href: "/field/report", label: "Field Report", icon: "🗺️" },
     { href: "/chat", label: "Team Chat", icon: "💬" },
   ]},
   { title: "Products", items: [

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { QuickLogButton } from "@/components/quick-log";
 import { searchFieldCustomers, createFieldProspect, optimizeRoute, type FieldSearchHit } from "@/actions/field";
+import { draftVisitBrief } from "@/actions/ai";
 import { Badge, Button, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { fmtMoney } from "@/lib/domain";
@@ -36,6 +37,37 @@ const REASON_ICON: Record<FieldCard["reason"]["kind"], string> = {
 
 const navUrl = (address: string) =>
   `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+
+/** Pre-visit AI brief: what to know before walking in. */
+function BriefButton({ customerId, name }: { customerId: string; name: string }) {
+  const [brief, setBrief] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const toast = useToast();
+  const load = () => start(async () => {
+    const r = await draftVisitBrief(customerId);
+    if (r.ok && r.brief) setBrief(r.brief);
+    else toast(r.error ?? "Brief failed", "error");
+  });
+  return (
+    <>
+      <button type="button" onClick={load} disabled={pending}
+        className="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+        {pending ? "…" : "🧠"}
+      </button>
+      {brief && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center" onClick={() => setBrief(null)}>
+          <div className="w-full max-w-md rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-2 text-sm font-semibold text-slate-800">🧠 Before you walk into {name}</div>
+            <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 font-sans text-sm leading-relaxed text-slate-700">{brief}</pre>
+            <div className="mt-3 flex justify-end">
+              <Button size="sm" variant="secondary" onClick={() => setBrief(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /** Drive-by prospect modal: name + phone + GPS → customer created + visit logged. */
 function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void }) {
@@ -262,6 +294,7 @@ export function FieldList({ cards: initial }: { cards: FieldCard[] }) {
             </div>
           </div>
           <div className="mt-2.5 flex items-center gap-2">
+            {c.reason.kind !== "new" && <BriefButton customerId={c.id} name={c.name} />}
             {c.address && (
               <a href={navUrl(c.address)} target="_blank" rel="noopener"
                 className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">

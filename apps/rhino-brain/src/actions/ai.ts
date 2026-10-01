@@ -295,6 +295,58 @@ export async function draftCollectionEmail(customerId: string): Promise<Collecti
   }
 }
 
+// ---------- 2c. Visit brief (Field Mode) ----------
+
+export async function draftVisitBrief(customerId: string): Promise<{ ok?: boolean; brief?: string; error?: string }> {
+  const session = await requireSession();
+  if (!process.env.ANTHROPIC_API_KEY) return { error: "AI is not configured yet." };
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      location: { select: { name: true } },
+      activities: { orderBy: { occurredAt: "desc" }, take: 4, select: { type: true, subject: true, notes: true, occurredAt: true } },
+      invoices: { where: { balance: { gt: 0 } }, select: { balance: true, dueDate: true } },
+      quotes: { orderBy: { quoteDate: "desc" }, take: 2, select: { quoteNumber: true, status: true, total: true, items: { take: 3, select: { sizeSku: true, description: true, quantity: true } } } },
+      orders: { orderBy: { orderDate: "desc" }, take: 3, select: { orderDate: true, total: true, items: { take: 3, select: { rawDescription: true, quantity: true } } } },
+      lostSales: { orderBy: { occurredAt: "desc" }, take: 2, select: { item: true, reason: true, competitor: true } },
+    },
+  });
+  if (!customer) return { error: "Customer not found." };
+  if (!inLocation(session, customer.locationId)) return { error: "Customer is not in your company." };
+  if (session.role === "SALES_REP" && customer.assignedRepId !== session.userId) return { error: "Not your customer." };
+
+  const now = new Date();
+  const d = (x: Date) => x.toISOString().slice(0, 10);
+  const owed = customer.invoices.reduce((s, i) => s + Number(i.balance), 0);
+  const overdue = customer.invoices.filter(i => i.dueDate < now).reduce((s, i) => s + Number(i.balance), 0);
+  const ctx = [
+    `Customer: ${customer.companyName}${customer.contactPerson ? ` (contact: ${customer.contactPerson})` : ""} · Type ${customer.type} · Tier ${customer.tier}`,
+    owed > 0 ? `Balance: ${fmtMoney(owed)} total, ${fmtMoney(overdue)} past due` : "No open balance",
+    customer.paymentTerms ? `Terms: ${customer.paymentTerms}` : null,
+    customer.orders.length
+      ? `Orders: ${customer.orders.map(o => `${d(o.orderDate)} ${fmtMoney(Number(o.total))}${o.items.length ? ` [${o.items.map(i => `${i.quantity}× ${i.rawDescription}`).join(", ")}]` : ""}`).join(" | ")}`
+      : "No orders on record",
+    customer.quotes.length
+      ? `Quotes: ${customer.quotes.map(q => `${q.quoteNumber} ${q.status} ${fmtMoney(Number(q.total))}${q.items.length ? ` [${q.items.map(i => `${i.quantity}× ${i.sizeSku || i.description}`).join(", ")}]` : ""}`).join(" | ")}`
+      : null,
+    customer.lostSales.length ? `Lost sales: ${customer.lostSales.map(l => `${l.item} (${l.reason}${l.competitor ? ` to ${l.competitor}` : ""})`).join("; ")}` : null,
+    customer.activities.length ? `Recent contact: ${customer.activities.map(a => `[${d(a.occurredAt)}] ${a.type}: ${a.subject}${a.notes ? ` — ${a.notes.slice(0, 60)}` : ""}`).join("; ")}` : "No recent contact",
+    customer.notes ? `Rep notes: ${customer.notes.slice(0, 200)}` : null,
+  ].filter(Boolean).join("\n");
+
+  try {
+    const brief = await askClaude(
+      SYSTEM,
+      `Task: a rep is about to WALK INTO this customer's store. Write a pre-visit brief.\n\n${ctx}\n\nFormat: 3-5 short bullet points (• ), most important first — money owed, what they buy, anything unresolved — then ONE line starting with "→ Talk about:" with the single best talking point for this visit. Under 110 words total. Never invent facts, numbers or products not in the context.`,
+      500,
+    );
+    return { ok: true, brief };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "AI request failed" };
+  }
+}
+
 // ---------- 3. Ask box ----------
 
 export async function askBrain(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; answer?: string; error?: string }> {
