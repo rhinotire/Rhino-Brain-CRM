@@ -14,6 +14,7 @@ const managerGroups: NavGroup[] = [
   { items: [
     { href: "/dashboard", label: "Dashboard", icon: "▦" },
     { href: "/my-work", label: "My Work Today", icon: "★" },
+    { href: "/field", label: "Field Mode", icon: "🧭" },
   ]},
   { title: "Sales", items: [
     { href: "/customers", label: "Customers", icon: "🏬" },
@@ -65,7 +66,10 @@ const settingsGroup = (isAdmin: boolean): NavGroup => ({
 });
 
 const repGroups: NavGroup[] = [
-  { items: [{ href: "/my-work", label: "My Work Today", icon: "★" }] },
+  { items: [
+    { href: "/field", label: "Field Mode", icon: "🧭" },
+    { href: "/my-work", label: "My Work Today", icon: "★" },
+  ] },
   { title: "Sales", items: [
     { href: "/customers", label: "My Customers", icon: "🏬" },
     { href: "/pipeline", label: "My Leads", icon: "⇉" },

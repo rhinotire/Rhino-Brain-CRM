@@ -4,7 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // verification happen in server components / actions (Node runtime).
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isPublic = pathname === "/login" || pathname.startsWith("/_next") || pathname === "/favicon.ico";
+  const isPublic =
+    pathname === "/login" || pathname.startsWith("/_next") || pathname === "/favicon.ico" ||
+    // PWA install assets must load without a session
+    pathname === "/manifest.webmanifest" || pathname === "/icon-pwa.svg" || pathname === "/rhino-brain-logo.png";
   const hasSession = req.cookies.has("tirepro_session");
 
   if (!isPublic && !hasSession) {
