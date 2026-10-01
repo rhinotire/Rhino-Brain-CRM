@@ -8,12 +8,19 @@ type ConsigneeOpt = { id: string; name: string; city: string; state: string };
 type CarrierOpt = { id: string; name: string; contactCount: number };
 type StopDraft = { consigneeId: string; quantity: string; notes: string };
 
-const DEFAULT_ORIGIN = "11423 Satellite Blvd, Orlando, FL 32837";
+/** Company warehouses — pick one, or "Custom" for anything else. */
+const WAREHOUSES = [
+  { label: "Orlando, FL", address: "11423 Satellite Blvd, Orlando, FL 32837" },
+  { label: "Dallas, TX", address: "5091 Pulaski St, Dallas, TX 75247" },
+] as const;
 
 export function FreightNewForm({ consignees, carriers }: { consignees: ConsigneeOpt[]; carriers: CarrierOpt[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [originAddress, setOriginAddress] = useState(DEFAULT_ORIGIN);
+  const [originIdx, setOriginIdx] = useState<number | "custom">(0);
+  const [customOrigin, setCustomOrigin] = useState("");
+  const originAddress = originIdx === "custom" ? customOrigin : WAREHOUSES[originIdx].address;
+  const originLabel = originIdx === "custom" ? "Custom origin" : WAREHOUSES[originIdx].label;
   const [equipmentType, setEquipmentType] = useState<"DRY_VAN_53" | "FLATBED_53">("DRY_VAN_53");
   const [pickupDate, setPickupDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -24,7 +31,7 @@ export function FreightNewForm({ consignees, carriers }: { consignees: Consignee
 
   const input = () => ({
     originAddress,
-    originLabel: "Orlando, FL",
+    originLabel,
     equipmentType,
     pickupDate,
     commodity: "tires",
@@ -63,8 +70,23 @@ export function FreightNewForm({ consignees, carriers }: { consignees: Consignee
 
       <div className="grid grid-cols-2 gap-3">
         <label className="col-span-2 text-sm">Origin
-          <input value={originAddress} onChange={(e) => setOriginAddress(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
+          <select
+            value={originIdx === "custom" ? "custom" : String(originIdx)}
+            onChange={(e) => setOriginIdx(e.target.value === "custom" ? "custom" : Number(e.target.value))}
+            className="mt-1 w-full rounded-lg border border-slate-300 p-2"
+          >
+            {WAREHOUSES.map((w, i) => (
+              <option key={w.label} value={i}>{w.label} — {w.address}</option>
+            ))}
+            <option value="custom">Custom address…</option>
+          </select>
         </label>
+        {originIdx === "custom" && (
+          <label className="col-span-2 text-sm">Custom origin address
+            <input value={customOrigin} onChange={(e) => setCustomOrigin(e.target.value)} placeholder="Street, City, ST ZIP"
+              className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
+          </label>
+        )}
         <label className="text-sm">Equipment
           <select value={equipmentType} onChange={(e) => setEquipmentType(e.target.value as "DRY_VAN_53" | "FLATBED_53")} className="mt-1 w-full rounded-lg border border-slate-300 p-2">
             <option value="DRY_VAN_53">53&apos; Dry Van</option>
