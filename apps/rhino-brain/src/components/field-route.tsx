@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { QuickLogButton } from "@/components/quick-log";
-import { searchFieldCustomers, createFieldProspect, type FieldSearchHit } from "@/actions/field";
+import { searchFieldCustomers, createFieldProspect, optimizeRoute, type FieldSearchHit } from "@/actions/field";
 import { Badge, Button, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { fmtMoney } from "@/lib/domain";
@@ -15,6 +15,7 @@ export type FieldCard = {
   phone: string | null;
   address: string | null;
   city: string | null;
+  zip: string | null;
   tier: string;
   owed: number;
   daysSinceOrder: number | null;
@@ -64,7 +65,7 @@ function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void })
       toast("Prospect created — visit logged ✓");
       onCreated({
         id: r.customerId, name: name.trim(), contact: null, phone: phone.trim() || null,
-        address: city.trim() || null, city: city.trim() || null, tier: "D",
+        address: city.trim() || null, city: city.trim() || null, zip: null, tier: "D",
         owed: 0, daysSinceOrder: null, openQuotes: 0,
         reason: { kind: "new", label: "New prospect — just created" },
       });
@@ -147,6 +148,9 @@ export function FieldList({ cards: initial }: { cards: FieldCard[] }) {
   const [extra, setExtra] = useState<FieldCard[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [cityFilter, setCityFilter] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizedMiles, setOptimizedMiles] = useState<number | null>(null);
+  const toast = useToast();
 
   const cards = [...extra, ...initial.filter(c => !extra.some(e => e.id === c.id))];
   const cities = [...new Set(initial.map(c => c.city).filter((x): x is string => !!x))]
@@ -155,8 +159,35 @@ export function FieldList({ cards: initial }: { cards: FieldCard[] }) {
     .slice(0, 8);
   const visible = cityFilter ? cards.filter(c => c.city === cityFilter || extra.some(e => e.id === c.id)) : cards;
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    setOptimizedMiles(null); // selection changed — the old optimization no longer applies
     setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : s.length >= 9 ? s : [...s, id]));
+  };
+
+  const optimize = () => {
+    const stops = selected
+      .map(id => cards.find(c => c.id === id))
+      .filter((c): c is FieldCard => !!c)
+      .map(c => ({ id: c.id, zip: c.zip }));
+    const run = (start: { lat: number; lng: number } | null) => {
+      optimizeRoute(stops, start)
+        .then(r => {
+          setSelected(r.orderedIds.filter(id => selected.includes(id)));
+          setOptimizedMiles(r.totalMiles);
+          toast(r.totalMiles != null ? `Route optimized — about ${r.totalMiles} mi of driving` : "Route reordered");
+        })
+        .catch(() => toast("Could not optimize — check that stops have ZIP codes", "error"))
+        .finally(() => setOptimizing(false));
+    };
+    setOptimizing(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        p => run({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => run(null), // no GPS permission → optimize from the first stop
+        { enableHighAccuracy: false, timeout: 5000 },
+      );
+    } else run(null);
+  };
 
   const routeStops = selected
     .map(id => cards.find(c => c.id === id))
@@ -252,13 +283,21 @@ export function FieldList({ cards: initial }: { cards: FieldCard[] }) {
 
       {selected.length > 0 && routeUrl && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-3 shadow-lg">
-          <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
-            <span className="text-sm text-slate-600">{routeStops.length} stop{routeStops.length > 1 ? "s" : ""} selected</span>
+          <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-slate-600">
+              {routeStops.length} stop{routeStops.length > 1 ? "s" : ""}
+              {optimizedMiles != null && <span className="ml-1 font-medium text-emerald-700">· ~{optimizedMiles} mi ✓</span>}
+            </span>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setSelected([])}>Clear</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setSelected([]); setOptimizedMiles(null); }}>Clear</Button>
+              {selected.length >= 3 && (
+                <Button variant="secondary" size="sm" onClick={optimize} disabled={optimizing}>
+                  {optimizing ? "Optimizing…" : "⚡ Optimize"}
+                </Button>
+              )}
               <a href={routeUrl} target="_blank" rel="noopener"
                 className="inline-flex h-8 items-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700">
-                🗺️ Open route in Google Maps
+                🗺️ Open route
               </a>
             </div>
           </div>

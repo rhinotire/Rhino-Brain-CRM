@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, isAccounting, isManager, repScope, locationScope, defaultLocationId } from "@/lib/auth";
+import { optimizeStopOrder } from "@rhino/services";
 
 export type FieldSearchHit = {
   id: string;
@@ -10,11 +11,22 @@ export type FieldSearchHit = {
   contact: string | null;
   phone: string | null;
   address: string | null;
+  zip: string | null;
   tier: string;
   owed: number;
   daysSinceOrder: number | null;
   openQuotes: number;
 };
+
+/** Shortest-drive stop order from the rep's position (ZIP-centroid 2-opt). */
+export async function optimizeRoute(
+  stops: { id: string; zip: string | null }[],
+  start?: { lat: number; lng: number } | null,
+): Promise<{ orderedIds: string[]; totalMiles: number | null }> {
+  await requireSession();
+  const clean = stops.slice(0, 12).map(s => ({ id: String(s.id), zip: s.zip ? String(s.zip).slice(0, 5) : null }));
+  return optimizeStopOrder(clean, start ?? null);
+}
 
 /** Search my customers to add a stop to today's route (Field Mode). */
 export async function searchFieldCustomers(query: string): Promise<FieldSearchHit[]> {
@@ -47,6 +59,7 @@ export async function searchFieldCustomers(query: string): Promise<FieldSearchHi
     contact: c.contactPerson,
     phone: c.contactCell || c.phone,
     address: [c.address, c.city, c.state, c.zip].filter(Boolean).join(", ") || null,
+    zip: c.zip?.trim().slice(0, 5) || null,
     tier: c.tier,
     owed: c.invoices.reduce((s, i) => s + Number(i.balance), 0),
     daysSinceOrder: c.orders[0] ? Math.floor((now.getTime() - c.orders[0].orderDate.getTime()) / 86400000) : null,

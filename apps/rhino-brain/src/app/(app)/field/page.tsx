@@ -58,6 +58,7 @@ export default async function FieldPage() {
       phone: c.contactCell || c.phone,
       address: address || null,
       city: c.city?.trim() || null,
+      zip: c.zip?.trim().slice(0, 5) || null,
       tier: c.tier,
       owed,
       daysSinceOrder,
