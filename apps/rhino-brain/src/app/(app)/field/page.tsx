@@ -67,7 +67,7 @@ export default async function FieldPage() {
   });
 
   // tasks first, then due follow-ups, then coldest accounts
-  const order = { task: 0, followup: 1, cold: 2 };
+  const order: Record<FieldCard["reason"]["kind"], number> = { new: -2, added: -1, task: 0, followup: 1, cold: 2 };
   cards.sort((a, b) => order[a.reason.kind] - order[b.reason.kind]);
 
   return <FieldList cards={cards} />;
