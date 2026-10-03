@@ -5,8 +5,11 @@ export const dynamic = "force-dynamic";
 
 /** Daily referral maintenance — wired to Vercel Cron (vercel.json). */
 export async function GET(request: Request) {
+  // Fail CLOSED: without CRON_SECRET configured this endpoint must refuse —
+  // it performs cross-brand DB writes and sits on a public site. (Vercel Cron
+  // sends the Bearer header automatically once CRON_SECRET is set.)
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   // Maintenance covers ALL brands in the shared DB, so only one deployment may

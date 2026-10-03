@@ -74,4 +74,15 @@ describe("handleFreightReply", () => {
     expect(updates[0].data.status).toBe("NEEDS_ATTENTION");
     expect(updates[0].data.notes).toBe("what weight?");
   });
+  it("quarantines an unverified (spoofed-From) sender without touching price/status", async () => {
+    const { db, updates } = fakeDb({ shipment });
+    const r = await handleFreightReply({ ...msg, senderVerified: false }, {
+      db,
+      extract: async () => ({ verdict: "QUOTED", price: 1, transitDays: 1, notes: "fake low-ball" }),
+    });
+    expect(r).toEqual({ handled: true, reason: "unverified sender quarantined" });
+    expect(updates[0].data.status).toBe("NEEDS_ATTENTION");
+    expect(updates[0].data.price).toBeUndefined();
+    expect(updates[0].data.notes).toContain("SPF/DKIM");
+  });
 });

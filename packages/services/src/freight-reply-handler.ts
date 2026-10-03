@@ -15,7 +15,7 @@ type Deps = {
 };
 
 export async function handleFreightReply(
-  msg: { subject: string; fromEmail: string; text: string },
+  msg: { subject: string; fromEmail: string; text: string; senderVerified?: boolean },
   deps: Deps = {}
 ): Promise<{ handled: boolean; reason?: string }> {
   const db = deps.db ?? defaultDb;
@@ -38,6 +38,22 @@ export async function handleFreightReply(
     q.carrier.contacts.some((c: any) => c.email.toLowerCase() === from)
   );
   if (!quote) return { handled: false, reason: "sender not a carrier contact" };
+
+  // Spoofed-From protection: an email that failed SPF AND DKIM may not set a
+  // price or decline a quote — it lands in NEEDS_ATTENTION for a human.
+  if (msg.senderVerified === false) {
+    await db.freightQuote.update({
+      where: { id: quote.id },
+      data: {
+        repliedAt: new Date(),
+        rawReplyExcerpt: msg.text.slice(0, 1000),
+        parsedByAi: false,
+        status: "NEEDS_ATTENTION",
+        notes: "⚠ Sender failed email authentication (SPF/DKIM) — confirm with the carrier by phone before trusting this reply.",
+      },
+    });
+    return { handled: true, reason: "unverified sender quarantined" };
+  }
 
   const route = `${shipment.originLabel} -> ${shipment.stops.map((s: any) => `${s.consignee.city} ${s.consignee.state}`).join(" + ")}`;
   const parsed = await extract(msg.text, { refCode, route, equipment: equipmentLabel(shipment.equipmentType) });

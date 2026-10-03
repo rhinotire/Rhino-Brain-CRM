@@ -19,7 +19,8 @@ const secret = () => {
 export type DealerSession = DealerIdentity;
 
 export async function createDealerSession(s: DealerSession) {
-  const token = await new SignJWT(s)
+  // typ claim: a dealer token must never be usable as anything else
+  const token = await new SignJWT({ ...s, typ: "dealer" })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
     .sign(secret());
@@ -41,6 +42,11 @@ export async function getDealerSession(): Promise<DealerSession | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
+    // shape validation: reject any verified JWT that isn't a dealer token
+    // (e.g. a CRM staff token when secrets are shared via the fallback)
+    const p = payload as Record<string, unknown>;
+    if (typeof p.dealerUserId !== "string" || typeof p.customerId !== "string") return null;
+    if (p.typ !== undefined && p.typ !== "dealer") return null; // pre-typ dealer tokens stay valid
     return payload as unknown as DealerSession;
   } catch {
     return null;

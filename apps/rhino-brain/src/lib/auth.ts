@@ -15,8 +15,12 @@ const secret = () => {
 
 export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null; assistIds?: string[] };
 
+const VALID_ROLES = ["ADMIN", "MANAGER", "SALES_REP", "ACCOUNTING"] as const;
+
 export async function createSession(s: Session) {
-  const token = await new SignJWT(s)
+  // typ claim separates CRM staff tokens from any other JWT class (e.g. the
+  // website's dealer-portal tokens) even if signing secrets were ever shared.
+  const token = await new SignJWT({ ...s, typ: "crm" })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
     .sign(secret());
@@ -38,6 +42,13 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
+    // Shape validation — a verified signature is not enough. Role guards and
+    // scoping helpers fail OPEN on undefined role/userId, so a foreign token
+    // class (dealer portal, future services) must never cast into a Session.
+    const p = payload as Record<string, unknown>;
+    if (typeof p.userId !== "string" || !p.userId) return null;
+    if (!VALID_ROLES.includes(p.role as (typeof VALID_ROLES)[number])) return null;
+    if (p.typ !== undefined && p.typ !== "crm") return null; // pre-typ staff tokens stay valid
     return payload as unknown as Session;
   } catch {
     return null;

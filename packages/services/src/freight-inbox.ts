@@ -31,10 +31,15 @@ export async function pollFreightInbox(
           const raw = await client.download(String(uid), undefined, { uid: true });
           const parsed = await simpleParser(raw.content);
           const fromEmail = parsed.from?.value?.[0]?.address?.toLowerCase() ?? "";
+          // From headers are forgeable — trust a reply only when Gmail's own
+          // Authentication-Results says SPF or DKIM passed for the message.
+          const authResults = String(parsed.headers.get("authentication-results") ?? "");
+          const senderVerified = /\b(spf=pass|dkim=pass)\b/i.test(authResults);
           const result = await handle({
             subject: parsed.subject ?? "",
             fromEmail,
             text: parsed.text ?? "",
+            senderVerified,
           });
           if (result.handled) matched++;
         } catch (e) {

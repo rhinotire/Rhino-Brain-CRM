@@ -7,7 +7,10 @@ export function middleware(req: NextRequest) {
   const isPublic =
     pathname === "/login" || pathname.startsWith("/_next") || pathname === "/favicon.ico" ||
     // PWA install assets must load without a session
-    pathname === "/manifest.webmanifest" || pathname === "/icon-pwa.svg" || pathname === "/rhino-brain-logo.png";
+    pathname === "/manifest.webmanifest" || pathname === "/icon-pwa.svg" || pathname === "/rhino-brain-logo.png" ||
+    // cron endpoints carry no session cookie; they authenticate themselves
+    // with CRON_SECRET and fail closed when it's missing
+    pathname.startsWith("/api/cron/");
   const hasSession = req.cookies.has("tirepro_session");
 
   if (!isPublic && !hasSession) {

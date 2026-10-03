@@ -4,6 +4,9 @@ const nextConfig = {
   // directly (docs/architecture.md trust rule). database is transpiled because
   // services depends on it.
   transpilePackages: ["@rhino/database", "@rhino/services"],
+  // No next/image anywhere (raw <img> by design) — disabling the optimizer
+  // closes the /_next/image endpoint entirely (GHSA-2xp9-vwfh-vxw4 AVIF RCE).
+  images: { unoptimized: true },
   experimental: {
     serverActions: {
       // resale-certificate uploads (PDF / photos) go through server actions
