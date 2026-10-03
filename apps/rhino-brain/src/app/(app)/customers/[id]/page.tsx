@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Card, Badge, Button } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
+import { PhoneDialer } from "@/components/phone-dialer";
+import { isTwilioConfigured } from "@/lib/twilio";
 import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
 import { EditCustomerButton } from "@/components/edit-customer-button";
@@ -54,6 +56,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const linkedInstaller = manager
     ? await db.installer.findFirst({ where: { customerId: customer.id }, select: { id: true } })
     : null;
+  const twilioReady = isTwilioConfigured();
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);
   const openTasks = customer.tasks.filter(t => t.status === "OPEN");
@@ -113,6 +116,9 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         </div>
         <div className="flex flex-wrap gap-2">
           {!accounting && <>
+          {(customer.contactCell || customer.phone) && (
+            <PhoneDialer phone={(customer.contactCell || customer.phone)!} enabled={twilioReady} />
+          )}
           <QuickLogButton customerId={customer.id} label="Log Call" defaultType="CALL" />
           <QuickLogButton customerId={customer.id} label="Add Note" defaultType="INTERNAL_NOTE" variant="secondary" />
           <NewQuoteButton customers={[{ id: customer.id, companyName: customer.companyName }]} defaultCustomerId={customer.id} label="Create Quote" />

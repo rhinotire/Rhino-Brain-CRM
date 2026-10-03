@@ -10,7 +10,9 @@ export function middleware(req: NextRequest) {
     pathname === "/manifest.webmanifest" || pathname === "/icon-pwa.svg" || pathname === "/rhino-brain-logo.png" ||
     // cron endpoints carry no session cookie; they authenticate themselves
     // with CRON_SECRET and fail closed when it's missing
-    pathname.startsWith("/api/cron/");
+    pathname.startsWith("/api/cron/") ||
+    // Twilio webhooks sign requests (X-Twilio-Signature); token route 401s without a session
+    pathname.startsWith("/api/twilio/");
   const hasSession = req.cookies.has("tirepro_session");
 
   if (!isPublic && !hasSession) {
