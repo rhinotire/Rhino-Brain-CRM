@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, isAccounting, defaultLocationId, locationScope } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, defaultLocationId, ownLocationScope } from "@/lib/auth";
 import { customerSchema } from "@/lib/validations";
 import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
@@ -75,7 +75,7 @@ export async function updateCustomer(customerId: string, _prev: ActionResult | n
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0].message };
 
   // company isolation first, then rep ownership
-  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) } });
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...ownLocationScope(session) } });
   if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId)
     return { ok: false, error: "You can only edit customers assigned to you." };
@@ -99,7 +99,7 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
   const session = await requireSession();
   if (!isManager(session)) return { ok: false, error: "Only managers can delete customers." };
   // Company isolation: a manager can only delete a customer in their own company.
-  const target = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { id: true } });
+  const target = await db.customer.findFirst({ where: { id: customerId, ...ownLocationScope(session) }, select: { id: true } });
   if (!target) return { ok: false, error: "Customer not found in your company." };
   await db.customer.delete({ where: { id: customerId } });
   revalidatePath("/customers");
@@ -110,7 +110,7 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
 export async function setCustomerInactive(customerId: string, reason: string): Promise<ActionResult> {
   const session = await requireSession();
   if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
-  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { assignedRepId: true, locationId: true } });
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...ownLocationScope(session) }, select: { assignedRepId: true, locationId: true } });
   if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
   const r = reason.trim().slice(0, 500);
@@ -126,7 +126,7 @@ export async function setCustomerInactive(customerId: string, reason: string): P
 export async function reactivateCustomer(customerId: string): Promise<ActionResult> {
   const session = await requireSession();
   if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
-  const existing = await db.customer.findFirst({ where: { id: customerId, ...locationScope(session) }, select: { assignedRepId: true, locationId: true } });
+  const existing = await db.customer.findFirst({ where: { id: customerId, ...ownLocationScope(session) }, select: { assignedRepId: true, locationId: true } });
   if (!existing) return { ok: false, error: "Customer not found in your company." };
   if (!isManager(session) && existing.assignedRepId !== session.userId) return { ok: false, error: "You can only change customers assigned to you." };
   await db.customer.update({ where: { id: customerId }, data: { status: "ACTIVE", inactiveReason: null } });

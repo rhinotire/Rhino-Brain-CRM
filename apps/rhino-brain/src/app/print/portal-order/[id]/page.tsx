@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, repScope, locationScope } from "@/lib/auth";
+import { requireSession, repScope, ownLocationScope } from "@/lib/auth";
 import { AutoPrint } from "@/components/auto-print";
 
 /**
@@ -11,7 +11,7 @@ export default async function PortalOrderPrintPage({ params, searchParams }: { p
   const session = await requireSession();
   // same scoping as the portal-orders list — no cross-company printing by id
   const o = await db.dealerOrderRequest.findFirst({
-    where: { id: params.id, customer: { ...repScope(session), ...locationScope(session) } },
+    where: { id: params.id, customer: { ...repScope(session), ...ownLocationScope(session) } },
     include: {
       customer: {
         select: {

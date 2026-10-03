@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { requireManager, ownLocationScope } from "@/lib/auth";
 import { FreightQuoteTable, ShipmentStatusButtons, CheckRepliesButton } from "@/components/freight-quote-table";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export default async function FreightDetailPage({ params }: { params: { id: stri
   const session = await requireManager();
   // company isolation — same scoping as the /freight list
   const s = await db.freightShipment.findFirst({
-    where: { id: params.id, ...locationScope(session) },
+    where: { id: params.id, ...ownLocationScope(session) },
     include: {
       stops: { include: { consignee: true }, orderBy: { sequence: "asc" } },
       quotes: { include: { carrier: { include: { contacts: { where: { active: true } } } } } },

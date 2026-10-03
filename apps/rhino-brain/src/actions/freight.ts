@@ -14,7 +14,7 @@ import {
   type FreightStopInfo,
 } from "@rhino/services";
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { requireManager, ownLocationScope, defaultLocationId } from "@/lib/auth";
 
 // ---------- carriers / consignees ----------
 
@@ -204,7 +204,8 @@ export async function createShipmentAndSend(raw: unknown): Promise<{ ok: boolean
       pickupDate: new Date(`${input.pickupDate}T12:00:00Z`),
       commodity: input.commodity,
       notes: input.notes || null,
-      locationId: session.locationId ?? null,
+      // admin: the company selected in the sidebar — never NULL-orphaned again
+      locationId: defaultLocationId(session, null),
       createdById: session.userId,
       stops: { create: input.stops.map((s, i) => ({ sequence: i + 1, consigneeId: s.consigneeId, quantity: s.quantity || null, notes: s.notes || null })) },
     },
@@ -245,7 +246,7 @@ export async function createShipmentAndSend(raw: unknown): Promise<{ ok: boolean
 export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await requireManager();
   const quote = await db.freightQuote.findFirst({
-    where: { id: quoteId, shipment: { ...locationScope(session) } },
+    where: { id: quoteId, shipment: { ...ownLocationScope(session) } },
     include: {
       carrier: { include: { contacts: { where: { active: true } } } },
       shipment: { include: { stops: { include: { consignee: true }, orderBy: { sequence: "asc" } } } },
@@ -267,7 +268,7 @@ export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error
 export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }): Promise<{ ok: boolean; error?: string }> {
   const session = await requireManager();
   const quote = await db.freightQuote.findFirst({
-    where: { id: quoteId, shipment: { ...locationScope(session) } },
+    where: { id: quoteId, shipment: { ...ownLocationScope(session) } },
     include: {
       carrier: { include: { contacts: { where: { active: true } } } },
       shipment: {
@@ -318,7 +319,7 @@ export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }
 export async function resendConfirmation(shipmentId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await requireManager();
   const s = await db.freightShipment.findFirst({
-    where: { id: shipmentId, ...locationScope(session) },
+    where: { id: shipmentId, ...ownLocationScope(session) },
     include: {
       stops: { include: { consignee: true }, orderBy: { sequence: "asc" } },
       quotes: { include: { carrier: { include: { contacts: { where: { active: true } } } } } },
@@ -348,7 +349,7 @@ const TRANSITIONS: Record<string, string[]> = {
 
 export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" | "DELIVERED" | "CANCELLED"): Promise<{ ok: boolean; error?: string }> {
   const session = await requireManager();
-  const s = await db.freightShipment.findFirst({ where: { id: shipmentId, ...locationScope(session) }, select: { status: true } });
+  const s = await db.freightShipment.findFirst({ where: { id: shipmentId, ...ownLocationScope(session) }, select: { status: true } });
   if (!s) return { ok: false, error: "Not found" };
   if (!TRANSITIONS[s.status]?.includes(to)) return { ok: false, error: `Cannot go ${s.status} -> ${to}` };
   await db.freightShipment.update({ where: { id: shipmentId }, data: { status: to } });
@@ -361,7 +362,7 @@ export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" |
 export async function overrideQuote(quoteId: string, data: { price: number; transitDays?: number | null }): Promise<{ ok: boolean; error?: string }> {
   const session = await requireManager();
   if (!Number.isFinite(data.price) || data.price <= 0) return { ok: false, error: "Invalid price" };
-  const quote = await db.freightQuote.findFirst({ where: { id: quoteId, shipment: { ...locationScope(session) } }, select: { shipmentId: true } });
+  const quote = await db.freightQuote.findFirst({ where: { id: quoteId, shipment: { ...ownLocationScope(session) } }, select: { shipmentId: true } });
   if (!quote) return { ok: false, error: "Not found" };
   await db.freightQuote.update({
     where: { id: quoteId },

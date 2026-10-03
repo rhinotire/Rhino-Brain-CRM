@@ -135,6 +135,17 @@ export function inLocation(s: Session, locationId: string | null | undefined): b
   return !locationId || !s.locationId || locationId === s.locationId;
 }
 
+/**
+ * Company scope for SINGLE-RECORD access by id (detail pages, per-record
+ * mutations). Unlike locationScope, the admin sidebar FILTER is ignored —
+ * it narrows lists, it must never 404 the owner out of a record they can
+ * reach by id (bit us: freight create → redirect → 404 while filtered).
+ */
+export function ownLocationScope(s: Session): { locationId?: string } {
+  if (seesAllLocations(s)) return {};
+  return s.locationId ? { locationId: s.locationId } : {};
+}
+
 /** Re-check the user still exists and is active (used at login-sensitive spots). */
 export async function getActiveUser(s: Session) {
   return db.user.findFirst({ where: { id: s.userId, active: true } });
