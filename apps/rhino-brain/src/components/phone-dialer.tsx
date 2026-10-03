@@ -34,6 +34,17 @@ export function PhoneDialer({ phone, label, enabled }: { phone: string; label?: 
   };
   const stopTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
+  // Twilio error codes → actionable message (mic/permission issues are by far the most common)
+  const explain = (e: unknown): string => {
+    const err = e as { code?: number; message?: string; name?: string } | undefined;
+    const code = err?.code;
+    if (code === 31208 || err?.name === "NotAllowedError" || err?.name === "NotFoundError")
+      return "Microphone blocked — click the 🔒 icon in the address bar and allow the microphone, then try again";
+    if (code === 20101 || code === 20104) return `Phone token rejected by Twilio (error ${code})`;
+    if (code === 31005 || code === 53000 || code === 53405) return `Network blocked to Twilio — check firewall/VPN (error ${code})`;
+    return `Call failed${code ? ` (Twilio error ${code})` : ""}${err?.message ? `: ${err.message}` : ""}`;
+  };
+
   const dial = async () => {
     setState("connecting");
     try {
@@ -41,16 +52,18 @@ export function PhoneDialer({ phone, label, enabled }: { phone: string; label?: 
       if (!r.ok) { toast(r.status === 501 ? "Phone system not configured yet" : "Could not start the call", "error"); setState("idle"); return; }
       const { token } = await r.json();
       const { Device } = await import("@twilio/voice-sdk");
-      const device = new Device(token, { logLevel: "silent" as never });
+      const device = new Device(token, { logLevel: "error" as never });
       deviceRef.current = device as never;
+      device.on("error", (e: unknown) => { console.error("[phone] device error", e); stopTimer(); toast(explain(e), "error"); setState("idle"); });
       const call = await device.connect({ params: { To: phone } });
       callRef.current = call as never;
       setState("ringing");
       call.on("accept", () => { setState("in-call"); startTimer(); });
       call.on("disconnect", () => { stopTimer(); setState("ended"); setTimeout(() => setState("idle"), 1500); device.destroy(); });
-      call.on("error", () => { stopTimer(); toast("Call failed — check mic permission and Twilio balance", "error"); setState("idle"); device.destroy(); });
-    } catch {
-      toast("Microphone blocked or network error", "error");
+      call.on("error", (e: unknown) => { console.error("[phone] call error", e); stopTimer(); toast(explain(e), "error"); setState("idle"); device.destroy(); });
+    } catch (e) {
+      console.error("[phone] dial failed", e);
+      toast(explain(e), "error");
       setState("idle");
     }
   };
