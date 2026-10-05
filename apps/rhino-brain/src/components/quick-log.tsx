@@ -12,6 +12,23 @@ import { activityTypeLabels } from "@/lib/domain";
 
 export type CustomerOption = { id: string; companyName: string };
 
+/** Shrink a phone photo to ≤1600px JPEG so field uploads stay fast and small. */
+async function compressPhoto(file: File): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", 0.8));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file; // formats the browser can't decode go up as-is (size-checked server-side)
+  }
+}
+
 /** One-tap common subjects — click to fill, still fully editable. */
 const SUBJECT_PRESETS = [
   "Restock pricing", "New order", "Follow up on quote", "Check stock",
@@ -48,6 +65,7 @@ export function QuickLogButton({
   const [lostStockNote, setLostStockNote] = useState("");
   const [visitLocation, setVisitLocation] = useState("");
   const [locating, setLocating] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [state, action] = useFormState(logActivity, null);
   const toast = useToast();
   const isLost = outcome.startsWith("LOST");
@@ -69,7 +87,7 @@ export function QuickLogButton({
   };
 
   useEffect(() => {
-    if (state?.ok) { toast("Activity logged"); setOpen(false); setSubject(""); setOutcome(""); setLostItem(""); setLostStockNote(""); setVisitLocation(""); }
+    if (state?.ok) { toast("Activity logged"); setOpen(false); setSubject(""); setOutcome(""); setLostItem(""); setLostStockNote(""); setVisitLocation(""); setPhotos([]); }
     if (state?.error) toast(state.error, "error");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -78,7 +96,7 @@ export function QuickLogButton({
     <>
       <Button variant={variant} size={size} onClick={() => setOpen(true)}>{label}</Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Log Activity">
-        <form action={action} className="space-y-3">
+        <form action={(fd: FormData) => { photos.forEach(p => fd.append("photos", p)); action(fd); }} className="space-y-3">
           {customerId && <input type="hidden" name="customerId" value={customerId} />}
           {leadId && <input type="hidden" name="leadId" value={leadId} />}
           {quoteId && <input type="hidden" name="quoteId" value={quoteId} />}
@@ -122,6 +140,28 @@ export function QuickLogButton({
                 </button>
               )}
               <input type="hidden" name="visitLocation" value={visitLocation} />
+            </div>
+          )}
+          {isVisit && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                📷 {photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""} ready to upload` : "Add photos — storefront, shelves, price board… (max 3)"}
+                <input type="file" accept="image/*" multiple className="hidden"
+                  onChange={async e => {
+                    const list = Array.from(e.target.files ?? []).slice(0, 3);
+                    if (list.length) setPhotos(await Promise.all(list.map(compressPhoto)));
+                    e.target.value = "";
+                  }} />
+              </label>
+              {photos.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  {photos.map((p, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={URL.createObjectURL(p)} alt={`photo ${i + 1}`} className="h-14 w-14 rounded-md border border-slate-200 object-cover" />
+                  ))}
+                  <button type="button" className="text-xs text-slate-500 underline" onClick={() => setPhotos([])}>remove</button>
+                </div>
+              )}
             </div>
           )}
           <Field label="Subject *">

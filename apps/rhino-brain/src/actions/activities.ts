@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireSession, defaultLocationId, canWrite } from "@/lib/auth";
 import { activitySchema } from "@/lib/validations";
 import { computeCustomerScore, outcomeLabels } from "@/lib/domain";
+import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import type { ActionResult } from "./auth";
 
 const CONTACT_TYPES = ["CALL","EMAIL","TEXT","WHATSAPP","QUOTE","ORDER","PAYMENT","VISIT","COMPLAINT"] as const;
@@ -35,7 +36,41 @@ export async function logActivity(_prev: ActionResult | null, formData: FormData
 
   // Outside-sales check-in: the dialog captured GPS at log time (VISIT type)
   const visitLoc = String(raw.visitLocation ?? "").trim().slice(0, 200);
-  const notes = [d.notes, visitLoc ? `📍 On-site check-in: ${visitLoc}` : null].filter(Boolean).join("\n") || undefined;
+
+  // Visit photos (storefront, shelf, whiteboard…) → customer Documents + a note
+  const photos = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  let photoNote: string | null = null;
+  if (photos.length > 0) {
+    if (!d.customerId) return { ok: false, error: "Photos can only be attached to a customer." };
+    if (!isStorageConfigured()) return { ok: false, error: "Photo storage is not configured yet — ask the admin." };
+    if (photos.length > 3) return { ok: false, error: "Max 3 photos per visit." };
+    for (const p of photos) {
+      if (!p.type.startsWith("image/")) return { ok: false, error: "Only photos can be attached." };
+      if (p.size > 8 * 1024 * 1024) return { ok: false, error: "Each photo must be under 8 MB." };
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      const ext = p.type === "image/png" ? "png" : p.type === "image/webp" ? "webp" : "jpg";
+      const storagePath = `${d.customerId}/VISIT_PHOTO/${Date.now()}-${i + 1}.${ext}`;
+      await uploadObject(storagePath, await p.arrayBuffer(), p.type);
+      await db.customerDocument.create({
+        data: {
+          customerId: d.customerId,
+          type: "OTHER",
+          fileName: `Visit photo ${stamp} — ${d.subject.slice(0, 60)} (${i + 1} of ${photos.length}).${ext}`,
+          storagePath,
+          fileSize: p.size,
+          mimeType: p.type,
+          sensitive: false,
+          uploadedById: session.userId,
+        },
+      });
+    }
+    photoNote = `📷 ${photos.length} photo${photos.length > 1 ? "s" : ""} attached — see the customer's Documents`;
+  }
+
+  const notes = [d.notes, visitLoc ? `📍 On-site check-in: ${visitLoc}` : null, photoNote].filter(Boolean).join("\n") || undefined;
 
   const activity = await db.activity.create({
     data: {
