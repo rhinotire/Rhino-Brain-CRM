@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
 import { requireSession, isAccounting, repScope, locationScope } from "@/lib/auth";
+import { isAiConfigured } from "@/actions/ai";
 import { FieldList, type FieldCard } from "@/components/field-route";
 
 export const dynamic = "force-dynamic";
@@ -110,5 +111,5 @@ export default async function FieldPage() {
     savedSelected = route.stopIds.filter(id => validIds.has(id));
   }
 
-  return <FieldList cards={cards} initialSelected={savedSelected} initialExtra={savedExtra} initialMiles={savedMiles} />;
+  return <FieldList cards={cards} initialSelected={savedSelected} initialExtra={savedExtra} initialMiles={savedMiles} aiReady={await isAiConfigured()} />;
 }

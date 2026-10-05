@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { QuickLogButton } from "@/components/quick-log";
+import { FieldAsk } from "@/components/field-ask";
 import { searchFieldCustomers, createFieldProspect, optimizeRoute, saveFieldRoute, type FieldSearchHit } from "@/actions/field";
 import { draftVisitBrief } from "@/actions/ai";
 import { Badge, Button, Input } from "@/components/ui/primitives";
@@ -176,11 +177,12 @@ function AddStopSearch({ onAdd, existing }: { onAdd: (c: FieldCard) => void; exi
   );
 }
 
-export function FieldList({ cards: initial, initialSelected = [], initialExtra = [], initialMiles = null }: {
+export function FieldList({ cards: initial, initialSelected = [], initialExtra = [], initialMiles = null, aiReady = false }: {
   cards: FieldCard[];
   initialSelected?: string[];
   initialExtra?: FieldCard[];
   initialMiles?: number | null;
+  aiReady?: boolean;
 }) {
   const [extra, setExtra] = useState<FieldCard[]>(initialExtra);
   const [selected, setSelected] = useState<string[]>(initialSelected);
@@ -258,6 +260,8 @@ export function FieldList({ cards: initial, initialSelected = [], initialExtra =
       </div>
 
       <AddStopSearch existing={cards.map(c => c.id)} onAdd={c => setExtra(x => [c, ...x])} />
+
+      <FieldAsk enabled={aiReady} />
 
       {cities.length > 1 && (
         <div className="flex flex-wrap gap-1.5">

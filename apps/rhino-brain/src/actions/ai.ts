@@ -349,6 +349,107 @@ export async function draftVisitBrief(customerId: string): Promise<{ ok?: boolea
 
 // ---------- 3. Ask box ----------
 
+// ---------- 3b. Field ask: AI that can actually query the rep's customers ----------
+
+const FIELD_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "list_customers",
+    description:
+      "List the user's customers matching filters. Use for: overdue/owing customers, customers in a city or ZIP area, customers not contacted for N days, customers by tier or status. Results are already permission-scoped.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        city: { type: "string", description: "City name, partial match ok (e.g. 'Orlando', 'Kissimmee')" },
+        zipPrefix: { type: "string", description: "ZIP code prefix (e.g. '327')" },
+        tier: { type: "string", enum: ["A", "B", "C", "D"] },
+        status: { type: "string", enum: ["ACTIVE", "PROSPECT", "LEAD", "INACTIVE", "LOST"], description: "Omit for active-ish (ACTIVE/PROSPECT/LEAD)" },
+        overdueOnly: { type: "boolean", description: "Only customers with past-due unpaid invoices" },
+        minDaysSinceContact: { type: "number", description: "Only customers not contacted for at least this many days (includes never-contacted)" },
+        limit: { type: "number", description: "Max rows, default 20, cap 30" },
+      },
+    },
+  },
+];
+
+async function runListCustomers(
+  session: Awaited<ReturnType<typeof requireSession>>,
+  input: Record<string, unknown>,
+): Promise<unknown> {
+  const now = new Date();
+  const where: Prisma.CustomerWhereInput = { ...repScope(session), ...locationScope(session) };
+  if (input.city) where.city = { contains: String(input.city).slice(0, 40), mode: "insensitive" };
+  if (input.zipPrefix) where.zip = { startsWith: String(input.zipPrefix).slice(0, 5) };
+  if (input.tier && ["A", "B", "C", "D"].includes(String(input.tier))) where.tier = String(input.tier) as never;
+  if (input.status && ["ACTIVE", "PROSPECT", "LEAD", "INACTIVE", "LOST"].includes(String(input.status))) {
+    where.status = String(input.status) as never;
+  } else {
+    where.status = { in: ["ACTIVE", "PROSPECT", "LEAD"] };
+  }
+  if (input.overdueOnly) where.invoices = { some: { balance: { gt: 0 }, dueDate: { lt: now } } };
+  const days = Number(input.minDaysSinceContact);
+  if (Number.isFinite(days) && days > 0) {
+    where.OR = [{ lastContactAt: { lt: subDays(now, Math.min(days, 3650)) } }, { lastContactAt: null }];
+  }
+  const rows = await db.customer.findMany({
+    where,
+    take: Math.min(Math.max(Number(input.limit) || 20, 1), 30),
+    orderBy: input.overdueOnly ? { updatedAt: "desc" } : { lastContactAt: { sort: "asc", nulls: "first" } },
+    include: { invoices: { where: { balance: { gt: 0 }, dueDate: { lt: now } }, select: { balance: true } } },
+  });
+  return rows.map(c => ({
+    name: c.companyName,
+    city: c.city,
+    zip: c.zip,
+    phone: c.contactCell || c.phone,
+    tier: c.tier,
+    status: c.status,
+    overdue: Math.round(c.invoices.reduce((s, i) => s + Number(i.balance), 0)),
+    lastContact: c.lastContactAt ? c.lastContactAt.toISOString().slice(0, 10) : null,
+  }));
+}
+
+/** Field Mode ask box: AI answers questions by querying the rep's own customers. */
+export async function askField(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; answer?: string; error?: string }> {
+  const session = await requireSession();
+  const anthropic = client();
+  if (!anthropic) return { error: "AI is not configured yet — ask the admin to add ANTHROPIC_API_KEY." };
+  const question = String(formData.get("question") ?? "").trim().slice(0, 400);
+  if (!question) return { error: "Type a question first." };
+
+  const system = `${SYSTEM}
+Today is ${new Date().toISOString().slice(0, 10)}. The user is ${session.name} (${session.role}) asking from Field Mode (outside-sales view, usually on a phone).
+Use the list_customers tool to look up real data before answering — never guess names or numbers. Data is already scoped to what this user may see.
+Answer compactly for a phone screen: a short list, one line per customer — name · city · phone · overdue $ (if any) · days since contact (if relevant). Lead with the count. If nothing matches, say so plainly.`;
+
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: question }];
+  try {
+    for (let i = 0; i < 4; i++) {
+      const resp = await anthropic.messages.create({
+        model: MODEL, max_tokens: 1200, system, messages, tools: FIELD_TOOLS,
+      });
+      if (resp.stop_reason === "tool_use") {
+        messages.push({ role: "assistant", content: resp.content });
+        const results: Anthropic.ToolResultBlockParam[] = [];
+        for (const b of resp.content) {
+          if (b.type !== "tool_use") continue;
+          const out = await runListCustomers(session, (b.input ?? {}) as Record<string, unknown>)
+            .catch(e => ({ error: e instanceof Error ? e.message : "query failed" }));
+          results.push({ type: "tool_result", tool_use_id: b.id, content: JSON.stringify(out).slice(0, 12000) });
+        }
+        messages.push({ role: "user", content: results });
+        continue;
+      }
+      const text = resp.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("");
+      if (resp.stop_reason === "refusal" || !text) return { error: "The AI declined to answer this request." };
+      return { ok: true, answer: text };
+    }
+    return { error: "That took too many lookups — try a more specific question." };
+  } catch (e) {
+    if (e instanceof Anthropic.APIError) return { error: `AI error: ${e.message}` };
+    return { error: e instanceof Error ? e.message : "AI request failed" };
+  }
+}
+
 export async function askBrain(_prev: unknown, formData: FormData): Promise<{ ok?: boolean; answer?: string; error?: string }> {
   const session = await requireSession();
   if (!process.env.ANTHROPIC_API_KEY) return { error: "AI is not configured yet — ask the admin to add ANTHROPIC_API_KEY." };
