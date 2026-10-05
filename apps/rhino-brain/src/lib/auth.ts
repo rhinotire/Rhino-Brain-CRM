@@ -49,7 +49,23 @@ export async function getSession(): Promise<Session | null> {
     if (typeof p.userId !== "string" || !p.userId) return null;
     if (!VALID_ROLES.includes(p.role as (typeof VALID_ROLES)[number])) return null;
     if (p.typ !== undefined && p.typ !== "crm") return null; // pre-typ staff tokens stay valid
-    return payload as unknown as Session;
+    // Live authorization: role/location/active come from the DB on every
+    // request, never from the token. A role change or deactivation takes
+    // effect immediately — a stale cookie can't keep elevated access
+    // (owner-reported incident: rep still saw the owner dashboard).
+    const user = await db.user.findUnique({
+      where: { id: p.userId },
+      select: { role: true, active: true, name: true, email: true, locationId: true },
+    });
+    if (!user || !user.active) return null;
+    return {
+      userId: p.userId,
+      role: user.role,
+      name: user.name,
+      email: user.email,
+      locationId: user.locationId,
+      assistIds: Array.isArray(p.assistIds) ? (p.assistIds as string[]) : undefined,
+    };
   } catch {
     return null;
   }
