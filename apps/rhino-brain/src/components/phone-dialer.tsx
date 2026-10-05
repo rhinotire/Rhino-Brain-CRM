@@ -11,7 +11,9 @@ type CallState = "idle" | "connecting" | "ringing" | "in-call" | "ended";
  * the server logs the CALL activity automatically when the call completes.
  * Renders nothing when `enabled` is false — pages fall back to tel: links.
  */
-export function PhoneDialer({ phone, label, enabled }: { phone: string; label?: string; enabled: boolean }) {
+export function PhoneDialer({ phone, label, enabled, size = "sm", className }: {
+  phone: string; label?: string; enabled: boolean; size?: "sm" | "md"; className?: string;
+}) {
   const [state, setState] = useState<CallState>("idle");
   const [seconds, setSeconds] = useState(0);
   const [muted, setMuted] = useState(false);
@@ -75,10 +77,10 @@ export function PhoneDialer({ phone, label, enabled }: { phone: string; label?: 
   const mmss = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   if (state === "idle") {
-    return <Button size="sm" variant="success" onClick={dial}>🎧 {label ?? "Call"}</Button>;
+    return <Button size={size} variant="success" className={className} onClick={dial}>🎧 {label ?? "Call"}</Button>;
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1">
+    <span className={`inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 ${className ?? ""}`}>
       <span className="text-xs font-semibold text-emerald-800">
         {state === "connecting" ? "Connecting…" : state === "ringing" ? "Ringing…" : state === "ended" ? "Ended" : `In call ${mmss}`}
       </span>

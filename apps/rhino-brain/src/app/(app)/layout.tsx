@@ -15,6 +15,7 @@ const managerGroups: NavGroup[] = [
     { href: "/dashboard", label: "Dashboard", icon: "▦" },
     { href: "/my-work", label: "My Work Today", icon: "★" },
     { href: "/field", label: "Field Mode", icon: "🧭" },
+    { href: "/phone", label: "Phone", icon: "☎" },
   ]},
   { title: "Sales", items: [
     { href: "/customers", label: "Customers", icon: "🏬" },
@@ -70,6 +71,7 @@ const repGroups: NavGroup[] = [
   { items: [
     { href: "/field", label: "Field Mode", icon: "🧭" },
     { href: "/my-work", label: "My Work Today", icon: "★" },
+    { href: "/phone", label: "Phone", icon: "☎" },
   ] },
   { title: "Sales", items: [
     { href: "/customers", label: "My Customers", icon: "🏬" },
@@ -96,6 +98,7 @@ const accountingGroups: NavGroup[] = [
   { items: [
     { href: "/ar", label: "A/R Aging", icon: "💰" },
     { href: "/customers", label: "Customers", icon: "🏬" },
+    { href: "/phone", label: "Phone", icon: "☎" },
     { href: "/chat", label: "Team Chat", icon: "💬" },
   ]},
 ];
