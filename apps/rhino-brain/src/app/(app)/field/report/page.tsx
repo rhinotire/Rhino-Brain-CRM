@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Badge, StatCard } from "@/components/ui/primitives";
+import { FieldReportFilters } from "@/components/field-report-filters";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +27,18 @@ const shift = (label: string, days: number) => {
 
 const MAP_RE = /📍 On-site check-in: (https?:\/\/\S+)/;
 
-export default async function FieldReportPage({ searchParams }: { searchParams: { date?: string } }) {
+export default async function FieldReportPage({ searchParams }: { searchParams: { date?: string; rep?: string } }) {
   const session = await requireSession();
   if (!isManager(session) && !isAccounting(session)) redirect("/field");
   const { start, end, label } = dayRangeET(searchParams.date);
+  const repFilter = (searchParams.rep ?? "").trim().slice(0, 40);
 
-  const [visits, prospects] = await Promise.all([
+  const [visits, prospects, reps] = await Promise.all([
     db.activity.findMany({
-      where: { type: "VISIT", occurredAt: { gte: start, lt: end }, ...locationScope(session) },
+      where: {
+        type: "VISIT", occurredAt: { gte: start, lt: end }, ...locationScope(session),
+        ...(repFilter ? { repId: repFilter } : {}),
+      },
       orderBy: { occurredAt: "asc" },
       include: {
         rep: { select: { id: true, name: true } },
@@ -41,7 +46,15 @@ export default async function FieldReportPage({ searchParams }: { searchParams: 
       },
     }),
     db.customer.count({
-      where: { source: "COLD_CALL", createdAt: { gte: start, lt: end }, ...locationScope(session) },
+      where: {
+        source: "COLD_CALL", createdAt: { gte: start, lt: end }, ...locationScope(session),
+        ...(repFilter ? { assignedRepId: repFilter } : {}),
+      },
+    }),
+    db.user.findMany({
+      where: { active: true, role: { in: ["SALES_REP", "MANAGER"] }, ...locationScope(session) },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -58,10 +71,11 @@ export default async function FieldReportPage({ searchParams }: { searchParams: 
       <nav className="text-xs text-slate-400"><Link href="/field" className="hover:underline">Field Mode</Link> / Daily Report</nav>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">🗺️ Field Daily Report <span className="text-sm font-normal text-slate-400">{label}</span></h1>
-        <div className="flex items-center gap-2 text-sm">
-          <Link href={`/field/report?date=${shift(label, -1)}`} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">← Prev</Link>
-          <Link href="/field/report" className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Today</Link>
-          <Link href={`/field/report?date=${shift(label, 1)}`} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Next →</Link>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Link href={`/field/report?date=${shift(label, -1)}${repFilter ? `&rep=${repFilter}` : ""}`} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">← Prev</Link>
+          <Link href={`/field/report${repFilter ? `?rep=${repFilter}` : ""}`} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Today</Link>
+          <Link href={`/field/report?date=${shift(label, 1)}${repFilter ? `&rep=${repFilter}` : ""}`} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Next →</Link>
+          <FieldReportFilters date={label} rep={reps.some(r => r.id === repFilter) ? repFilter : ""} reps={reps} />
         </div>
       </div>
 
