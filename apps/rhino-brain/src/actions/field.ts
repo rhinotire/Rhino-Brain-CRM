@@ -28,6 +28,22 @@ export async function optimizeRoute(
   return optimizeStopOrder(clean, start ?? null);
 }
 
+/** Persist today's route so it survives leaving the page (one per rep). */
+export async function saveFieldRoute(stopIds: string[], miles?: number | null): Promise<{ ok: boolean }> {
+  const session = await requireSession();
+  const ids = [...new Set(stopIds.map(String))].slice(0, 9);
+  if (ids.length === 0) {
+    await db.fieldRoute.deleteMany({ where: { userId: session.userId } });
+  } else {
+    await db.fieldRoute.upsert({
+      where: { userId: session.userId },
+      create: { userId: session.userId, stopIds: ids, miles: miles ?? null },
+      update: { stopIds: ids, miles: miles ?? null },
+    });
+  }
+  return { ok: true };
+}
+
 /** Search my customers to add a stop to today's route (Field Mode). */
 export async function searchFieldCustomers(query: string): Promise<FieldSearchHit[]> {
   const session = await requireSession();

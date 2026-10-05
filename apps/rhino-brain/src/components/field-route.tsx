@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { QuickLogButton } from "@/components/quick-log";
-import { searchFieldCustomers, createFieldProspect, optimizeRoute, type FieldSearchHit } from "@/actions/field";
+import { searchFieldCustomers, createFieldProspect, optimizeRoute, saveFieldRoute, type FieldSearchHit } from "@/actions/field";
 import { draftVisitBrief } from "@/actions/ai";
 import { Badge, Button, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
@@ -176,13 +176,26 @@ function AddStopSearch({ onAdd, existing }: { onAdd: (c: FieldCard) => void; exi
   );
 }
 
-export function FieldList({ cards: initial }: { cards: FieldCard[] }) {
-  const [extra, setExtra] = useState<FieldCard[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+export function FieldList({ cards: initial, initialSelected = [], initialExtra = [], initialMiles = null }: {
+  cards: FieldCard[];
+  initialSelected?: string[];
+  initialExtra?: FieldCard[];
+  initialMiles?: number | null;
+}) {
+  const [extra, setExtra] = useState<FieldCard[]>(initialExtra);
+  const [selected, setSelected] = useState<string[]>(initialSelected);
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
-  const [optimizedMiles, setOptimizedMiles] = useState<number | null>(null);
+  const [optimizedMiles, setOptimizedMiles] = useState<number | null>(initialMiles);
   const toast = useToast();
+
+  // persist the route on every change (debounced) so it survives leaving the page
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const t = setTimeout(() => { saveFieldRoute(selected, optimizedMiles).catch(() => {}); }, 600);
+    return () => clearTimeout(t);
+  }, [selected, optimizedMiles]);
 
   const cards = [...extra, ...initial.filter(c => !extra.some(e => e.id === c.id))];
   const cities = [...new Set(initial.map(c => c.city).filter((x): x is string => !!x))]
