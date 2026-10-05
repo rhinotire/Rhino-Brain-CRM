@@ -4,9 +4,10 @@ import { requireSession, isAccounting, repScope, locationScope } from "@/lib/aut
 import { fmtMoney, customerStatusLabels } from "@/lib/domain";
 import type { CustomerStatus } from "@prisma/client";
 import { isAiConfigured } from "@/actions/ai";
-import { isTwilioConfigured } from "@/lib/twilio";
+import { isTwilioConfigured, isSmsConfigured } from "@/lib/twilio";
 import { CollectionsActions } from "@/components/collections-actions";
 import { PhoneDialer } from "@/components/phone-dialer";
+import { SendTextButton } from "@/components/send-text";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import type { Prisma } from "@prisma/client";
 
@@ -47,6 +48,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
     ...(session.role === "SALES_REP" ? { customer: { ...repScope(session) } } : {}),
   };
   const twilioReady = isTwilioConfigured();
+  const smsReady = isSmsConfigured();
   const [invoices, aiReady] = await Promise.all([
     db.invoice.findMany({
       where,
@@ -151,6 +153,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5">
                     {r.phone && <PhoneDialer phone={r.phone} enabled={twilioReady} />}
+                    {r.phone && <SendTextButton customerId={r.customerId} enabled={smsReady} />}
                     <CollectionsActions customerId={r.customerId} aiReady={aiReady} />
                   </div>
                 </td>

@@ -6,7 +6,8 @@ import { requireSession, isManager, isAccounting, locationScope } from "@/lib/au
 import { Card, Badge, Button } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import { PhoneDialer } from "@/components/phone-dialer";
-import { isTwilioConfigured } from "@/lib/twilio";
+import { SendTextButton } from "@/components/send-text";
+import { isTwilioConfigured, isSmsConfigured } from "@/lib/twilio";
 import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
 import { EditCustomerButton } from "@/components/edit-customer-button";
@@ -117,7 +118,10 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         <div className="flex flex-wrap gap-2">
           {!accounting && <>
           {(customer.contactCell || customer.phone) && (
-            <PhoneDialer phone={(customer.contactCell || customer.phone)!} enabled={twilioReady} />
+            <>
+              <PhoneDialer phone={(customer.contactCell || customer.phone)!} enabled={twilioReady} />
+              <SendTextButton customerId={customer.id} enabled={isSmsConfigured()} size="md" />
+            </>
           )}
           <QuickLogButton customerId={customer.id} label="Log Call" defaultType="CALL" />
           <QuickLogButton customerId={customer.id} label="Add Note" defaultType="INTERNAL_NOTE" variant="secondary" />

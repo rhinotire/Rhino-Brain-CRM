@@ -48,6 +48,23 @@ export function validateTwilioSignature(url: string, params: Record<string, stri
   return twilio.validateRequest(process.env.TWILIO_AUTH_TOKEN, signature, url, params);
 }
 
+/** SMS needs ACCOUNT_SID + AUTH_TOKEN + a Twilio-owned sending number. */
+export function isSmsConfigured(): boolean {
+  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_SMS_FROM);
+}
+
+/** Twilio-owned sending number for a company tag (verified caller IDs can't send SMS). */
+export function smsFrom(tag?: string | null): string | null {
+  const t = tag?.toUpperCase();
+  return (t && process.env[`TWILIO_SMS_FROM_${t}`]) || process.env.TWILIO_SMS_FROM || null;
+}
+
+export async function sendSms(to: string, body: string, from: string): Promise<{ sid: string }> {
+  const c = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+  const msg = await c.messages.create({ to, from, body });
+  return { sid: msg.sid };
+}
+
 /** "863-513-2221" → "+18635132221"; null when it can't be a US/CA number. */
 export function toE164(raw: string): string | null {
   const d = raw.replace(/\D/g, "");
