@@ -38,8 +38,10 @@ export function PhoneDialer({ phone, label, enabled }: { phone: string; label?: 
   const explain = (e: unknown): string => {
     const err = e as { code?: number; message?: string; name?: string } | undefined;
     const code = err?.code;
-    if (code === 31208 || err?.name === "NotAllowedError" || err?.name === "NotFoundError")
+    if (code === 31208 || err?.name === "NotAllowedError")
       return "Microphone blocked — click the 🔒 icon in the address bar and allow the microphone, then try again";
+    if (code === 31402 || code === 31201 || err?.name === "NotFoundError")
+      return "No working microphone — plug in a headset (or check Windows Sound → Input), then try again";
     if (code === 20101 || code === 20104) return `Phone token rejected by Twilio (error ${code})`;
     if (code === 31005 || code === 53000 || code === 53405) return `Network blocked to Twilio — check firewall/VPN (error ${code})`;
     return `Call failed${code ? ` (Twilio error ${code})` : ""}${err?.message ? `: ${err.message}` : ""}`;
