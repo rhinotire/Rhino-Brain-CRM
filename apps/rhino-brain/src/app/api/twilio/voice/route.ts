@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { isTwilioConfigured, validateTwilioSignature, toE164 } from "@/lib/twilio";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,18 @@ export async function POST(request: Request) {
   if (!to) return reject("That phone number is not valid.");
 
   const identity = String(params.From ?? "").replace(/^client:/, "");
-  const callerId = process.env.TWILIO_CALLER_ID!;
+  // caller ID follows the rep's company: TWILIO_CALLER_ID_<shortTag> (e.g. _TX
+  // for Everflow's Dallas number), falling back to the account-wide default
+  let callerId = process.env.TWILIO_CALLER_ID!;
+  if (identity) {
+    const user = await db.user.findUnique({
+      where: { id: identity },
+      select: { location: { select: { shortTag: true } } },
+    }).catch(() => null);
+    const tag = user?.location?.shortTag?.toUpperCase();
+    const perCompany = tag ? process.env[`TWILIO_CALLER_ID_${tag}`] : undefined;
+    if (perCompany) callerId = perCompany;
+  }
   const record = process.env.TWILIO_RECORD === "1" ? ' record="record-from-answer-dual"' : "";
   const statusCb = `${process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.app"}/api/twilio/status?u=${encodeURIComponent(identity)}`;
 

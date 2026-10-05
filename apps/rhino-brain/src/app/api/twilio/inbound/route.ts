@@ -22,7 +22,16 @@ export async function POST(request: Request) {
     return new NextResponse("invalid signature", { status: 403 });
   }
 
-  const forwardTo = process.env.TWILIO_FORWARD_TO ?? "+14077775598"; // RHINO front desk
+  // forward per called number: Rhino's 689 line → FL front desk, Everflow's
+  // 972 line → TX (TWILIO_FORWARD_TO_<tag> overrides; FL default is the
+  // Orlando front desk, TX falls back there until Everflow's line is set)
+  const NUMBER_TAG: Record<string, string> = { "6892540988": "FL", "9723252288": "TX" };
+  const called = String(params.To ?? "").replace(/\D/g, "").slice(-10);
+  const tag = NUMBER_TAG[called];
+  const forwardTo =
+    (tag && process.env[`TWILIO_FORWARD_TO_${tag}`]) ||
+    process.env.TWILIO_FORWARD_TO ||
+    "+14077775598";
   // no callerId attr: the front desk sees the customer's own number
   return xml(`<Response><Dial answerOnBridge="true">${forwardTo}</Dial></Response>`);
 }
