@@ -1563,8 +1563,8 @@ model EmployeeDocument {
   expiresAt    DateTime? // driver license / work permit expiration
   sensitive    Boolean         @default(false) // DL / work permit / direct deposit — ADMIN-only download
   notes        String?
-  uploadedById String
-  uploadedBy   User            @relation("EmployeeDocsUploaded", fields: [uploadedById], references: [id])
+  uploadedById String? // null = uploaded by the employee via the public onboarding link
+  uploadedBy   User?           @relation("EmployeeDocsUploaded", fields: [uploadedById], references: [id])
   createdAt    DateTime        @default(now())
 
   @@index([employeeId])

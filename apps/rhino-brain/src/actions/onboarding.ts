@@ -4,8 +4,19 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, isManager, inLocation } from "@/lib/auth";
+import { uploadEmployeeObject, isStorageConfigured } from "@/lib/storage";
 import { isValidRoutingNumber, type OnboardingData } from "@/lib/onboarding";
 import type { ActionResult } from "./auth";
+
+/** Optional signed-form uploads from the public onboarding link. All land in
+ *  the vault as sensitive (W-4/I-9 carry SSNs) with uploadedById = null. */
+const UPLOAD_SLOTS = [
+  { field: "w4File", type: "W4_FORM", label: "W-4" },
+  { field: "i9File", type: "I9_FORM", label: "I-9" },
+  { field: "dlFile", type: "DRIVER_LICENSE", label: "Driver license" },
+] as const;
+const UPLOAD_MAX = 4 * 1024 * 1024; // compressed photos are ~0.5MB; PDFs must fit the action body limit
+const UPLOAD_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 const BASE = process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.app";
 
@@ -73,6 +84,36 @@ export async function submitOnboarding(_prev: ActionResult | null, formData: For
     signature: g("signature"),
     signedAt: new Date().toISOString(),
   };
+
+  // signed-form photos/PDFs → employee vault (validated before anything is stored)
+  const uploads: { slot: (typeof UPLOAD_SLOTS)[number]; file: File }[] = [];
+  for (const slot of UPLOAD_SLOTS) {
+    const f = formData.get(slot.field);
+    if (!(f instanceof File) || f.size === 0) continue;
+    if (f.size > UPLOAD_MAX) return { ok: false, error: `${slot.label}: file too large (max 4 MB) — a phone photo works best.` };
+    if (!UPLOAD_MIME.includes(f.type)) return { ok: false, error: `${slot.label}: only photos or PDF files are accepted.` };
+    uploads.push({ slot, file: f });
+  }
+  if (uploads.length > 0 && !isStorageConfigured()) {
+    return { ok: false, error: "File uploads are unavailable right now — submit without files and hand the forms to your manager." };
+  }
+  for (const { slot, file } of uploads) {
+    const ext = file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const storagePath = `${invite.employee.id}/${slot.type}/${Date.now()}-onboard.${ext}`;
+    await uploadEmployeeObject(storagePath, await file.arrayBuffer(), file.type);
+    await db.employeeDocument.create({
+      data: {
+        employeeId: invite.employee.id,
+        type: slot.type,
+        fileName: `${slot.label} — submitted online ${new Date().toISOString().slice(0, 10)}.${ext}`,
+        storagePath,
+        fileSize: file.size,
+        mimeType: file.type,
+        sensitive: true, // W-4/I-9/DL all carry SSN or ID data
+        uploadedById: null,
+      },
+    });
+  }
 
   await db.onboardingInvite.update({
     where: { id: invite.id },

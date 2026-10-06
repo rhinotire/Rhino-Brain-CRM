@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/primitives";
 import { EditEmployeeButton, type EmployeeDTO } from "@/components/employee-form";
 import { EmployeeDocuments, type EmployeeDocRow } from "@/components/employee-documents";
 import { OnboardingInvitePanel, type InviteInfo } from "@/components/onboarding-invite";
+import { DeleteEmployeeButton } from "@/components/delete-employee-button";
 import type { OnboardingData } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   const docRows: EmployeeDocRow[] = employee.documents.map(d => ({
     id: d.id, type: d.type, fileName: d.fileName,
     expiresAt: d.expiresAt?.toISOString() ?? null, sensitive: d.sensitive,
-    createdAt: d.createdAt.toISOString(), uploadedBy: d.uploadedBy.name,
+    createdAt: d.createdAt.toISOString(), uploadedBy: d.uploadedBy?.name ?? "Employee (online form)",
   }));
 
   const BASE = process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.app";
@@ -86,7 +87,10 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
             </Badge>
           </div>
         </div>
-        <EditEmployeeButton employee={dto} locations={locations} users={users} isAdmin={isAdmin} />
+        <div className="flex items-center gap-2">
+          <EditEmployeeButton employee={dto} locations={locations} users={users} isAdmin={isAdmin} />
+          {isAdmin && <DeleteEmployeeButton employeeId={employee.id} name={employee.name} />}
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

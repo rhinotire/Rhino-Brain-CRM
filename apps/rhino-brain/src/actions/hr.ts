@@ -139,3 +139,18 @@ export async function deleteEmployeeDocument(documentId: string): Promise<Action
   revalidatePath("/hr");
   return { ok: true };
 }
+
+/** Hard-delete an employee (duplicates, test entries). ADMIN only — a real
+ *  departure should be status TERMINATED instead, to keep the records. */
+export async function deleteEmployee(employeeId: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") return { ok: false, error: "Only the admin can delete an employee." };
+  const emp = await getScopedEmployee(session, employeeId);
+  if (!emp) return { ok: false, error: "Employee not found." };
+
+  const docs = await db.employeeDocument.findMany({ where: { employeeId }, select: { storagePath: true } });
+  for (const d of docs) await deleteEmployeeObject(d.storagePath).catch(() => {});
+  await db.employee.delete({ where: { id: employeeId } }); // cascades documents + onboarding invites
+  revalidatePath("/hr");
+  return { ok: true };
+}
