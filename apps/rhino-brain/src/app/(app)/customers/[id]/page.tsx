@@ -117,12 +117,21 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         </div>
         <div className="flex flex-wrap gap-2">
           {!accounting && <>
-          {(customer.contactCell || customer.phone) && (
-            <>
-              <PhoneDialer phone={(customer.contactCell || customer.phone)!} enabled={twilioReady} />
-              <SendTextButton customerId={customer.id} enabled={isSmsConfigured()} size="md" />
-            </>
-          )}
+          {(customer.contactCell || customer.phone) && (() => {
+            const d = (s: string | null) => (s ?? "").replace(/\D/g, "").slice(-10);
+            const bothNumbers = !!customer.contactCell && !!customer.phone && d(customer.contactCell) !== d(customer.phone);
+            return (
+              <>
+                {customer.contactCell && (
+                  <PhoneDialer phone={customer.contactCell} enabled={twilioReady} label={bothNumbers ? "Cell" : "Call"} />
+                )}
+                {customer.phone && (!customer.contactCell || bothNumbers) && (
+                  <PhoneDialer phone={customer.phone} enabled={twilioReady} label={bothNumbers ? "Office" : "Call"} />
+                )}
+                <SendTextButton customerId={customer.id} enabled={isSmsConfigured()} size="md" />
+              </>
+            );
+          })()}
           <QuickLogButton customerId={customer.id} label="Log Call" defaultType="CALL" />
           <QuickLogButton customerId={customer.id} label="Add Note" defaultType="INTERNAL_NOTE" variant="secondary" />
           <NewQuoteButton customers={[{ id: customer.id, companyName: customer.companyName }]} defaultCustomerId={customer.id} label="Create Quote" />

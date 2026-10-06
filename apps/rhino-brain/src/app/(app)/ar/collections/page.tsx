@@ -56,7 +56,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         customerId: true, balance: true, dueDate: true,
         customer: {
           select: {
-            companyName: true, phone: true, email: true, status: true,
+            companyName: true, phone: true, contactCell: true, email: true, status: true,
             assignedRep: { select: { name: true } },
             tasks: { where: { status: "OPEN", title: { startsWith: "Collect " } }, select: { id: true, assignee: { select: { name: true } } }, take: 1 },
           },
@@ -77,7 +77,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
     const row = byCustomer.get(id) ?? {
       customerId: id,
       name: inv.customer!.companyName,
-      phone: inv.customer!.phone,
+      phone: inv.customer!.contactCell || inv.customer!.phone, // cell first, same as everywhere else
       rep: inv.customer!.assignedRep?.name ?? null,
       status: inv.customer!.status,
       total: 0, worstDays: 0, items: 0,
