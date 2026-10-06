@@ -29,6 +29,13 @@ export default async function TermsPage() {
         Site content, design, and branding belong to {brand.legalName} or their respective owners. Product brand names and logos
         belong to their manufacturers.
       </p>
+      <h2>Text messaging (SMS) program terms</h2>
+      <ul>
+        <li>{brand.legalName} sends order, delivery, and account text messages to customers who opt in (for example on the dealer application form). Message frequency varies, typically 1–4 messages per month.</li>
+        <li>Message and data rates may apply depending on your mobile plan. Carriers are not liable for delayed or undelivered messages.</li>
+        <li>Reply HELP for help or STOP to cancel at any time. After you reply STOP you will receive one final message confirming your opt-out.</li>
+        <li>Consent to receive text messages is not a condition of purchase. See our Privacy Policy for how your information is handled.</li>
+      </ul>
       <h2>Liability</h2>
       <p>
         The site is provided &quot;as is.&quot; To the maximum extent permitted by law, {brand.legalName} is not liable for damages
