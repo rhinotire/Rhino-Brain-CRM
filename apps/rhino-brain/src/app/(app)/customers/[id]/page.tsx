@@ -321,19 +321,29 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
         {/* Middle: activity timeline */}
         <Card title="Contact History" className="xl:col-span-1">
           <ol className="relative space-y-4 border-l border-slate-200 pl-4">
-            {customer.activities.map(a => (
-              <li key={a.id} className="relative">
-                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-500" />
-                <div className="text-xs text-slate-400">{fmtDateTime(a.occurredAt)} · {a.rep.name}</div>
-                <div className="text-sm font-medium text-slate-800">
-                  <Badge className="mr-1.5 bg-slate-100 text-slate-600">{activityTypeLabels[a.type]}</Badge>
-                  {a.subject}
-                  {a.quote && <span className="ml-1 text-xs text-brand-600">({a.quote.quoteNumber})</span>}
-                </div>
-                {a.notes && <p className="mt-0.5 text-sm text-slate-500">{a.notes}</p>}
-                {a.outcome && <p className="mt-0.5 text-xs text-emerald-700">→ {a.outcome}</p>}
-              </li>
-            ))}
+            {customer.activities.map(a => {
+              // inbound customer texts must jump out — missing one costs business
+              const isReply = a.type === "TEXT" && a.subject.startsWith("Text reply");
+              return (
+                <li key={a.id} className="relative">
+                  <span className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ${isReply ? "bg-violet-500 ring-4 ring-violet-100" : "bg-brand-500"}`} />
+                  <div className="text-xs text-slate-400">{fmtDateTime(a.occurredAt)} · {a.rep.name}</div>
+                  <div className="text-sm font-medium text-slate-800">
+                    <Badge className={isReply ? "mr-1.5 bg-violet-600 font-bold text-white" : "mr-1.5 bg-slate-100 text-slate-600"}>
+                      {isReply ? "📨 CUSTOMER REPLIED" : activityTypeLabels[a.type]}
+                    </Badge>
+                    {a.subject}
+                    {a.quote && <span className="ml-1 text-xs text-brand-600">({a.quote.quoteNumber})</span>}
+                  </div>
+                  {a.notes && (
+                    isReply
+                      ? <p className="mt-1 rounded-md border border-violet-200 bg-violet-50 p-2 text-sm font-medium text-violet-900">{a.notes}</p>
+                      : <p className="mt-0.5 text-sm text-slate-500">{a.notes}</p>
+                  )}
+                  {a.outcome && <p className="mt-0.5 text-xs text-emerald-700">→ {a.outcome}</p>}
+                </li>
+              );
+            })}
             {customer.activities.length === 0 && <li className="py-4 text-sm text-slate-400">No activity yet — log the first call.</li>}
           </ol>
         </Card>

@@ -12,7 +12,10 @@ type Search = { type?: string; rep?: string; from?: string; to?: string; untouch
 
 // Classify an activity into an outcome so the list is scannable at a glance.
 type Outcome = { key: "won" | "lost" | "noanswer" | "quote" | "normal"; label: string; cls: string };
-function classify(a: { type: ActivityType; outcome: string | null; notes: string | null }): Outcome {
+function classify(a: { type: ActivityType; outcome: string | null; notes: string | null; subject?: string }): Outcome {
+  // inbound customer texts get the loudest badge — never miss a reply
+  if (a.type === "TEXT" && (a.subject ?? "").startsWith("Text reply"))
+    return { key: "normal", label: "📨 Customer replied", cls: "bg-violet-600 text-white font-bold" };
   const text = `${a.outcome ?? ""} ${a.notes ?? ""}`.toLowerCase();
   if (a.outcome?.toLowerCase().startsWith("positive") || /\b(made an order|did an order|placed an order|ordered|will order|order online)\b/.test(text))
     return { key: "won", label: "Order", cls: "bg-emerald-100 text-emerald-800" };
