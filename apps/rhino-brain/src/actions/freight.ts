@@ -14,7 +14,7 @@ import {
   type FreightStopInfo,
 } from "@rhino/services";
 import { db } from "@/lib/db";
-import { requireManager, ownLocationScope, defaultLocationId } from "@/lib/auth";
+import { requirePerm, ownLocationScope, defaultLocationId } from "@/lib/auth";
 
 // ---------- carriers / consignees ----------
 
@@ -31,7 +31,7 @@ const carrierSchema = z.object({
 });
 
 export async function saveCarrier(raw: unknown): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
+  await requirePerm("freight");
   const p = carrierSchema.safeParse(raw);
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const { id, contacts, ...data } = p.data;
@@ -53,7 +53,7 @@ export async function saveCarrier(raw: unknown): Promise<{ ok: boolean; error?: 
 }
 
 export async function deleteCarrier(id: string): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
+  await requirePerm("freight");
   const used = await db.freightQuote.count({ where: { carrierId: id } });
   if (used > 0) {
     await db.freightCarrier.update({ where: { id }, data: { active: false } }); // keep history, hide from new blasts
@@ -78,7 +78,7 @@ const consigneeSchema = z.object({
 });
 
 export async function saveConsignee(raw: unknown): Promise<{ ok: boolean; error?: string }> {
-  await requireManager();
+  await requirePerm("freight");
   const p = consigneeSchema.safeParse(raw);
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const { id, ...data } = p.data;
@@ -90,7 +90,7 @@ export async function saveConsignee(raw: unknown): Promise<{ ok: boolean; error?
 }
 
 export async function deleteConsignee(id: string): Promise<{ ok: boolean }> {
-  await requireManager();
+  await requirePerm("freight");
   const used = await db.freightShipmentStop.count({ where: { consigneeId: id } });
   if (used > 0) await db.freightConsignee.update({ where: { id }, data: { active: false } });
   else await db.freightConsignee.delete({ where: { id } });
@@ -174,7 +174,7 @@ function emailInputFromShipment(s: {
 
 /** Preview for the /freight/new form — same builder the real send uses. */
 export async function previewQuoteEmail(raw: unknown): Promise<{ subject: string; body: string; error?: string }> {
-  await requireManager();
+  await requirePerm("freight");
   const p = shipmentSchema.safeParse(raw);
   if (!p.success) return { subject: "", body: "", error: p.error.issues[0].message };
   const emailInput = await emailInputFor(p.data, "RT-XXXX-XXX (assigned on send)");
@@ -182,7 +182,7 @@ export async function previewQuoteEmail(raw: unknown): Promise<{ subject: string
 }
 
 export async function createShipmentAndSend(raw: unknown): Promise<{ ok: boolean; shipmentId?: string; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   const p = shipmentSchema.safeParse(raw);
   if (!p.success) return { ok: false, error: p.error.issues[0].message };
   const input = p.data;
@@ -244,7 +244,7 @@ export async function createShipmentAndSend(raw: unknown): Promise<{ ok: boolean
 }
 
 export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   const quote = await db.freightQuote.findFirst({
     where: { id: quoteId, shipment: { ...ownLocationScope(session) } },
     include: {
@@ -266,7 +266,7 @@ export async function resendQuote(quoteId: string): Promise<{ ok: boolean; error
 }
 
 export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   const quote = await db.freightQuote.findFirst({
     where: { id: quoteId, shipment: { ...ownLocationScope(session) } },
     include: {
@@ -317,7 +317,7 @@ export async function awardQuote(quoteId: string, opts: { sendRegrets: boolean }
 }
 
 export async function resendConfirmation(shipmentId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   const s = await db.freightShipment.findFirst({
     where: { id: shipmentId, ...ownLocationScope(session) },
     include: {
@@ -348,7 +348,7 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" | "DELIVERED" | "CANCELLED"): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   const s = await db.freightShipment.findFirst({ where: { id: shipmentId, ...ownLocationScope(session) }, select: { status: true } });
   if (!s) return { ok: false, error: "Not found" };
   if (!TRANSITIONS[s.status]?.includes(to)) return { ok: false, error: `Cannot go ${s.status} -> ${to}` };
@@ -360,7 +360,7 @@ export async function updateShipmentStatus(shipmentId: string, to: "PICKED_UP" |
 
 /** Manual price entry / correction — human input supersedes AI (spec §5). */
 export async function overrideQuote(quoteId: string, data: { price: number; transitDays?: number | null }): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   if (!Number.isFinite(data.price) || data.price <= 0) return { ok: false, error: "Invalid price" };
   const quote = await db.freightQuote.findFirst({ where: { id: quoteId, shipment: { ...ownLocationScope(session) } }, select: { shipmentId: true } });
   if (!quote) return { ok: false, error: "Not found" };
@@ -374,7 +374,7 @@ export async function overrideQuote(quoteId: string, data: { price: number; tran
 
 /** Manual "check replies now" — same code path as the cron (works on any Vercel plan). */
 export async function checkRepliesNow(): Promise<{ processed: number; matched: number }> {
-  await requireManager();
+  await requirePerm("freight");
   const r = await pollFreightInbox();
   revalidatePath("/freight");
   return r;

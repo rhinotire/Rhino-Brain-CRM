@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSession, isManager, adminLocFilter, hasPerm } from "@/lib/auth";
+import { generateOpsReminders } from "@/lib/ops-reminders";
 import { LocationSwitcher } from "@/components/location-switcher";
 import { db } from "@/lib/db";
 import { logout } from "@/actions/auth";
@@ -48,6 +49,7 @@ const managerGroups: NavGroup[] = [
   ]},
   { title: "HR", items: [
     { href: "/hr", label: "Employees", icon: "👥" },
+    { href: "/ops", label: "Operations", icon: "🛠" },
   ]},
 ];
 
@@ -113,6 +115,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [];
   const currentLoc = showSwitcher ? adminLocFilter() : null;
   const manager = isManager(session);
+  // lazy ops reminders: fire whenever someone with ops permission loads any page (no cron needed)
+  if (hasPerm(session, "ops")) await generateOpsReminders().catch(() => {});
   const baseGroups: NavGroup[] =
     session.role === "ACCOUNTING"
       ? accountingGroups
@@ -122,7 +126,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // per-user module permissions hide nav entries (pages are guarded server-side too)
   const NAV_PERM: [string, Parameters<typeof hasPerm>[1]][] = [
-    ["/ar", "ar"], ["/activities", "activities"], ["/hr", "hr"], ["/reports", "reports"],
+    ["/ar", "ar"], ["/activities", "activities"], ["/hr", "hr"], ["/ops", "ops"], ["/reports", "reports"],
     ["/freight", "freight"], ["/phone", "phone"], ["/settings/import", "import_export"], ["/products", "products"],
   ];
   const navAllowed = (href: string) => {

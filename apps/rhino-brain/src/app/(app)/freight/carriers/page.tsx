@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { FreightCarrierManager } from "@/components/freight-carrier-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function FreightCarriersPage() {
-  await requireManager();
+  await requirePerm("freight");
   const carriers = await db.freightCarrier.findMany({
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: { contacts: true },

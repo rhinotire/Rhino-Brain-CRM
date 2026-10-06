@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, ownLocationScope } from "@/lib/auth";
+import { requirePerm, ownLocationScope } from "@/lib/auth";
 import { FreightQuoteTable, ShipmentStatusButtons, CheckRepliesButton } from "@/components/freight-quote-table";
 
 export const dynamic = "force-dynamic";
 
 export default async function FreightDetailPage({ params }: { params: { id: string } }) {
-  const session = await requireManager();
+  const session = await requirePerm("freight");
   // company isolation — same scoping as the /freight list
   const s = await db.freightShipment.findFirst({
     where: { id: params.id, ...ownLocationScope(session) },

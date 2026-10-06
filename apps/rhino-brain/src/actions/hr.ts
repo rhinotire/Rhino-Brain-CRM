@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager, locationScope, defaultLocationId, type Session } from "@/lib/auth";
+import { requireSession, hasPerm, locationScope, defaultLocationId, type Session } from "@/lib/auth";
 import { uploadEmployeeObject, createEmployeeSignedUrl, deleteEmployeeObject, isStorageConfigured } from "@/lib/storage";
 import { canDownloadEmployeeDoc, canDeleteEmployeeDoc } from "@rhino/services";
 import { SENSITIVE_EMPLOYEE_DOC_TYPES, employeeDocTypeLabels } from "@/lib/domain";
@@ -40,7 +40,7 @@ function readEmployeeFields(formData: FormData) {
 
 export async function createEmployee(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
-  if (!isManager(session)) return { ok: false, error: "HR is manager-only." };
+  if (!hasPerm(session, "hr")) return { ok: false, error: "No HR permission." };
 
   const fields = readEmployeeFields(formData);
   if (!fields.name) return { ok: false, error: "Name is required." };
@@ -54,7 +54,7 @@ export async function createEmployee(_prev: ActionResult | null, formData: FormD
 
 export async function updateEmployee(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
-  if (!isManager(session)) return { ok: false, error: "HR is manager-only." };
+  if (!hasPerm(session, "hr")) return { ok: false, error: "No HR permission." };
 
   const employeeId = String(formData.get("employeeId") ?? "");
   const emp = await getScopedEmployee(session, employeeId);
@@ -75,7 +75,7 @@ export async function updateEmployee(_prev: ActionResult | null, formData: FormD
 
 export async function uploadEmployeeDocument(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
-  if (!isManager(session)) return { ok: false, error: "HR is manager-only." };
+  if (!hasPerm(session, "hr")) return { ok: false, error: "No HR permission." };
   if (!isStorageConfigured()) return { ok: false, error: "Document storage is not configured yet — ask the admin to add the Supabase storage key." };
 
   const employeeId = String(formData.get("employeeId") ?? "");
@@ -115,7 +115,7 @@ export async function uploadEmployeeDocument(_prev: ActionResult | null, formDat
 
 export async function getEmployeeDocumentUrl(documentId: string): Promise<{ url?: string; error?: string }> {
   const session = await requireSession();
-  if (!isManager(session)) return { error: "HR is manager-only." };
+  if (!hasPerm(session, "hr")) return { error: "No HR permission." };
   const doc = await db.employeeDocument.findUnique({ where: { id: documentId } });
   if (!doc) return { error: "Document not found." };
   const emp = await getScopedEmployee(session, doc.employeeId);

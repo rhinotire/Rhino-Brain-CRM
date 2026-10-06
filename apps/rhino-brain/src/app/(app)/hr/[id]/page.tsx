@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound , redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, locationScope , hasPerm } from "@/lib/auth";
+import { requirePerm, locationScope , hasPerm } from "@/lib/auth";
 import { isStorageConfigured } from "@/lib/storage";
 import { employeeStatusLabels, fmtDate } from "@/lib/domain";
 import { Badge } from "@/components/ui/primitives";
@@ -14,7 +14,7 @@ import type { OnboardingData } from "@/lib/onboarding";
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
-  const session = await requireManager();
+  const session = await requirePerm("hr");
   if (!hasPerm(session, "hr")) redirect("/my-work");
   const isAdmin = session.role === "ADMIN";
 

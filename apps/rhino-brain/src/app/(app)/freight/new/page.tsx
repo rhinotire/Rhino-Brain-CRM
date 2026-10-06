@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { FreightNewForm } from "@/components/freight-new-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function FreightNewPage() {
-  await requireManager();
+  await requirePerm("freight");
   const [consignees, carriers] = await Promise.all([
     db.freightConsignee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.freightCarrier.findMany({ where: { active: true }, orderBy: { name: "asc" }, include: { contacts: { where: { active: true } } } }),

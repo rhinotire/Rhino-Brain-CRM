@@ -25,6 +25,13 @@ export function hasPerm(s: Session, key: PermKey): boolean {
   return effectivePerm(s, key);
 }
 
+/** Session + module permission, redirecting to the user's home page otherwise. */
+export async function requirePerm(key: PermKey): Promise<Session> {
+  const s = await requireSession();
+  if (!hasPerm(s, key)) redirect(s.role === "ACCOUNTING" ? "/ar" : "/my-work");
+  return s;
+}
+
 const VALID_ROLES = ["ADMIN", "MANAGER", "SALES_REP", "ACCOUNTING"] as const;
 
 export async function createSession(s: Session) {
