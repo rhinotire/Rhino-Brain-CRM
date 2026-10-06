@@ -22,7 +22,10 @@ export function middleware(req: NextRequest) {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
-  if (pathname === "/login" && hasSession) {
+  // ?e=1 marks "session rejected server-side" (deleted/deactivated user with a
+  // leftover cookie) — without it this bounce + the server's redirect("/login")
+  // would loop forever. Logging in again overwrites the stale cookie.
+  if (pathname === "/login" && hasSession && !req.nextUrl.searchParams.has("e")) {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

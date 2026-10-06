@@ -7,7 +7,7 @@ import { logout } from "@/actions/auth";
 import { roleLabels } from "@/lib/domain";
 import { NotificationBell } from "@/components/notification-bell";
 import { ResponsiveShell } from "@/components/responsive-shell";
-import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
+import { SidebarNav, type NavGroup, type NavItem } from "@/components/sidebar-nav";
 
 // Grouped navigation (owner-approved layout, 2026-07-13). AI Assistant is
 // pinned at the bottom — it's a tool, not a page in the daily flow.
@@ -133,9 +133,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const hit = NAV_PERM.find(([p]) => href === p || href.startsWith(p + "/"));
     return !hit || hasPerm(session, hit[1]);
   };
-  const groups: NavGroup[] = baseGroups
+  let groups: NavGroup[] = baseGroups
     .map(g => ({ ...g, items: g.items.filter(i => navAllowed(i.href)) }))
     .filter(g => g.items.length > 0);
+
+  // granted modules that this role's base menu doesn't list (e.g. the GM on an
+  // ACCOUNTING account with +hr/+ops) get appended so the grant is reachable
+  const PERM_NAV_ITEM: Record<string, NavItem> = {
+    hr: { href: "/hr", label: "Employees", icon: "👥" },
+    ops: { href: "/ops", label: "Operations", icon: "🛠" },
+    freight: { href: "/freight", label: "Freight", icon: "🚚" },
+    reports: { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
+    products: { href: "/products", label: "Products & Stock", icon: "📦" },
+    activities: { href: "/activities", label: "Activities", icon: "☎" },
+    phone: { href: "/phone", label: "Phone", icon: "☎" },
+  };
+  const present = new Set(groups.flatMap(g => g.items.map(i => i.href)));
+  const extras = Object.entries(PERM_NAV_ITEM)
+    .filter(([key, item]) => hasPerm(session, key as Parameters<typeof hasPerm>[1]) && !present.has(item.href))
+    .map(([, item]) => item);
+  if (extras.length > 0) groups = [...groups, { title: "Granted Access", items: extras }];
 
   const notifications = await db.notification.findMany({
     where: { userId: session.userId },

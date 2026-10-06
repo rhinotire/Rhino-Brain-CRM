@@ -92,7 +92,7 @@ export async function getSession(): Promise<Session | null> {
 /** Redirects to /login when there is no valid session. */
 export async function requireSession(): Promise<Session> {
   const s = await getSession();
-  if (!s) redirect("/login");
+  if (!s) redirect("/login?e=1"); // ?e=1 stops the middleware bouncing a stale cookie back here
   return s;
 }
 
