@@ -7,6 +7,8 @@ import { employeeStatusLabels, fmtDate } from "@/lib/domain";
 import { Badge } from "@/components/ui/primitives";
 import { EditEmployeeButton, type EmployeeDTO } from "@/components/employee-form";
 import { EmployeeDocuments, type EmployeeDocRow } from "@/components/employee-documents";
+import { OnboardingInvitePanel, type InviteInfo } from "@/components/onboarding-invite";
+import type { OnboardingData } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
       location: { select: { id: true, name: true, shortTag: true, color: true } },
       user: { select: { id: true, name: true } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } } } },
+      onboardingInvites: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
   if (!employee) notFound();
@@ -45,6 +48,16 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
     expiresAt: d.expiresAt?.toISOString() ?? null, sensitive: d.sensitive,
     createdAt: d.createdAt.toISOString(), uploadedBy: d.uploadedBy.name,
   }));
+
+  const BASE = process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.app";
+  const rawInvite = employee.onboardingInvites[0] ?? null;
+  const invite: InviteInfo = !rawInvite
+    ? null
+    : rawInvite.status === "SUBMITTED"
+      ? { status: "SUBMITTED", submittedAt: (rawInvite.submittedAt ?? rawInvite.createdAt).toISOString(), data: isAdmin ? (rawInvite.data as OnboardingData | null) : null }
+      : rawInvite.expiresAt > new Date()
+        ? { status: "PENDING", url: `${BASE}/onboard/${rawInvite.token}`, expiresAt: rawInvite.expiresAt.toISOString() }
+        : null;
 
   const info: [string, string | null][] = [
     ["Phone", employee.phone],
@@ -87,6 +100,11 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
               </div>
             ))}
           </dl>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">Online Onboarding Form</h2>
+          <OnboardingInvitePanel employeeId={employee.id} invite={invite} isAdmin={isAdmin} />
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

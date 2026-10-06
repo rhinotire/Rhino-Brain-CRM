@@ -12,7 +12,9 @@ export function middleware(req: NextRequest) {
     // with CRON_SECRET and fail closed when it's missing
     pathname.startsWith("/api/cron/") ||
     // Twilio webhooks sign requests (X-Twilio-Signature); token route 401s without a session
-    pathname.startsWith("/api/twilio/");
+    pathname.startsWith("/api/twilio/") ||
+    // employee onboarding form: the unguessable token is the authorization
+    pathname.startsWith("/onboard/");
   const hasSession = req.cookies.has("tirepro_session");
 
   if (!isPublic && !hasSession) {
