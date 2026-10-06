@@ -256,6 +256,7 @@ model User {
   name         String
   role         Role      @default(SALES_REP)
   active       Boolean   @default(true)
+  memo         String? // personal scratchpad shown on My Work
   // module grants/revokes relative to role defaults: "+hr", "-collections"
   permissions  String[]  @default([])
   // null for ADMIN = all locations
@@ -504,16 +505,17 @@ model Activity {
 }
 
 model Task {
-  locationId  String?
-  location    Location?    @relation(fields: [locationId], references: [id])
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  dueDate     DateTime
-  priority    TaskPriority @default(MEDIUM)
-  status      TaskStatus   @default(OPEN)
-  type        TaskType     @default(FOLLOW_UP)
-  completedAt DateTime?
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id])
+  id             String       @id @default(cuid())
+  title          String
+  description    String?
+  dueDate        DateTime
+  priority       TaskPriority @default(MEDIUM)
+  status         TaskStatus   @default(OPEN)
+  type           TaskType     @default(FOLLOW_UP)
+  completedAt    DateTime?
+  lastRemindedOn DateTime? // due/overdue bell dedupe: at most once per ET day
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)

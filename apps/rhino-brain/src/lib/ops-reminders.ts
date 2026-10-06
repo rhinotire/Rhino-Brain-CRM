@@ -5,6 +5,37 @@ import { effectivePerm } from "./permissions";
 
 const etDay = (d: Date) => d.toLocaleDateString("en-US", { timeZone: "America/New_York" });
 
+/** Task due/overdue bells for assignees — once per task per ET day. */
+export async function generateTaskReminders(): Promise<void> {
+  const now = new Date();
+  const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
+  const tasks = await db.task.findMany({
+    where: { status: "OPEN", dueDate: { lte: endOfToday } },
+    select: { id: true, title: true, dueDate: true, lastRemindedOn: true, assigneeId: true, customer: { select: { companyName: true } } },
+    take: 300,
+  });
+  const due = tasks.filter(t => !t.lastRemindedOn || etDay(t.lastRemindedOn) !== etDay(now));
+  for (const t of due) {
+    const days = daysUntil(t.dueDate, now);
+    await db.notification.create({
+      data: {
+        type: days < 0 ? "TASK_OVERDUE" : "TASK_DUE",
+        title: days < 0 ? `🔴 Task overdue ${-days}d: ${t.title.slice(0, 70)}` : `📋 Task due today: ${t.title.slice(0, 70)}`,
+        body: t.customer?.companyName,
+        link: "/tasks",
+        userId: t.assigneeId,
+      },
+    }).catch(() => null);
+    await db.task.update({ where: { id: t.id }, data: { lastRemindedOn: now } }).catch(() => {});
+  }
+}
+
+/** All lazy daily reminders — fired from the app layout on any page load. */
+export async function generateDailyReminders(hasOpsPerm: boolean): Promise<void> {
+  await generateTaskReminders().catch(() => {});
+  if (hasOpsPerm) await generateOpsReminders().catch(() => {});
+}
+
 /**
  * Lazy reminder engine: called from the app layout for manager sessions, so it
  * runs many times a day without a cron — each due item bells its company's

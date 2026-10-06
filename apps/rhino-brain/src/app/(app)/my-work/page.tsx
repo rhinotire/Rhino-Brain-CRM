@@ -4,6 +4,7 @@ import { Card, StatCard, Badge, EmptyState } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import { NewTaskButton, TaskActions } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
+import { MyMemo } from "@/components/my-memo";
 import {
   stageLabels, quoteNeedsFollowUp, quoteStatusLabels, taskPriorityLabels,
   fmtDate, fmtMoney, daysSince, temperatureClasses, temperatureLabels, customerTemperature,
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MyWorkPage() {
   const session = await requireSession();
+  const myMemo = (await db.user.findUnique({ where: { id: session.userId }, select: { memo: true } }))?.memo ?? "";
   const now = new Date();
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(now); dayEnd.setHours(23, 59, 59, 999);
@@ -74,6 +76,8 @@ export default async function MyWorkPage() {
           <NewTaskButton customers={myCustomers} users={[{ id: me, name: session.name }]} canAssign={false} selfId={me} />
         </div>
       </div>
+
+      <MyMemo initial={myMemo} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Calls Today" value={String(callsToday)} />

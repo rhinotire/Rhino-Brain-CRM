@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireSession, isManager, adminLocFilter, hasPerm } from "@/lib/auth";
-import { generateOpsReminders } from "@/lib/ops-reminders";
+import { generateDailyReminders } from "@/lib/ops-reminders";
 import { LocationSwitcher } from "@/components/location-switcher";
 import { db } from "@/lib/db";
 import { logout } from "@/actions/auth";
@@ -116,8 +116,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [];
   const currentLoc = showSwitcher ? adminLocFilter() : null;
   const manager = isManager(session);
-  // lazy ops reminders: fire whenever someone with ops permission loads any page (no cron needed)
-  if (hasPerm(session, "ops")) await generateOpsReminders().catch(() => {});
+  // lazy reminders (no cron): task due/overdue bells for everyone, ops renewals for ops holders
+  await generateDailyReminders(hasPerm(session, "ops")).catch(() => {});
   const baseGroups: NavGroup[] =
     session.role === "ACCOUNTING"
       ? accountingGroups
