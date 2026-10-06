@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Table, THead, Badge } from "@/components/ui/primitives";
 import { UserFormButton, ToggleActiveButton } from "@/components/user-form";
 import { LocationFormButton } from "@/components/location-form";
+import { UserPermissionsButton } from "@/components/user-permissions";
+import { PERMISSIONS, effectivePerm, type PermKey } from "@/lib/permissions";
 import { roleLabels, fmtDate } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +53,7 @@ export default async function UsersPage() {
         </ul>
       </div>
       <Table>
-        <THead cols={["Name", "Email", "Role", "Location", "Customers", "Activities", "Created", "Status", "Actions"]} />
+        <THead cols={["Name", "Email", "Role", "Location", "Modules", "Customers", "Created", "Status", "Actions"]} />
         <tbody>
           {users.map(u => (
             <tr key={u.id} className={`border-b border-slate-50 ${u.active ? "hover:bg-slate-50" : "opacity-50"}`}>
@@ -67,13 +69,23 @@ export default async function UsersPage() {
                   : u.location ? <Badge className="bg-slate-100 text-slate-600">{u.location.shortTag} · {u.location.name}</Badge>
                   : <span className="text-amber-600 text-xs">Unassigned</span>}
               </td>
+              <td className="px-3 py-2">
+                {u.role === "ADMIN" ? (
+                  <span className="text-xs text-slate-400">all modules</span>
+                ) : (
+                  <span className="text-xs text-slate-500" title={PERMISSIONS.filter(p => effectivePerm(u, p.key as PermKey)).map(p => p.label).join(", ")}>
+                    {PERMISSIONS.filter(p => effectivePerm(u, p.key as PermKey)).length}/{PERMISSIONS.length}
+                    {u.permissions.length > 0 && <span className="ml-1 font-medium text-amber-600">custom</span>}
+                  </span>
+                )}
+              </td>
               <td className="px-3 py-2 tabular-nums">{u._count.customers}</td>
-              <td className="px-3 py-2 tabular-nums">{u._count.activities}</td>
               <td className="px-3 py-2">{fmtDate(u.createdAt)}</td>
               <td className="px-3 py-2">{u.active ? <Badge className="bg-emerald-100 text-emerald-800">Active</Badge> : <Badge className="bg-slate-100 text-slate-500">Inactive</Badge>}</td>
               <td className="px-3 py-2">
                 <div className="flex gap-1.5">
                   <UserFormButton user={{ id: u.id, name: u.name, email: u.email, role: u.role, active: u.active, locationId: u.locationId, assistIds: u.assists.map(a => a.id) }} locations={locations} reps={reps} />
+                  {u.id !== session.userId && <UserPermissionsButton userId={u.id} name={u.name} role={u.role} permissions={u.permissions} />}
                   {u.id !== session.userId && <ToggleActiveButton userId={u.id} active={u.active} />}
                 </div>
               </td>

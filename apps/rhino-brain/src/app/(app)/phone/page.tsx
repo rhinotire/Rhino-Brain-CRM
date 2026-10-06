@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth";
+import { requireSession , hasPerm } from "@/lib/auth";
 import { isTwilioConfigured } from "@/lib/twilio";
 import { PhoneKeypad } from "@/components/phone-keypad";
 import { Table, THead, EmptyRow } from "@/components/ui/primitives";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 /** Standalone browser phone: dial any number + the rep's recent call log. */
 export default async function PhonePage() {
   const session = await requireSession();
+  if (!hasPerm(session, "phone")) redirect("/my-work");
   const twilioReady = isTwilioConfigured();
 
   const recent = await db.activity.findMany({

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound , redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { requireManager, locationScope , hasPerm } from "@/lib/auth";
 import { isStorageConfigured } from "@/lib/storage";
 import { employeeStatusLabels, fmtDate } from "@/lib/domain";
 import { Badge } from "@/components/ui/primitives";
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const session = await requireManager();
+  if (!hasPerm(session, "hr")) redirect("/my-work");
   const isAdmin = session.role === "ADMIN";
 
   const employee = await db.employee.findUnique({

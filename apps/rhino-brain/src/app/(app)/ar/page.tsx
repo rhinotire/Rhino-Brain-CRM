@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
+import { requireSession, isManager, isAccounting, locationScope , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard, Select, Button, Input } from "@/components/ui/primitives";
 import { fmtMoney, fmtDate } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
@@ -27,6 +28,7 @@ function bucketOf(days: number) {
 
 export default async function ARAgingPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
+  if (!hasPerm(session, "ar")) redirect("/my-work");
   const seesAll = isManager(session) || isAccounting(session);
   const manager = seesAll; // controls rep filter + rep column
   const now = new Date();

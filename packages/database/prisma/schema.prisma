@@ -253,6 +253,8 @@ model User {
   name         String
   role         Role      @default(SALES_REP)
   active       Boolean   @default(true)
+  // module grants/revokes relative to role defaults: "+hr", "-collections"
+  permissions  String[]  @default([])
   // null for ADMIN = all locations
   locationId   String?
   location     Location? @relation(fields: [locationId], references: [id])

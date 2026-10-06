@@ -13,7 +13,17 @@ const secret = () => {
   return new TextEncoder().encode(s || "dev-secret-change-me");
 };
 
-export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null; assistIds?: string[] };
+export type Session = { userId: string; role: Role; name: string; email: string; locationId?: string | null; assistIds?: string[]; permissions?: string[] };
+
+// ---- Module permissions: role defaults + per-user "+key"/"-key" overrides ----
+// Registry lives in lib/permissions.ts (shared with the client-side checkbox UI).
+
+import { effectivePerm, type PermKey } from "./permissions";
+export type { PermKey };
+
+export function hasPerm(s: Session, key: PermKey): boolean {
+  return effectivePerm(s, key);
+}
 
 const VALID_ROLES = ["ADMIN", "MANAGER", "SALES_REP", "ACCOUNTING"] as const;
 
@@ -55,7 +65,7 @@ export async function getSession(): Promise<Session | null> {
     // (owner-reported incident: rep still saw the owner dashboard).
     const user = await db.user.findUnique({
       where: { id: p.userId },
-      select: { role: true, active: true, name: true, email: true, locationId: true },
+      select: { role: true, active: true, name: true, email: true, locationId: true, permissions: true },
     });
     if (!user || !user.active) return null;
     return {
@@ -64,6 +74,7 @@ export async function getSession(): Promise<Session | null> {
       name: user.name,
       email: user.email,
       locationId: user.locationId,
+      permissions: user.permissions,
       assistIds: Array.isArray(p.assistIds) ? (p.assistIds as string[]) : undefined,
     };
   } catch {

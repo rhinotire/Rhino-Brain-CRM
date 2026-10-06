@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isAccounting, repScope, locationScope } from "@/lib/auth";
+import { requireSession, isAccounting, repScope, locationScope , hasPerm } from "@/lib/auth";
 import { fmtMoney, customerStatusLabels } from "@/lib/domain";
 import type { CustomerStatus } from "@prisma/client";
 import { isAiConfigured } from "@/actions/ai";
@@ -36,6 +37,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default async function CollectionsPage({ searchParams }: { searchParams: { dead?: string } }) {
   const session = await requireSession();
+  if (!hasPerm(session, "ar")) redirect("/my-work");
   const now = new Date();
   const showDead = searchParams.dead === "1";
 

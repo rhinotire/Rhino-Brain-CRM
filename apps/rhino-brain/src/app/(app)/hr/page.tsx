@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, locationScope, adminLocFilter } from "@/lib/auth";
+import { requireManager, locationScope, adminLocFilter , hasPerm } from "@/lib/auth";
 import { worstExpiryStatus, coreDocsOnFile } from "@rhino/services";
 import { employeeStatusLabels, CORE_EMPLOYEE_DOC_TYPES, fmtDate } from "@/lib/domain";
 import { Table, THead, EmptyRow, Badge } from "@/components/ui/primitives";
@@ -26,6 +27,7 @@ const GOVT_FORMS: [string, string, string][] = [
 
 export default async function HrPage() {
   const session = await requireManager();
+  if (!hasPerm(session, "hr")) redirect("/my-work");
   const isAdmin = session.role === "ADMIN";
   const showLocCol = isAdmin && !adminLocFilter();
 

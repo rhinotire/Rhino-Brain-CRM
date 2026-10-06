@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession, isManager, adminLocFilter } from "@/lib/auth";
+import { requireSession, isManager, adminLocFilter, hasPerm } from "@/lib/auth";
 import { LocationSwitcher } from "@/components/location-switcher";
 import { db } from "@/lib/db";
 import { logout } from "@/actions/auth";
@@ -113,12 +113,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : [];
   const currentLoc = showSwitcher ? adminLocFilter() : null;
   const manager = isManager(session);
-  const groups: NavGroup[] =
+  const baseGroups: NavGroup[] =
     session.role === "ACCOUNTING"
       ? accountingGroups
       : manager
         ? [...managerGroups, websiteGroup(session.role === "ADMIN"), settingsGroup(session.role === "ADMIN")]
         : repGroups;
+
+  // per-user module permissions hide nav entries (pages are guarded server-side too)
+  const NAV_PERM: [string, Parameters<typeof hasPerm>[1]][] = [
+    ["/ar", "ar"], ["/hr", "hr"], ["/reports", "reports"], ["/freight", "freight"],
+    ["/phone", "phone"], ["/settings/import", "import_export"], ["/products", "products"],
+  ];
+  const navAllowed = (href: string) => {
+    const hit = NAV_PERM.find(([p]) => href === p || href.startsWith(p + "/"));
+    return !hit || hasPerm(session, hit[1]);
+  };
+  const groups: NavGroup[] = baseGroups
+    .map(g => ({ ...g, items: g.items.filter(i => navAllowed(i.href)) }))
+    .filter(g => g.items.length > 0);
 
   const notifications = await db.notification.findMany({
     where: { userId: session.userId },

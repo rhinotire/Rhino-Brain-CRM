@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireSession, canWrite, isAccounting } from "@/lib/auth";
+import { requireSession, canWrite, isAccounting, hasPerm } from "@/lib/auth";
 import { isSmsConfigured, sendSms, smsFrom, toE164 } from "@/lib/twilio";
 import { fmtMoney } from "@/lib/domain";
 import type { ActionResult } from "./auth";
@@ -15,6 +15,7 @@ const BRAND: Record<string, { name: string; phone: string }> = {
 export async function sendCustomerText(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   if (isAccounting(session)) return { ok: false, error: "Accounting is read-only." };
+  if (!hasPerm(session, "phone")) return { ok: false, error: "You don't have phone/text permission — ask the admin." };
   if (!isSmsConfigured()) return { ok: false, error: "Texting is not configured yet — ask the admin." };
 
   const customerId = String(formData.get("customerId") ?? "");

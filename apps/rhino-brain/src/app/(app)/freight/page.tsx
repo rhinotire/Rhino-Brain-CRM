@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { requireManager, locationScope , hasPerm } from "@/lib/auth";
 import { CheckRepliesButton } from "@/components/freight-quote-table";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default async function FreightPage() {
   const session = await requireManager();
+  if (!hasPerm(session, "freight")) redirect("/my-work");
   const scope = locationScope(session);
   const shipments = await db.freightShipment.findMany({
     where: { ...scope },

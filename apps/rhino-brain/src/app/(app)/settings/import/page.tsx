@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { requireManager } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireManager , hasPerm } from "@/lib/auth";
 import { Card, Table, THead, EmptyRow } from "@/components/ui/primitives";
 import { CsvImporter } from "@/components/csv-importer";
 import { ArImporter } from "@/components/ar-importer";
@@ -11,7 +12,8 @@ import { fmtDateTime } from "@/lib/domain";
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
-  await requireManager();
+  const session = await requireManager();
+  if (!hasPerm(session, "import_export")) redirect("/my-work");
 
   const [batches, locations] = await Promise.all([
     db.importBatch.findMany({

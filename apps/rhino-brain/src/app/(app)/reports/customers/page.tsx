@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireManager, locationScope , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, Card, StatCard } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import {
@@ -14,6 +15,7 @@ export default async function CustomerReport() {
   const now = new Date();
 
   const session = await requireManager();
+  if (!hasPerm(session, "reports")) redirect("/my-work");
   const customers = await db.customer.findMany({
     where: { status: { in: ["ACTIVE", "PROSPECT"] }, ...locationScope(session) },
     include: { assignedRep: { select: { name: true } } },

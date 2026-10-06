@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, isManager, seesAllLocations } from "@/lib/auth";
+import { requireSession, isManager, seesAllLocations , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { ShopifySyncButton } from "@/components/shopify-sync-button";
 import { ProductsFilter } from "@/components/products-filter";
@@ -19,6 +20,7 @@ type Search = { q?: string; cat?: string; stock?: string };
 
 export default async function ProductsPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
+  if (!hasPerm(session, "products")) redirect("/my-work");
   const manager = isManager(session);
 
   const where: Prisma.ProductWhereInput = { active: true };

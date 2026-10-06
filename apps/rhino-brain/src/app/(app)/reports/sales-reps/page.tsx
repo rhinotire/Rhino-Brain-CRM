@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { requireManager, locationScope } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireManager, locationScope , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Input, Select, Button, Card } from "@/components/ui/primitives";
 import { fmtMoney, etDayStart } from "@/lib/domain";
 
@@ -24,6 +25,7 @@ function rangeToDates(range: string | undefined, from?: string, to?: string): { 
 
 export default async function SalesRepReport({ searchParams }: { searchParams: Search }) {
   const session = await requireManager();
+  if (!hasPerm(session, "reports")) redirect("/my-work");
   const locWhere = locationScope(session);
   const { start, end, label } = rangeToDates(searchParams.range, searchParams.from, searchParams.to);
 
