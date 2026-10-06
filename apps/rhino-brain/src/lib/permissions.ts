@@ -3,6 +3,7 @@
 
 export const PERMISSIONS = [
   { key: "ar", label: "A/R & Collections", roles: ["ADMIN", "MANAGER", "ACCOUNTING", "SALES_REP"] },
+  { key: "activities", label: "Activities — team activity log", roles: ["ADMIN", "MANAGER", "SALES_REP", "ACCOUNTING"] },
   { key: "hr", label: "HR — employees & documents", roles: ["ADMIN", "MANAGER"] },
   { key: "reports", label: "Reports — rep performance & customers", roles: ["ADMIN", "MANAGER"] },
   { key: "freight", label: "Freight quoting", roles: ["ADMIN", "MANAGER"] },

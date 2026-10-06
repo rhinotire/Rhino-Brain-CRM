@@ -122,8 +122,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // per-user module permissions hide nav entries (pages are guarded server-side too)
   const NAV_PERM: [string, Parameters<typeof hasPerm>[1]][] = [
-    ["/ar", "ar"], ["/hr", "hr"], ["/reports", "reports"], ["/freight", "freight"],
-    ["/phone", "phone"], ["/settings/import", "import_export"], ["/products", "products"],
+    ["/ar", "ar"], ["/activities", "activities"], ["/hr", "hr"], ["/reports", "reports"],
+    ["/freight", "freight"], ["/phone", "phone"], ["/settings/import", "import_export"], ["/products", "products"],
   ];
   const navAllowed = (href: string) => {
     const hit = NAV_PERM.find(([p]) => href === p || href.startsWith(p + "/"));

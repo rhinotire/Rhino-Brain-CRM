@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { requireSession, isManager, repScope, locationScope } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireSession, isManager, repScope, locationScope , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, Select, Input, Button, Card, StatCard } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import { activityTypeLabels, outcomeLabels, outcomeGroups, fmtDateTime, fmtDate, daysSince, temperatureClasses, temperatureLabels, customerTemperature, etDayStart } from "@/lib/domain";
@@ -30,6 +31,7 @@ function classify(a: { type: ActivityType; outcome: string | null; notes: string
 
 export default async function ActivitiesPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
+  if (!hasPerm(session, "activities")) redirect("/my-work");
   const manager = isManager(session);
   const now = new Date();
 
