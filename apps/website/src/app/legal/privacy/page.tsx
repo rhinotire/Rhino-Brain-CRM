@@ -28,6 +28,11 @@ export default async function PrivacyPage() {
         <li>To route installation requests to installers in our network — the installer receives what they need to serve you (your request details and contact information).</li>
         <li>To operate and improve the website and our service.</li>
       </ul>
+      <h2>Text messaging (SMS)</h2>
+      <ul>
+        <li>If you opt in, we send order, delivery, and account text messages to the phone number you provide. Message frequency varies; message and data rates may apply. Reply HELP for help or STOP to unsubscribe at any time.</li>
+        <li>No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text messaging originator opt-in data and consent will not be shared with any third parties.</li>
+      </ul>
       <h2>What we don&apos;t do</h2>
       <ul>
         <li>We do not sell your personal information.</li>
