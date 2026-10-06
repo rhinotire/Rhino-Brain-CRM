@@ -50,6 +50,7 @@ const managerGroups: NavGroup[] = [
   { title: "HR", items: [
     { href: "/hr", label: "Employees", icon: "👥" },
     { href: "/ops", label: "Operations", icon: "🛠" },
+    { href: "/fleet", label: "Fleet", icon: "🚚" },
   ]},
 ];
 
@@ -126,7 +127,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // per-user module permissions hide nav entries (pages are guarded server-side too)
   const NAV_PERM: [string, Parameters<typeof hasPerm>[1]][] = [
-    ["/ar", "ar"], ["/activities", "activities"], ["/hr", "hr"], ["/ops", "ops"], ["/reports", "reports"],
+    ["/ar", "ar"], ["/activities", "activities"], ["/hr", "hr"], ["/ops", "ops"], ["/fleet", "ops"], ["/reports", "reports"],
     ["/freight", "freight"], ["/phone", "phone"], ["/settings/import", "import_export"], ["/products", "products"],
   ];
   const navAllowed = (href: string) => {
@@ -152,6 +153,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const extras = Object.entries(PERM_NAV_ITEM)
     .filter(([key, item]) => hasPerm(session, key as Parameters<typeof hasPerm>[1]) && !present.has(item.href))
     .map(([, item]) => item);
+  if (hasPerm(session, "ops") && !present.has("/fleet")) extras.push({ href: "/fleet", label: "Fleet", icon: "🚚" });
   if (extras.length > 0) groups = [...groups, { title: "Granted Access", items: extras }];
 
   const notifications = await db.notification.findMany({

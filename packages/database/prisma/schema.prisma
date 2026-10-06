@@ -246,6 +246,7 @@ model Location {
   employees        Employee[]
   opsItems         OpsItem[]
   repairTickets    RepairTicket[]
+  Vehicle          Vehicle[]
 }
 
 model User {
@@ -1644,4 +1645,63 @@ model RepairTicket {
   closedAt     DateTime?
 
   @@index([locationId, status])
+}
+
+/// Fleet: one record per company vehicle.
+model Vehicle {
+  id           String               @id @default(cuid())
+  name         String // "Box Truck #1"
+  plate        String?
+  vin          String?
+  makeModel    String? // "Ford F-600 2019"
+  assignedTo   String? // current driver (free text)
+  odometer     Int?
+  active       Boolean              @default(true)
+  notes        String?
+  locationId   String
+  location     Location             @relation(fields: [locationId], references: [id])
+  maintenances VehicleMaintenance[]
+  incidents    VehicleIncident[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([locationId, active])
+}
+
+model VehicleMaintenance {
+  id        String   @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date      DateTime
+  type      String   @default("REPAIR") // OIL_CHANGE | TIRES | BRAKES | INSPECTION | REPAIR | OTHER
+  odometer  Int?
+  cost      Decimal? @db.Decimal(10, 2)
+  vendor    String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Accident / incident record with its insurance-claim trail.
+model VehicleIncident {
+  id           String    @id @default(cuid())
+  vehicleId    String
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date         DateTime
+  driver       String?
+  description  String
+  photoPath    String?
+  policeReport String?
+  status       String    @default("OPEN") // OPEN | CLAIM_FILED | RESOLVED
+  claimNumber  String?
+  insurer      String?
+  claimAmount  Decimal?  @db.Decimal(10, 2)
+  claimStatus  String? // FILED | APPROVED | PAID | DENIED
+  resolvedAt   DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([vehicleId, status])
 }
