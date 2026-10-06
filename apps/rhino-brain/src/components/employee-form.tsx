@@ -17,6 +17,12 @@ export type EmployeeDTO = {
 type Option = { id: string; name: string };
 type LocationOption = { id: string; name: string; shortTag: string };
 
+/** Standard positions (owner's list) — the stored value stays free text, so legacy entries keep working. */
+const POSITIONS = [
+  "Inside Sales", "Outside Sales", "Office Clerk", "Driver", "Warehouse Worker",
+  "Warehouse Manager", "Office Manager", "Accountant", "General Manager", "Other",
+];
+
 function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, onDone }: {
   employee?: EmployeeDTO;
   locations: LocationOption[];
@@ -45,7 +51,13 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
           <Input name="name" defaultValue={employee?.name ?? ""} required />
         </Field>
         <Field label="Position">
-          <Input name="position" defaultValue={employee?.position ?? ""} placeholder="e.g. Warehouse Associate" />
+          <Select name="position" defaultValue={employee?.position ?? ""}>
+            <option value="">— Select —</option>
+            {employee?.position && !POSITIONS.includes(employee.position) && (
+              <option value={employee.position}>{employee.position}</option>
+            )}
+            {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+          </Select>
         </Field>
         <Field label="Phone">
           <Input name="phone" defaultValue={employee?.phone ?? ""} />

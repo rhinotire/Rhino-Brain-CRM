@@ -76,8 +76,11 @@ export default async function HrPage() {
               </td>
               <td className="px-3 py-2 text-slate-600">{e.hireDate ? fmtDate(e.hireDate) : "—"}</td>
               <td className="px-3 py-2 text-slate-600">
-                <span className="mr-2">{coreDocsOnFile(e.documents, CORE_EMPLOYEE_DOC_TYPES)}/{CORE_EMPLOYEE_DOC_TYPES.length}</span>
-                {expiryDot(e.documents)}
+                <Link href={`/hr/${e.id}`} className="inline-flex items-center gap-1.5 hover:underline" title="Open the employee's document vault to view or upload files">
+                  📁 <span>{coreDocsOnFile(e.documents, CORE_EMPLOYEE_DOC_TYPES)}/{CORE_EMPLOYEE_DOC_TYPES.length}</span>
+                  {expiryDot(e.documents)}
+                  <span className="text-xs text-brand-600">upload →</span>
+                </Link>
               </td>
               <td className="px-3 py-2 text-right">
                 <Link href={`/hr/${e.id}`} className="text-xs text-brand-600 hover:underline">Open →</Link>
