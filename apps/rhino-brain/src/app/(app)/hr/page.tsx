@@ -15,6 +15,15 @@ const TEMPLATES: [string, string][] = [
   ["Rhino-Tire-USA-Emergency-Contact-Form.docx", "Emergency Contact Form"],
 ];
 
+// Government forms link to the OFFICIAL source so we always hand out the
+// current revision (IRS/USCIS update these; hosting a copy goes stale).
+const GOVT_FORMS: [string, string, string][] = [
+  ["https://www.irs.gov/pub/irs-pdf/fw4.pdf", "W-4 — Employee's Withholding Certificate", "IRS"],
+  ["https://www.uscis.gov/sites/default/files/document/forms/i-9.pdf", "I-9 — Employment Eligibility Verification", "USCIS"],
+  ["https://www.uscis.gov/sites/default/files/document/forms/i-9instr.pdf", "I-9 Instructions", "USCIS"],
+  ["https://www.irs.gov/pub/irs-pdf/fw9.pdf", "W-9 — For 1099 contractors (not employees)", "IRS"],
+];
+
 export default async function HrPage() {
   const session = await requireManager();
   const isAdmin = session.role === "ADMIN";
@@ -98,6 +107,16 @@ export default async function HrPage() {
             <a key={file} href={`/api/hr-templates/${file}`}
                className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
               <span>📄</span>{label}<span className="ml-auto text-xs text-slate-400">DOCX</span>
+            </a>
+          ))}
+        </div>
+        <h2 className="mb-1 mt-5 text-sm font-semibold text-slate-700">Government Forms (official source — always current revision)</h2>
+        <p className="mb-3 text-xs text-slate-500">W-4 and I-9 are required for every new hire. Completed forms go into the employee&apos;s document vault.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {GOVT_FORMS.map(([url, label, source]) => (
+            <a key={url} href={url} target="_blank" rel="noopener"
+               className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <span>🏛️</span>{label}<span className="ml-auto text-xs text-slate-400">{source} · PDF</span>
             </a>
           ))}
         </div>
