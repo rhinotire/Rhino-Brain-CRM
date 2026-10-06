@@ -19,6 +19,8 @@ const T = {
     dSelect: "Select…", dAddress: "Business street address *", dVol: "Monthly volume", dVolPh: "e.g. 200 tires", dLocs: "# Locations", dZip: "Delivery ZIP",
     dProducts: "Products of interest", dProductsPh: "Trailer tires, wheels, assemblies…",
     dCert: "Resale certificate (PDF or photo, max 10 MB)", dCertNote: "Speeds up approval — you can also submit now and email it later.",
+    dSms: "Yes — text me order, delivery, and billing updates.",
+    dSmsNote: "By checking this box you agree to receive order, delivery, and account text messages from Rhino Tire USA at the phone number provided. Message frequency varies (about 1–4/month). Message & data rates may apply. Reply HELP for help or STOP to unsubscribe at any time. Consent is not a condition of purchase.",
     dSubmit: "Apply for a Dealer Account", dDone: "Application received!",
   },
   es: {
@@ -31,6 +33,8 @@ const T = {
     dSelect: "Seleccione…", dAddress: "Dirección del negocio *", dVol: "Volumen mensual", dVolPh: "ej. 200 llantas", dLocs: "# Sucursales", dZip: "Código postal de entrega",
     dProducts: "Productos de interés", dProductsPh: "Llantas de remolque, rines, montadas…",
     dCert: "Certificado de reventa (PDF o foto, máx. 10 MB)", dCertNote: "Acelera la aprobación — también puede enviarlo después por correo.",
+    dSms: "Sí — envíenme mensajes de texto sobre pedidos, entregas y facturación.",
+    dSmsNote: "Al marcar esta casilla acepta recibir mensajes de texto de Rhino Tire USA sobre pedidos, entregas y su cuenta al número proporcionado. La frecuencia varía (aprox. 1–4/mes). Pueden aplicar tarifas de mensajes y datos. Responda HELP para ayuda o STOP para cancelar en cualquier momento. El consentimiento no es condición de compra.",
     dSubmit: "Solicitar Cuenta de Distribuidor", dDone: "¡Solicitud recibida!",
   },
 } as const;
@@ -166,6 +170,13 @@ export function DealerForm({ es }: { es?: boolean }) {
       <input id="d-cert" name="resaleCert" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
         className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2.5 file:text-sm file:font-semibold" />
       <p className="mt-1 text-xs text-slate-500">{t.dCertNote}</p>
+      <label className="mt-5 flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+        <input type="checkbox" name="smsConsent" className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <span className="font-semibold">{t.dSms}</span>
+          <span className="mt-1 block text-xs leading-relaxed text-slate-500">{t.dSmsNote}</span>
+        </span>
+      </label>
       {state.error && <p className="mt-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <Submit lang={lang}>{t.dSubmit}</Submit>
     </form>

@@ -97,7 +97,9 @@ export async function submitDealerApplication(_prev: FormState, formData: FormDa
       monthlyVolume: String(formData.get("monthlyVolume") ?? ""),
       locationsCount: String(formData.get("locationsCount") ?? ""),
       deliveryZip: String(formData.get("deliveryZip") ?? ""),
-      productsOfInterest: String(formData.get("productsOfInterest") ?? ""),
+      productsOfInterest:
+        String(formData.get("productsOfInterest") ?? "") +
+        (formData.get("smsConsent") === "on" ? "\n[Opted in to SMS updates]" : ""),
     },
     clientKey(),
     { resaleCertPath },
