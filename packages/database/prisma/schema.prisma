@@ -1543,6 +1543,12 @@ model Employee {
   position          String?
   phone             String?
   email             String?
+  dob               DateTime?
+  address           String?
+  city              String?
+  state             String?
+  zip               String?
+  licenseNumber     String?
   hireDate          DateTime?
   status            EmployeeStatus     @default(ACTIVE)
   endDate           DateTime? // set when TERMINATED

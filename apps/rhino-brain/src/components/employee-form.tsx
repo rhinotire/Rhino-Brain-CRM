@@ -27,6 +27,8 @@ export type EmployeeDTO = {
   id: string; name: string; position: string | null; phone: string | null;
   email: string | null; hireDate: string | null; status: "ACTIVE" | "TERMINATED";
   endDate: string | null; notes: string | null; locationId: string; userId: string | null;
+  dob: string | null; address: string | null; city: string | null; state: string | null;
+  zip: string | null; licenseNumber: string | null;
 };
 
 type Option = { id: string; name: string };
@@ -50,6 +52,11 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
   const [status, setStatus] = useState<"ACTIVE" | "TERMINATED">(employee?.status ?? "ACTIVE");
   const [name, setName] = useState(employee?.name ?? "");
   const [notes, setNotes] = useState(employee?.notes ?? "");
+  const [idf, setIdf] = useState({
+    dob: employee?.dob?.slice(0, 10) ?? "", address: employee?.address ?? "", city: employee?.city ?? "",
+    state: employee?.state ?? "", zip: employee?.zip ?? "", licenseNumber: employee?.licenseNumber ?? "",
+  });
+  const setId = (k: keyof typeof idf) => (e: React.ChangeEvent<HTMLInputElement>) => setIdf(v => ({ ...v, [k]: e.target.value }));
   const [dlFile, setDlFile] = useState<File | null>(null);
   const [dlExpiry, setDlExpiry] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -67,12 +74,10 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
         setDlFile(file);
         if (x.name) setName(x.name);
         if (x.expiration) setDlExpiry(x.expiration);
-        const info = [
-          x.licenseNumber ? `DL #${x.licenseNumber}${x.expiration ? ` (exp ${x.expiration})` : ""}` : null,
-          x.dob ? `DOB ${x.dob}` : null,
-          [x.address, x.city, x.state, x.zip].filter(Boolean).join(", ") || null,
-        ].filter(Boolean).join(" · ");
-        if (info) setNotes(n => (n ? n + "\n" : "") + info);
+        setIdf(v => ({
+          dob: x.dob ?? v.dob, address: x.address ?? v.address, city: x.city ?? v.city,
+          state: x.state ?? v.state, zip: x.zip ?? v.zip, licenseNumber: x.licenseNumber ?? v.licenseNumber,
+        }));
         toast("License read ✓ — check the fields, then save (the license photo files itself)");
       } else toast(r.error ?? "Could not read the license", "error");
     } finally { setScanning(false); }
@@ -120,6 +125,26 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
         <Field label="Email">
           <Input name="email" type="email" defaultValue={employee?.email ?? ""} />
         </Field>
+        <Field label="Date of birth">
+          <Input name="dob" type="date" value={idf.dob} onChange={setId("dob")} />
+        </Field>
+        <Field label="Driver license #">
+          <Input name="licenseNumber" value={idf.licenseNumber} onChange={setId("licenseNumber")} />
+        </Field>
+        <Field label="Street address">
+          <Input name="address" value={idf.address} onChange={setId("address")} />
+        </Field>
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="City">
+            <Input name="city" value={idf.city} onChange={setId("city")} />
+          </Field>
+          <Field label="State">
+            <Input name="state" value={idf.state} onChange={setId("state")} />
+          </Field>
+          <Field label="ZIP">
+            <Input name="zip" value={idf.zip} onChange={setId("zip")} />
+          </Field>
+        </div>
         <Field label="Hire date">
           <Input name="hireDate" type="date" defaultValue={day(employee?.hireDate)} />
         </Field>

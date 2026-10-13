@@ -44,6 +44,8 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
     hireDate: employee.hireDate?.toISOString() ?? null,
     status: employee.status, endDate: employee.endDate?.toISOString() ?? null,
     notes: employee.notes, locationId: employee.locationId, userId: employee.userId,
+    dob: employee.dob?.toISOString() ?? null, address: employee.address, city: employee.city,
+    state: employee.state, zip: employee.zip, licenseNumber: employee.licenseNumber,
   };
   const docRows: EmployeeDocRow[] = employee.documents.map(d => ({
     id: d.id, type: d.type, fileName: d.fileName,
@@ -64,6 +66,9 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
   const info: [string, string | null][] = [
     ["Phone", employee.phone],
     ["Email", employee.email],
+    ["Date of birth", employee.dob ? fmtDate(employee.dob) : null],
+    ["Address", [employee.address, employee.city, employee.state, employee.zip].filter(Boolean).join(", ") || null],
+    ["Driver license #", employee.licenseNumber],
     ["Hire date", employee.hireDate ? fmtDate(employee.hireDate) : null],
     ["End date", employee.endDate ? fmtDate(employee.endDate) : null],
     ["Company", employee.location.name],
