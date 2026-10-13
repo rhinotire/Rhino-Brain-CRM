@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { subDays } from "date-fns";
 import { db } from "@/lib/db";
-import { requireSession, repScope, locationScope, seesAllLocations, inLocation } from "@/lib/auth";
+import { requireSession, repScope, locationScope, seesAllLocations, inLocation, hasPerm } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { fmtMoney } from "@/lib/domain";
 
@@ -395,6 +395,58 @@ export async function scanBusinessCard(formData: FormData): Promise<{ ok?: boole
     if (!fields.companyName && !fields.contactPerson && !fields.phone && !fields.cell) {
       return { error: "Couldn't find contact info on the card — try a sharper, straight-on photo." };
     }
+    return { ok: true, fields };
+  } catch (e) {
+    return { error: e instanceof Error ? `Scan failed: ${e.message}` : "Scan failed" };
+  }
+}
+
+// ---------- 3a3. Driver-license scan (HR new-employee intake) ----------
+
+export type LicenseFields = {
+  name?: string; licenseNumber?: string; expiration?: string; dob?: string;
+  address?: string; city?: string; state?: string; zip?: string;
+};
+
+/** Photo of a driver license → fields for the new-employee form (HR perm required). */
+export async function scanDriverLicense(formData: FormData): Promise<{ ok?: boolean; fields?: LicenseFields; error?: string }> {
+  const session = await requireSession();
+  if (!hasPerm(session, "hr")) return { error: "No HR permission." };
+  const anthropic = client();
+  if (!anthropic) return { error: "AI is not configured yet." };
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return { error: "Take a photo of the license first." };
+  if (!photo.type.startsWith("image/")) return { error: "That file isn't a photo." };
+  if (photo.size > 8 * 1024 * 1024) return { error: "Photo too large — try again." };
+  const media = (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(photo.type) ? photo.type : "image/jpeg") as
+    "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+  try {
+    const resp = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 300,
+      system: "You extract fields from a US driver license photo for an HR system, with the employee's consent. Reply with ONLY a JSON object, no prose, no code fences.",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: media, data: Buffer.from(await photo.arrayBuffer()).toString("base64") } },
+          { type: "text", text: `Extract: {"name" (First Last, normal capitalization), "licenseNumber", "expiration" (YYYY-MM-DD), "dob" (YYYY-MM-DD), "address", "city", "state" (2 letters), "zip"}. Use null for anything unreadable. If this is not a driver license / ID card, return {"error":"not a license"}.` },
+        ],
+      }],
+    });
+    const text = resp.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("");
+    const json = text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) return { error: "Could not read the license — try a sharper photo." };
+    const raw = JSON.parse(json) as Record<string, unknown>;
+    if (raw.error) return { error: "That doesn't look like a driver license — try again." };
+    const s = (k: string, max = 120) => (typeof raw[k] === "string" ? (raw[k] as string).trim().slice(0, max) : undefined) || undefined;
+    const date = (k: string) => { const v = s(k, 12); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined; };
+    const fields: LicenseFields = {
+      name: s("name", 80), licenseNumber: s("licenseNumber", 40),
+      expiration: date("expiration"), dob: date("dob"),
+      address: s("address", 160), city: s("city", 60), state: s("state", 10), zip: s("zip", 10),
+    };
+    if (!fields.name) return { error: "Couldn't read the name — try a sharper, straight-on photo." };
     return { ok: true, fields };
   } catch (e) {
     return { error: e instanceof Error ? `Scan failed: ${e.message}` : "Scan failed" };

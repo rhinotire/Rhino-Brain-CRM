@@ -289,16 +289,17 @@ export const employeeDocTypeLabels: Record<EmployeeDocType, string> = {
   W4_FORM: "Form W-4",
   I9_FORM: "Form I-9",
   EMERGENCY_CONTACT: "Emergency Contact Form",
+  SOCIAL_SECURITY_CARD: "Social Security Card",
   OTHER: "Other",
 };
 
 /** ADMIN-only download (license / immigration / bank info). */
-export const SENSITIVE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE", "WORK_PERMIT", "DIRECT_DEPOSIT_AUTH"];
+export const SENSITIVE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE", "WORK_PERMIT", "DIRECT_DEPOSIT_AUTH", "SOCIAL_SECURITY_CARD"];
 
 /** Upload form shows an expiration-date field for these. */
 export const EXPIRING_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE", "WORK_PERMIT"];
 
-/** Completeness = n/6. WORK_PERMIT excluded — only applicable to some employees. */
+/** Completeness = n/7. WORK_PERMIT excluded — only applicable to some employees. */
 export const CORE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = [
-  "APPLICATION", "DRIVER_LICENSE", "DIRECT_DEPOSIT_AUTH", "W4_FORM", "I9_FORM", "EMERGENCY_CONTACT",
+  "APPLICATION", "DRIVER_LICENSE", "SOCIAL_SECURITY_CARD", "DIRECT_DEPOSIT_AUTH", "W4_FORM", "I9_FORM", "EMERGENCY_CONTACT",
 ];

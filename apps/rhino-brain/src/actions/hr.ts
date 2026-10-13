@@ -47,7 +47,31 @@ export async function createEmployee(_prev: ActionResult | null, formData: FormD
   const locationId = defaultLocationId(session, String(formData.get("locationId") ?? "") || null);
   if (!locationId) return { ok: false, error: "Choose a company/location." };
 
-  await db.employee.create({ data: { ...fields, locationId } });
+  const employee = await db.employee.create({ data: { ...fields, locationId } });
+
+  // license scanned during intake → straight into the vault with its expiry armed
+  const dl = formData.get("dlPhoto");
+  if (dl instanceof File && dl.size > 0 && dl.type.startsWith("image/") && dl.size <= 8 * 1024 * 1024 && isStorageConfigured()) {
+    const expRaw = String(formData.get("dlExpiry") ?? "");
+    const storagePath = `${employee.id}/DRIVER_LICENSE/${Date.now()}-scan.jpg`;
+    try {
+      await uploadEmployeeObject(storagePath, await dl.arrayBuffer(), dl.type);
+      await db.employeeDocument.create({
+        data: {
+          employeeId: employee.id,
+          type: "DRIVER_LICENSE",
+          fileName: `Driver license — scanned at intake.jpg`,
+          storagePath,
+          fileSize: dl.size,
+          mimeType: dl.type,
+          expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expRaw) ? new Date(expRaw + "T12:00:00Z") : null,
+          sensitive: true,
+          uploadedById: session.userId,
+        },
+      });
+    } catch { /* best-effort — the employee record matters more */ }
+  }
+
   revalidatePath("/hr");
   return { ok: true };
 }

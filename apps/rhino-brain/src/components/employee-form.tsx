@@ -3,6 +3,21 @@
 import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import { createEmployee, updateEmployee } from "@/actions/hr";
+import { scanDriverLicense } from "@/actions/ai";
+
+/** Shrink the license photo to ≤1600px JPEG before upload. */
+async function compressLicense(file: File): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", 0.85));
+    return blob ? new File([blob], "license.jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
 import { Modal } from "@/components/ui/modal";
 import { Button, Input, Select, Textarea, Field } from "@/components/ui/primitives";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -33,7 +48,40 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
 }) {
   const [state, action] = useFormState(employee ? updateEmployee : createEmployee, null);
   const [status, setStatus] = useState<"ACTIVE" | "TERMINATED">(employee?.status ?? "ACTIVE");
+  const [name, setName] = useState(employee?.name ?? "");
+  const [notes, setNotes] = useState(employee?.notes ?? "");
+  const [dlFile, setDlFile] = useState<File | null>(null);
+  const [dlExpiry, setDlExpiry] = useState("");
+  const [scanning, setScanning] = useState(false);
   const toast = useToast();
+
+  const scanLicense = async (raw: File) => {
+    setScanning(true);
+    try {
+      const file = await compressLicense(raw);
+      const fd = new FormData();
+      fd.set("photo", file);
+      const r = await scanDriverLicense(fd);
+      if (r.ok && r.fields) {
+        const x = r.fields;
+        setDlFile(file);
+        if (x.name) setName(x.name);
+        if (x.expiration) setDlExpiry(x.expiration);
+        const info = [
+          x.licenseNumber ? `DL #${x.licenseNumber}${x.expiration ? ` (exp ${x.expiration})` : ""}` : null,
+          x.dob ? `DOB ${x.dob}` : null,
+          [x.address, x.city, x.state, x.zip].filter(Boolean).join(", ") || null,
+        ].filter(Boolean).join(" · ");
+        if (info) setNotes(n => (n ? n + "\n" : "") + info);
+        toast("License read ✓ — check the fields, then save (the license photo files itself)");
+      } else toast(r.error ?? "Could not read the license", "error");
+    } finally { setScanning(false); }
+  };
+
+  const submit = (fd: FormData) => {
+    if (dlFile) { fd.set("dlPhoto", dlFile); fd.set("dlExpiry", dlExpiry); }
+    action(fd);
+  };
 
   useEffect(() => {
     if (state?.ok) { toast(employee ? "Employee updated" : "Employee added"); onDone(); }
@@ -44,11 +92,18 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
   const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
 
   return (
-    <form action={action} className="space-y-3">
+    <form action={submit} className="space-y-3">
       {employee && <input type="hidden" name="employeeId" value={employee.id} />}
+      {!employee && (
+        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm font-semibold ${dlFile ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-brand-300 bg-brand-50 text-brand-700"}`}>
+          {scanning ? "🔍 Reading license…" : dlFile ? "🪪 License scanned ✓ — tap to rescan" : "🪪 Scan driver license (AI fills name; photo files into the vault)"}
+          <input type="file" accept="image/*" capture="environment" className="hidden" disabled={scanning}
+            onChange={e => { const f = e.target.files?.[0]; if (f) scanLicense(f); e.target.value = ""; }} />
+        </label>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Full name *">
-          <Input name="name" defaultValue={employee?.name ?? ""} required />
+          <Input name="name" value={name} onChange={e => setName(e.target.value)} required />
         </Field>
         <Field label="Position">
           <Select name="position" defaultValue={employee?.position ?? ""}>
@@ -95,7 +150,7 @@ function EmployeeForm({ employee, locations, users, isAdmin, currentLocationId, 
         </Field>
       </div>
       <Field label="Notes">
-        <Textarea name="notes" rows={2} defaultValue={employee?.notes ?? ""} />
+        <Textarea name="notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
       </Field>
       {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
       <SubmitButton>{employee ? "Save changes" : "Add employee"}</SubmitButton>

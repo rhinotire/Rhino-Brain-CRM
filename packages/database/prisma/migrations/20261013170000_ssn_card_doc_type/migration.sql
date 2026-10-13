@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "EmployeeDocType" ADD VALUE 'SOCIAL_SECURITY_CARD';
