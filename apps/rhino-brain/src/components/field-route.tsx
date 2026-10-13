@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { QuickLogButton } from "@/components/quick-log";
 import { FieldAsk } from "@/components/field-ask";
-import { searchFieldCustomers, createFieldProspect, optimizeRoute, saveFieldRoute, type FieldSearchHit } from "@/actions/field";
-import { draftVisitBrief } from "@/actions/ai";
+import { searchFieldCustomers, createFieldProspectFull, optimizeRoute, saveFieldRoute, type FieldSearchHit } from "@/actions/field";
+import { draftVisitBrief, scanBusinessCard } from "@/actions/ai";
 import { Badge, Button, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { fmtMoney } from "@/lib/domain";
@@ -70,17 +70,31 @@ function BriefButton({ customerId, name }: { customerId: string; name: string })
   );
 }
 
-/** Drive-by prospect modal: name + phone + GPS → customer created + visit logged. */
+/** Shrink a card photo to ≤1600px JPEG before upload. */
+async function compressCard(file: File): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", 0.85));
+    return blob ? new File([blob], "card.jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
+
+/** Drive-by prospect modal: scan the business card (AI fills the form) or type it in. */
 function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
-  const [notes, setNotes] = useState("");
+  const [f, setF] = useState({ name: "", contactPerson: "", phone: "", cell: "", email: "", address: "", city: "", state: "", zip: "", notes: "" });
+  const [cardFile, setCardFile] = useState<File | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [loc, setLoc] = useState("");
   const [locating, setLocating] = useState(false);
   const [pending, start] = useTransition();
   const toast = useToast();
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF(v => ({ ...v, [k]: e.target.value }));
 
   const grab = () => {
     if (!navigator.geolocation) { toast("No location service on this device", "error"); return; }
@@ -92,17 +106,52 @@ function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void })
     );
   };
 
+  const scan = async (raw: File) => {
+    setScanning(true);
+    try {
+      const file = await compressCard(raw);
+      setCardFile(file);
+      const fd = new FormData();
+      fd.set("photo", file);
+      const r = await scanBusinessCard(fd);
+      if (r.ok && r.fields) {
+        const x = r.fields;
+        setF(v => ({
+          ...v,
+          name: x.companyName ?? v.name,
+          contactPerson: x.contactPerson ?? v.contactPerson,
+          phone: x.phone ?? v.phone,
+          cell: x.cell ?? v.cell,
+          email: x.email ?? v.email,
+          address: x.address ?? v.address,
+          city: x.city ?? v.city,
+          state: x.state ?? v.state,
+          zip: x.zip ?? v.zip,
+        }));
+        toast("Card read ✓ — check the fields, then save");
+      } else toast(r.error ?? "Could not read the card", "error");
+    } finally { setScanning(false); }
+  };
+
   const save = () => start(async () => {
-    const r = await createFieldProspect({ name, phone, city, notes, visitLocation: loc });
+    const fd = new FormData();
+    Object.entries(f).forEach(([k, v]) => fd.set(k, v));
+    fd.set("visitLocation", loc);
+    if (cardFile) fd.set("cardPhoto", cardFile);
+    const r = await createFieldProspectFull(null, fd);
     if (r.ok && r.customerId) {
       toast("Prospect created — visit logged ✓");
       onCreated({
-        id: r.customerId, name: name.trim(), contact: null, phone: phone.trim() || null,
-        address: city.trim() || null, city: city.trim() || null, zip: null, tier: "D",
+        id: r.customerId, name: f.name.trim(), contact: f.contactPerson.trim() || null,
+        phone: (f.cell || f.phone).trim() || null,
+        address: [f.address, f.city, f.state, f.zip].filter(Boolean).join(", ") || null,
+        city: f.city.trim() || null, zip: f.zip.trim() || null, tier: "D",
         owed: 0, daysSinceOrder: null, openQuotes: 0,
         reason: { kind: "new", label: "New prospect — just created" },
       });
-      setOpen(false); setName(""); setPhone(""); setCity(""); setNotes(""); setLoc("");
+      setOpen(false);
+      setF({ name: "", contactPerson: "", phone: "", cell: "", email: "", address: "", city: "", state: "", zip: "", notes: "" });
+      setCardFile(null); setLoc("");
     } else toast(r.error ?? "Failed", "error");
   });
 
@@ -111,15 +160,30 @@ function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void })
       <Button variant="success" onClick={() => setOpen(true)}>➕ New Prospect</Button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl" onClick={e => e.stopPropagation()}>
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl" onClick={e => e.stopPropagation()}>
             <div className="mb-2 text-sm font-semibold text-slate-800">✨ New prospect — standing at the store?</div>
+
+            <label className={`mb-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm font-semibold ${cardFile ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-brand-300 bg-brand-50 text-brand-700"}`}>
+              {scanning ? "🔍 Reading card…" : cardFile ? "📇 Card scanned ✓ — tap to rescan" : "📇 Scan business card (AI fills the form)"}
+              <input type="file" accept="image/*" capture="environment" className="hidden" disabled={scanning}
+                onChange={e => { const file = e.target.files?.[0]; if (file) scan(file); e.target.value = ""; }} />
+            </label>
+
             <div className="space-y-2.5">
-              <Input placeholder="Store name *" value={name} onChange={e => setName(e.target.value)} autoFocus />
+              <Input placeholder="Store name *" value={f.name} onChange={set("name")} />
               <div className="grid grid-cols-2 gap-2.5">
-                <Input placeholder="Phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
-                <Input placeholder="City" value={city} onChange={e => setCity(e.target.value)} />
+                <Input placeholder="Contact person" value={f.contactPerson} onChange={set("contactPerson")} />
+                <Input placeholder="Cell" type="tel" value={f.cell} onChange={set("cell")} />
+                <Input placeholder="Office phone" type="tel" value={f.phone} onChange={set("phone")} />
+                <Input placeholder="Email" type="email" value={f.email} onChange={set("email")} />
               </div>
-              <Input placeholder="Quick note (who you met, what they buy…)" value={notes} onChange={e => setNotes(e.target.value)} />
+              <Input placeholder="Street address" value={f.address} onChange={set("address")} />
+              <div className="grid grid-cols-3 gap-2.5">
+                <Input placeholder="City" value={f.city} onChange={set("city")} />
+                <Input placeholder="State" value={f.state} onChange={set("state")} />
+                <Input placeholder="ZIP" value={f.zip} onChange={set("zip")} />
+              </div>
+              <Input placeholder="Quick note (who you met, what they buy…)" value={f.notes} onChange={set("notes")} />
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm">
                 {loc ? (
                   <span className="text-emerald-800">📍 Location captured · <a className="underline" href={loc.split(" ")[0]} target="_blank" rel="noopener">map</a></span>
@@ -132,7 +196,7 @@ function NewProspectButton({ onCreated }: { onCreated: (c: FieldCard) => void })
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button size="sm" onClick={save} disabled={pending || name.trim().length < 2}>
+              <Button size="sm" onClick={save} disabled={pending || scanning || f.name.trim().length < 2}>
                 {pending ? "Saving…" : "Create & log visit"}
               </Button>
             </div>

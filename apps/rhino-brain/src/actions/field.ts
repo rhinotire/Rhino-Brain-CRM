@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, isAccounting, isManager, repScope, locationScope, defaultLocationId } from "@/lib/auth";
+import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import { optimizeStopOrder } from "@rhino/services";
 
 export type FieldSearchHit = {
@@ -26,6 +27,83 @@ export async function optimizeRoute(
   await requireSession();
   const clean = stops.slice(0, 12).map(s => ({ id: String(s.id), zip: s.zip ? String(s.zip).slice(0, 5) : null }));
   return optimizeStopOrder(clean, start ?? null);
+}
+
+/**
+ * Full drive-by prospect intake (card-scan flow): extended fields from the
+ * business card, optional card photo into the customer's document vault,
+ * GPS check-in, first VISIT activity — one submit.
+ */
+export async function createFieldProspectFull(
+  _prev: { ok?: boolean; error?: string; customerId?: string } | null,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string; customerId?: string }> {
+  const session = await requireSession();
+  if (isAccounting(session)) return { error: "Accounting is read-only." };
+  const g = (k: string, max = 120) => String(formData.get(k) ?? "").trim().slice(0, max);
+  const name = g("name");
+  if (name.length < 2) return { error: "Enter the store name." };
+  const locationId = defaultLocationId(session, null);
+  if (!locationId) return { error: "Select a company in the sidebar first." };
+
+  const dup = await db.customer.findFirst({
+    where: { locationId, companyName: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (dup) return { error: "A customer with this exact name already exists — search and add it instead." };
+
+  const visitLoc = g("visitLocation", 200);
+  const customer = await db.customer.create({
+    data: {
+      companyName: name,
+      contactPerson: g("contactPerson", 80) || undefined,
+      phone: g("phone", 30) || undefined,
+      contactCell: g("cell", 30) || undefined,
+      email: g("email") || undefined,
+      address: g("address", 160) || undefined,
+      city: g("city", 60) || undefined,
+      state: g("state", 20) || undefined,
+      zip: g("zip", 10) || undefined,
+      status: "PROSPECT",
+      source: "COLD_CALL",
+      assignedRepId: isManager(session) ? null : session.userId,
+      locationId,
+      lastContactAt: new Date(),
+    },
+  });
+
+  // business-card photo → document vault
+  const card = formData.get("cardPhoto");
+  if (card instanceof File && card.size > 0 && card.type.startsWith("image/") && card.size <= 8 * 1024 * 1024 && isStorageConfigured()) {
+    const storagePath = `${customer.id}/BUSINESS_CARD/${Date.now()}.jpg`;
+    try {
+      await uploadObject(storagePath, await card.arrayBuffer(), card.type);
+      await db.customerDocument.create({
+        data: {
+          customerId: customer.id, type: "OTHER",
+          fileName: `Business card — ${name.slice(0, 60)}.jpg`,
+          storagePath, fileSize: card.size, mimeType: card.type,
+          sensitive: false, uploadedById: session.userId,
+        },
+      });
+    } catch { /* card photo is best-effort — the prospect record matters more */ }
+  }
+
+  await db.activity.create({
+    data: {
+      type: "VISIT",
+      subject: "New prospect visit (drive-by)",
+      notes: [g("notes", 500) || null, card instanceof File && card.size > 0 ? "📇 Business card scanned" : null, visitLoc ? `📍 On-site check-in: ${visitLoc}` : null]
+        .filter(Boolean).join("\n") || undefined,
+      customerId: customer.id,
+      repId: session.userId,
+      locationId,
+      meaningful: true,
+    },
+  });
+  revalidatePath("/field");
+  revalidatePath("/customers");
+  return { ok: true, customerId: customer.id };
 }
 
 /** Persist today's route so it survives leaving the page (one per rep). */

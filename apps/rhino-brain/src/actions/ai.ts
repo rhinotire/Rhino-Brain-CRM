@@ -349,6 +349,58 @@ export async function draftVisitBrief(customerId: string): Promise<{ ok?: boolea
 
 // ---------- 3. Ask box ----------
 
+// ---------- 3a2. Business-card scan (Field Mode prospect intake) ----------
+
+export type CardFields = {
+  companyName?: string; contactPerson?: string; phone?: string; cell?: string;
+  email?: string; address?: string; city?: string; state?: string; zip?: string; website?: string;
+};
+
+/** Photo of a business card → structured fields (rep reviews before saving). */
+export async function scanBusinessCard(formData: FormData): Promise<{ ok?: boolean; fields?: CardFields; error?: string }> {
+  await requireSession();
+  const anthropic = client();
+  if (!anthropic) return { error: "AI is not configured yet." };
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return { error: "Take a photo of the card first." };
+  if (!photo.type.startsWith("image/")) return { error: "That file isn't a photo." };
+  if (photo.size > 8 * 1024 * 1024) return { error: "Photo too large — try again." };
+  const media = (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(photo.type) ? photo.type : "image/jpeg") as
+    "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+  try {
+    const resp = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      system: "You extract contact data from business-card photos for a tire-wholesale CRM. Reply with ONLY a JSON object, no prose, no code fences.",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: media, data: Buffer.from(await photo.arrayBuffer()).toString("base64") } },
+          { type: "text", text: `Extract from this business card: {"companyName","contactPerson","phone","cell","email","address","city","state","zip","website"}. phone = office/landline, cell = mobile; US state as 2 letters; omit any field not on the card (use null). If it isn't a business card, return {"error":"not a card"}.` },
+        ],
+      }],
+    });
+    const text = resp.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("");
+    const json = text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) return { error: "Could not read the card — try a sharper photo." };
+    const raw = JSON.parse(json) as Record<string, unknown>;
+    if (raw.error) return { error: "That doesn't look like a business card — try again." };
+    const s = (k: string, max = 120) => (typeof raw[k] === "string" ? (raw[k] as string).trim().slice(0, max) : undefined) || undefined;
+    const fields: CardFields = {
+      companyName: s("companyName"), contactPerson: s("contactPerson"),
+      phone: s("phone", 30), cell: s("cell", 30), email: s("email"),
+      address: s("address", 160), city: s("city", 60), state: s("state", 10), zip: s("zip", 10), website: s("website"),
+    };
+    if (!fields.companyName && !fields.contactPerson && !fields.phone && !fields.cell) {
+      return { error: "Couldn't find contact info on the card — try a sharper, straight-on photo." };
+    }
+    return { ok: true, fields };
+  } catch (e) {
+    return { error: e instanceof Error ? `Scan failed: ${e.message}` : "Scan failed" };
+  }
+}
+
 // ---------- 3b. Field ask: AI that can actually query the rep's customers ----------
 
 const FIELD_TOOLS: Anthropic.Tool[] = [
