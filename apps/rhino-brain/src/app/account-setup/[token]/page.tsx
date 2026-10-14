@@ -46,20 +46,24 @@ export default async function AccountSetupPage({ params }: { params: { token: st
     );
   }
 
+  // blank invite (sent before the customer exists) → empty form, brand from the invite's company
   const c = invite.customer;
+  const brandName = c?.location?.name
+    ?? (invite.locationId ? (await db.location.findUnique({ where: { id: invite.locationId }, select: { name: true } }))?.name : null)
+    ?? "Rhino Tire USA";
   return shell(
     <>
-      <h1 className="text-xl font-bold text-slate-900">{c.location?.name ?? "Rhino Tire USA"} — Wholesale Account Application</h1>
+      <h1 className="text-xl font-bold text-slate-900">{brandName} — Wholesale Account Application</h1>
       <p className="mt-1 text-sm text-slate-500">
         Takes about 3 minutes on your phone; your info goes securely to your sales rep.
         <span className="mt-1 block">Toma unos 3 minutos en su teléfono; su información llega de forma segura a su representante.</span>
       </p>
       <AccountSetupForm
         token={token}
-        companyName={c.companyName}
+        companyName={c?.companyName ?? ""}
         prefill={{
-          contactPerson: c.contactPerson ?? "", phone: c.phone ?? "", cell: c.contactCell ?? "",
-          email: c.email ?? "", address: c.address ?? "", city: c.city ?? "", state: c.state ?? "", zip: c.zip ?? "",
+          contactPerson: c?.contactPerson ?? "", phone: c?.phone ?? "", cell: c?.contactCell ?? "",
+          email: c?.email ?? "", address: c?.address ?? "", city: c?.city ?? "", state: c?.state ?? "", zip: c?.zip ?? "",
         }}
       />
     </>,

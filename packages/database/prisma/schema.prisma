@@ -1722,8 +1722,11 @@ model VehicleIncident {
 model AccountSetupInvite {
   id          String    @id @default(cuid())
   token       String    @unique
-  customerId  String
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  // null customer = blank invite sent before the customer exists; submitting creates the record
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  locationId  String? // company for blank invites
+  createdById String? // rep who sent a blank invite (gets the customer assigned)
   status      String    @default("PENDING") // PENDING | SUBMITTED
   data        Json?
   createdAt   DateTime  @default(now())

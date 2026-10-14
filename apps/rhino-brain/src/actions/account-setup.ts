@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, canWrite, hasPerm } from "@/lib/auth";
+import { requireSession, canWrite, hasPerm, isAccounting, defaultLocationId } from "@/lib/auth";
 import { uploadObject, isStorageConfigured } from "@/lib/storage";
 import { isSmsConfigured, sendSms, smsFrom, toE164 } from "@/lib/twilio";
 import type { ActionResult } from "./auth";
@@ -34,6 +34,19 @@ export async function createAccountInvite(customerId: string): Promise<{ ok?: bo
     data: { token, customerId, expiresAt: new Date(Date.now() + 14 * 86400000) },
   });
   revalidatePath(`/customers/${customerId}`);
+  return { ok: true, url: `${BASE}/account-setup/${token}` };
+}
+
+/** Blank application link — no customer yet; submitting CREATES the record. */
+export async function createBlankAccountInvite(): Promise<{ ok?: boolean; url?: string; error?: string }> {
+  const session = await requireSession();
+  if (isAccounting(session)) return { error: "Accounting is read-only." };
+  const locationId = defaultLocationId(session, null);
+  if (!locationId) return { error: "Select a company in the sidebar first." };
+  const token = crypto.randomBytes(24).toString("hex");
+  await db.accountSetupInvite.create({
+    data: { token, locationId, createdById: session.userId, expiresAt: new Date(Date.now() + 14 * 86400000) },
+  });
   return { ok: true, url: `${BASE}/account-setup/${token}` };
 }
 
@@ -79,6 +92,7 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
   if (!invite || invite.status !== "PENDING" || invite.expiresAt < new Date()) {
     return { ok: false, error: "This link is invalid or expired — ask your sales rep for a new one." };
   }
+  if (!invite.customer && !invite.locationId) return { ok: false, error: "This link is misconfigured — ask your sales rep for a new one." };
 
   const g = (k: string, max = 120) => String(formData.get(k) ?? "").trim().slice(0, max);
   if (g("companyName").length < 2) return { ok: false, error: "Enter the legal business name." };
@@ -105,6 +119,35 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
     signedAt: new Date().toISOString(),
   };
 
+  // blank invite → create the customer now (or merge into an exact-name match)
+  let target = invite.customer;
+  if (!target) {
+    const locationId = invite.locationId!;
+    const creator = invite.createdById
+      ? await db.user.findUnique({ where: { id: invite.createdById }, select: { id: true, role: true } })
+      : null;
+    const existing = await db.customer.findFirst({
+      where: { locationId, companyName: { equals: data.companyName, mode: "insensitive" } },
+      select: { id: true, companyName: true, assignedRepId: true, locationId: true },
+    });
+    if (existing) {
+      target = existing;
+    } else {
+      const created = await db.customer.create({
+        data: {
+          companyName: data.companyName,
+          status: "PROSPECT",
+          source: "OTHER",
+          assignedRepId: creator?.role === "SALES_REP" ? creator.id : null,
+          locationId,
+        },
+        select: { id: true, companyName: true, assignedRepId: true, locationId: true },
+      });
+      target = created;
+    }
+    await db.accountSetupInvite.update({ where: { id: invite.id }, data: { customerId: target.id } });
+  }
+
   // resale certificate (photo or PDF) → customer documents, expiry armed
   const cert = formData.get("resaleCert");
   if (cert instanceof File && cert.size > 0) {
@@ -113,12 +156,12 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
       return { ok: false, error: "Certificate must be a photo or PDF." };
     if (isStorageConfigured()) {
       const ext = cert.type === "application/pdf" ? "pdf" : "jpg";
-      const storagePath = `${invite.customer.id}/RESALE_CERTIFICATE/${Date.now()}-online.${ext}`;
+      const storagePath = `${target.id}/RESALE_CERTIFICATE/${Date.now()}-online.${ext}`;
       await uploadObject(storagePath, await cert.arrayBuffer(), cert.type);
       const expRaw = g("certExpiry", 12);
       await db.customerDocument.create({
         data: {
-          customerId: invite.customer.id, type: "RESALE_CERTIFICATE",
+          customerId: target.id, type: "RESALE_CERTIFICATE",
           fileName: `Resale certificate — submitted online.${ext}`,
           storagePath, fileSize: cert.size, mimeType: cert.type,
           expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expRaw) ? new Date(expRaw + "T12:00:00Z") : null,
@@ -129,7 +172,7 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
   }
 
   await db.customer.update({
-    where: { id: invite.customer.id },
+    where: { id: target.id },
     data: {
       companyName: data.companyName,
       contactPerson: data.contactPerson || undefined,
@@ -152,15 +195,15 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
     data: {
       type: "INTERNAL_NOTE", subject: "Account application submitted online",
       notes: `✅ Customer completed the online account form${data.taxId ? ` · Tax ID on file` : ""}${cert instanceof File && cert.size > 0 ? " · resale certificate uploaded" : ""}. Signed: ${data.signature}`,
-      customerId: invite.customer.id,
-      repId: invite.customer.assignedRepId ?? (await db.user.findFirst({ where: { role: "ADMIN", active: true }, select: { id: true } }))!.id,
-      locationId: invite.customer.locationId, meaningful: true,
+      customerId: target.id,
+      repId: target.assignedRepId ?? (await db.user.findFirst({ where: { role: "ADMIN", active: true }, select: { id: true } }))!.id,
+      locationId: target.locationId, meaningful: true,
     },
   }).catch(() => {});
 
   // bell the rep (or admins)
-  const notifyIds = invite.customer.assignedRepId
-    ? [invite.customer.assignedRepId]
+  const notifyIds = target.assignedRepId
+    ? [target.assignedRepId]
     : (await db.user.findMany({ where: { role: "ADMIN", active: true }, select: { id: true } })).map(u => u.id);
   await Promise.all(notifyIds.map(uid =>
     db.notification.create({
@@ -168,7 +211,7 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
         type: "CUSTOMER_NEEDS_CONTACT",
         title: `📋 Account application submitted — ${data.companyName}`,
         body: "Info + documents are on the customer page.",
-        link: `/customers/${invite.customer.id}`,
+        link: `/customers/${target.id}`,
         userId: uid,
       },
     }).catch(() => null),

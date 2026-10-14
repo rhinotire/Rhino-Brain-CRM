@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, seesAllLocations, repScope, locationScope, adminLocFilter } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge } from "@/components/ui/primitives";
 import { NewCustomerButton } from "@/components/new-customer-button";
+import { BlankAccountInviteButton } from "@/components/blank-account-invite";
 import { CustomersFilter } from "@/components/customers-filter";
 import { isStorageConfigured } from "@/lib/storage";
 import {
@@ -79,6 +80,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         <div className="flex gap-2">
           {manager && <Link href="/customers/duplicates" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">🧬 Merge Duplicates</Link>}
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
+          {canWrite && <BlankAccountInviteButton />}
           {canWrite && <NewCustomerButton reps={reps} canAssign={manager} locations={adminLocations} currentLocationId={adminLocations.length ? adminLocFilter() : null} storageReady={isStorageConfigured()} />}
         </div>
       </div>
