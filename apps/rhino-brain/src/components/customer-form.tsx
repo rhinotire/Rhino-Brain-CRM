@@ -8,7 +8,22 @@ import {
   customerTypeLabels, customerStatusLabels, customerSourceLabels, productLabels, tierLabels,
 } from "@/lib/domain";
 import { useToast } from "@/components/ui/toast";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { scanBusinessCard } from "@/actions/ai";
+
+/** Shrink a card photo to ≤1600px JPEG before scan/upload. */
+async function compressCard(file: File): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", 0.85));
+    return blob ? new File([blob], "Business-card.jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
 
 export type RepOption = { id: string; name: string };
 
@@ -40,7 +55,40 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
 }) {
   const action = customerId ? updateCustomer.bind(null, customerId) : createCustomer;
   const [state, formAction] = useFormState(action, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [cardFile, setCardFile] = useState<File | null>(null);
+  const [scanning, setScanning] = useState(false);
   const toast = useToast();
+
+  const scan = async (raw: File) => {
+    setScanning(true);
+    try {
+      const file = await compressCard(raw);
+      const fd = new FormData();
+      fd.set("photo", file);
+      const r = await scanBusinessCard(fd);
+      if (r.ok && r.fields && formRef.current) {
+        setCardFile(file);
+        const x = r.fields as Record<string, string | undefined>;
+        const map: Record<string, string | undefined> = {
+          companyName: x.companyName, contactPerson: x.contactPerson, phone: x.phone,
+          contactCell: x.cell, email: x.email, website: x.website,
+          address: x.address, city: x.city, state: x.state, zip: x.zip,
+        };
+        for (const [name, v] of Object.entries(map)) {
+          if (!v) continue;
+          const el = formRef.current.elements.namedItem(name);
+          if (el instanceof HTMLInputElement) el.value = v;
+        }
+        toast("Card read ✓ — check the fields, then save (the card photo files itself)");
+      } else toast(r.error ?? "Could not read the card", "error");
+    } finally { setScanning(false); }
+  };
+
+  const submit = (fd: FormData) => {
+    if (cardFile) fd.set("doc_OTHER", cardFile);
+    formAction(fd);
+  };
 
   useEffect(() => {
     if (state?.ok) { toast(customerId ? "Customer updated" : "Customer created"); onDone?.(); }
@@ -49,7 +97,12 @@ export function CustomerForm({ customerId, values = {}, reps, canAssign, onDone,
   }, [state]);
 
   return (
-    <form action={formAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <form ref={formRef} action={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label className={`sm:col-span-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm font-semibold ${cardFile ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-brand-300 bg-brand-50 text-brand-700"}`}>
+        {scanning ? "🔍 Reading card…" : cardFile ? "📇 Card scanned ✓ — tap to rescan" : "📇 Scan business card (AI fills the form)"}
+        <input type="file" accept="image/*" capture="environment" className="hidden" disabled={scanning}
+          onChange={e => { const f = e.target.files?.[0]; if (f) scan(f); e.target.value = ""; }} />
+      </label>
       {locations && locations.length > 0 && (
         <Field label="Location *" className="sm:col-span-2">
           <Select name="locationId" defaultValue={currentLocationId ?? locations[0].id}>

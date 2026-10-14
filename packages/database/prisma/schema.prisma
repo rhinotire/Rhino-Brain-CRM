@@ -319,6 +319,7 @@ model Customer {
   contactCell    String?
   email          String?
   website        String?
+  taxId          String? // sales-tax / EIN from the online account application
   facebookUrl    String?
   instagramUrl   String?
   whatsapp       String?
@@ -366,8 +367,9 @@ model Customer {
   tireguruId     String? @unique
   externalSource String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  accountSetupInvites AccountSetupInvite[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([assignedRepId])
   @@index([locationId])
@@ -742,8 +744,8 @@ model CustomerDocument {
   sensitive   Boolean      @default(false) // DRIVER_LICENSE / CREDIT_CARD_AUTH
   notes       String?
 
-  uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  uploadedById String? // null = submitted by the customer via a public link
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -1713,4 +1715,20 @@ model VehicleIncident {
   updatedAt    DateTime  @updatedAt
 
   @@index([vehicleId, status])
+}
+
+/// Tokenized online account application: the customer completes their own
+/// wholesale account info (and uploads the resale certificate) on their phone.
+model AccountSetupInvite {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | SUBMITTED
+  data        Json?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  submittedAt DateTime?
+
+  @@index([customerId])
 }

@@ -7,6 +7,7 @@ import { Card, Badge, Button } from "@/components/ui/primitives";
 import { QuickLogButton } from "@/components/quick-log";
 import { PhoneDialer } from "@/components/phone-dialer";
 import { SendTextButton } from "@/components/send-text";
+import { AccountSetupButton, type AccountInviteInfo } from "@/components/account-setup-invite";
 import { isTwilioConfigured, isSmsConfigured } from "@/lib/twilio";
 import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
@@ -42,6 +43,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       documents: { orderBy: { createdAt: "desc" }, take: 50, include: { uploadedBy: { select: { name: true } } } },
       orders: { orderBy: { orderDate: "desc" }, take: 12 },
       dealerUsers: { orderBy: { createdAt: "asc" } },
+      accountSetupInvites: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
   if (!customer) notFound();
@@ -130,6 +132,24 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 )}
                 <SendTextButton customerId={customer.id} enabled={isSmsConfigured()} size="md" />
               </>
+            );
+          })()}
+          {(() => {
+            const inv = customer.accountSetupInvites[0];
+            const inviteInfo: AccountInviteInfo = !inv
+              ? null
+              : inv.status === "SUBMITTED"
+                ? { status: "SUBMITTED", submittedAt: (inv.submittedAt ?? inv.createdAt).toISOString() }
+                : inv.expiresAt > new Date()
+                  ? { status: "PENDING", url: `${process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.app"}/account-setup/${inv.token}` }
+                  : null;
+            return (
+              <AccountSetupButton
+                customerId={customer.id}
+                invite={inviteInfo}
+                smsReady={isSmsConfigured()}
+                hasPhone={!!(customer.contactCell || customer.phone)}
+              />
             );
           })()}
           <QuickLogButton customerId={customer.id} label="Log Call" defaultType="CALL" />
@@ -298,7 +318,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                 id: d.id, type: d.type, fileName: d.fileName,
                 expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
                 sensitive: d.sensitive, createdAt: d.createdAt.toISOString(),
-                uploadedBy: d.uploadedBy.name,
+                uploadedBy: d.uploadedBy?.name ?? "Customer (online form)",
               }))}
             />
           </Card>

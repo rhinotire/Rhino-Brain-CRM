@@ -22,7 +22,7 @@ const DOC_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp", "i
 /** Uploads any doc_<TYPE> files included in the new-customer form. Failures don't block creation. */
 async function uploadNewCustomerDocs(formData: FormData, customerId: string, userId: string) {
   if (!isStorageConfigured()) return;
-  const types: DocumentType[] = ["ACCOUNT_APPLICATION", "RESALE_CERTIFICATE", "DRIVER_LICENSE", "CREDIT_CARD_AUTH", "W9_FORM"];
+  const types: DocumentType[] = ["ACCOUNT_APPLICATION", "RESALE_CERTIFICATE", "DRIVER_LICENSE", "CREDIT_CARD_AUTH", "W9_FORM", "OTHER"]; // OTHER carries the scanned business card
   for (const type of types) {
     const file = formData.get(`doc_${type}`);
     if (!(file instanceof File) || file.size === 0) continue;
@@ -90,6 +90,7 @@ export async function updateCustomer(customerId: string, _prev: ActionResult | n
       locationId: session.role === "ADMIN" && requestedLoc ? requestedLoc : existing.locationId,
     },
   });
+  await uploadNewCustomerDocs(formData, customerId, session.userId); // card scanned during an edit
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/customers");
   return { ok: true };

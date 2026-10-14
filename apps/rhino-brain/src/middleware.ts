@@ -13,8 +13,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/cron/") ||
     // Twilio webhooks sign requests (X-Twilio-Signature); token route 401s without a session
     pathname.startsWith("/api/twilio/") ||
-    // employee onboarding form: the unguessable token is the authorization
-    pathname.startsWith("/onboard/");
+    // employee onboarding + customer account forms: the unguessable token is the authorization
+    pathname.startsWith("/onboard/") ||
+    pathname.startsWith("/account-setup/");
   const hasSession = req.cookies.has("tirepro_session");
 
   if (!isPublic && !hasSession) {
