@@ -1,5 +1,5 @@
 import { db } from "@rhino/database";
-import { searchPlacesPage, PLACES_COST_PER_CALL_USD } from "./places-collector";
+import { searchPlacesPage, PLACES_COST_PER_CALL_USD, type GeoCircle } from "./places-collector";
 import { dedupeKeyFor } from "./prospect-dedupe";
 import { matchesExclusion } from "./exclusion-service";
 import { fetchSiteText, extractEnrichment } from "./prospect-enrich";
@@ -19,6 +19,17 @@ export const PROSPECT_QUERIES: Record<ProspectCategory, string[]> = {
   p4: ["commercial truck tire dealer", "truck tire shop", "truck repair shop", "trucking company", "fleet services"],
   p3: ["tire wholesaler", "tire shop", "used and new tire dealer"],
   p1: ["trailer parts distributor", "trailer tires wholesale", "trailer manufacturer"],
+};
+
+/**
+ * Warehouse home turf for the daily automated run (owner's targeting,
+ * 2026-10-16): 50 miles around each warehouse. Leads collected with an area
+ * are force-assigned to that company regardless of state heuristics.
+ */
+export type ProspectArea = "RHINO" | "EVERFLOW";
+export const PROSPECT_AREAS: Record<ProspectArea, { label: string; state: string; locTag: string; circle: GeoCircle }> = {
+  RHINO:    { label: "Orlando, FL — 50 mi", state: "FL", locTag: "FL", circle: { lat: 28.5383, lng: -81.3792, radiusMiles: 50 } },
+  EVERFLOW: { label: "Dallas, TX — 50 mi",  state: "TX", locTag: "TX", circle: { lat: 32.8097, lng: -96.8750, radiusMiles: 50 } },
 };
 
 export const PROSPECT_STATE_NAMES: Record<string, string> = {
@@ -49,6 +60,8 @@ export async function runProspectingPipeline(opts: {
   country?: string;
   /** required when country is US; ignored otherwise */
   state?: string;
+  /** 50-mile warehouse radius — overrides country/state and forces the lead's company */
+  area?: ProspectArea;
   category?: ProspectCategory;
   /** free-text search keywords — overrides the category presets */
   customQuery?: string;
@@ -58,9 +71,11 @@ export async function runProspectingPipeline(opts: {
   log?: (line: string) => void;
 }): Promise<PipelineResult> {
   const log = opts.log ?? console.log;
-  const COUNTRY = (opts.country ?? "US").toUpperCase();
+  const area = opts.area ? PROSPECT_AREAS[opts.area] : null;
+  if (opts.area && !area) throw new Error(`area must be one of: ${Object.keys(PROSPECT_AREAS).join(", ")}`);
+  const COUNTRY = area ? "US" : (opts.country ?? "US").toUpperCase();
   if (!PROSPECT_COUNTRIES[COUNTRY]) throw new Error(`country must be one of: ${Object.keys(PROSPECT_COUNTRIES).join(", ")}`);
-  const STATE = COUNTRY === "US" ? (opts.state ?? "").toUpperCase() : "";
+  const STATE = area ? area.state : COUNTRY === "US" ? (opts.state ?? "").toUpperCase() : "";
   if (COUNTRY === "US" && !PROSPECT_STATE_NAMES[STATE])
     throw new Error(`state (required for US) must be one of: ${Object.keys(PROSPECT_STATE_NAMES).join(", ")}`);
   const customQuery = opts.customQuery?.trim();
@@ -80,7 +95,7 @@ export async function runProspectingPipeline(opts: {
 
   let apiCalls = 0, inTok = 0, outTok = 0, results = 0, created = 0, dups = 0, excluded = 0, skipped = 0;
   const run = DRY ? null : await db.sourceRun.create({
-    data: { source: "GOOGLE_PLACES", params: { country: COUNTRY, state: STATE || null, category: opts.category ?? null, customQuery: customQuery ?? null, limit: opts.limit } },
+    data: { source: "GOOGLE_PLACES", params: { country: COUNTRY, state: STATE || null, area: opts.area ?? null, category: opts.category ?? null, customQuery: customQuery ?? null, limit: opts.limit } },
   });
 
   try {
@@ -88,7 +103,13 @@ export async function runProspectingPipeline(opts: {
     for (const q of queries) {
       let pageToken: string | undefined;
       do {
-        const page = await searchPlacesPage({ query: `${q} in ${wherePhrase}`, apiKey: opts.placesKey, pageToken });
+        // With a geo circle the rectangle restriction does the targeting, so
+        // the query stays plain; otherwise anchor it to the state/country name.
+        const page = await searchPlacesPage({
+          query: area ? q : `${q} in ${wherePhrase}`,
+          apiKey: opts.placesKey, pageToken,
+          circle: area?.circle,
+        });
         apiCalls++;
         pageToken = page.nextPageToken ?? undefined;
         for (const c of page.candidates) {
@@ -108,7 +129,7 @@ export async function runProspectingPipeline(opts: {
             const sc = await scoreProspect({ companyName: c.companyName, state: c.state, enrichment: enr.enrichment });
             inTok += sc.inputTokens;
             outTok += sc.outputTokens;
-            const wh = COUNTRY === "US" ? assignStateLocation(c.state) : null;
+            const wh = opts.area ?? (COUNTRY === "US" ? assignStateLocation(c.state) : null);
             await db.lead.create({
               data: {
                 companyName: c.companyName,
@@ -124,7 +145,7 @@ export async function runProspectingPipeline(opts: {
                 dedupeKey: key, sourceRunId: run!.id,
                 country: COUNTRY,
                 locationId: COUNTRY !== "US" ? qingdaoId : wh === "RHINO" ? rhinoId : wh === "EVERFLOW" ? everflowId : null,
-                meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q },
+                meta: { website: c.website, rating: c.rating, ratingCount: c.ratingCount, placesQuery: q, ...(opts.area ? { area: opts.area } : {}) },
               },
             });
             created++;

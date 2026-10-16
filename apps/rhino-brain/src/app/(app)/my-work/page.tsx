@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth";
+import { requireSession, hasPerm } from "@/lib/auth";
+import { isTwilioConfigured } from "@/lib/twilio";
 import { Card, StatCard, Badge, EmptyState } from "@/components/ui/primitives";
+import { ProspectWorkList, type ProspectRow } from "@/components/prospect-work-list";
 import { QuickLogButton } from "@/components/quick-log";
 import { NewTaskButton, TaskActions } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
@@ -60,6 +62,31 @@ export default async function MyWorkPage() {
     db.customer.findMany({ where: { assignedRepId: me }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" } }),
   ]);
 
+  // Today's AI-collected prospects near the rep's warehouse: unclaimed ones in
+  // their company plus any they already claimed but haven't worked (no stage
+  // change yet). Claiming moves a lead into "New Leads to Work" below.
+  const todaysProspects = await db.lead.findMany({
+    where: {
+      source: "PROSPECTING",
+      stage: "NEW_LEAD",
+      convertedCustomerId: null,
+      AND: [
+        { OR: [{ pool: null }, { pool: { not: "D_EXCLUDED" } }] },
+        { OR: [{ assignedRepId: null }, { assignedRepId: me }] },
+      ],
+      ...(session.locationId ? { locationId: session.locationId } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { score: "desc" }],
+    take: 5,
+    select: { id: true, companyName: true, city: true, state: true, phone: true, score: true, productLine: true, assignedRepId: true, meta: true },
+  });
+  const prospectRows: ProspectRow[] = todaysProspects.map(l => ({
+    id: l.id, companyName: l.companyName, city: l.city, state: l.state, phone: l.phone,
+    website: typeof (l.meta as { website?: string } | null)?.website === "string" ? (l.meta as { website: string }).website : null,
+    score: l.score, productLine: l.productLine, mine: l.assignedRepId === me,
+  }));
+  const phoneEnabled = isTwilioConfigured() && hasPerm(session, "phone");
+
   const quotesToFollowUp = quotesRaw.filter(q => q.status === "FOLLOW_UP_NEEDED" || quoteNeedsFollowUp(q, now));
   const overdueTasks = myTasks.filter(t => t.dueDate && t.dueDate < dayStart);
 
@@ -87,6 +114,10 @@ export default async function MyWorkPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card title={`🎯 Today's New Prospects (${prospectRows.length})`} action={<span className="text-xs text-slate-400">AI-collected near your warehouse · claim to work</span>}>
+          <ProspectWorkList prospects={prospectRows} phoneEnabled={phoneEnabled} />
+        </Card>
+
         <Card title={`Overdue Follow-ups (${overdueFollowUps.length})`}>
           {overdueFollowUps.length === 0 ? <EmptyState message="Nothing overdue — nice." /> : (
             <ul className="divide-y divide-slate-50">

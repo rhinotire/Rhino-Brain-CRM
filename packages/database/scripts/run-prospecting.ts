@@ -5,13 +5,15 @@
  * collection form uses).
  *
  *   pnpm --filter @rhino/database exec tsx scripts/run-prospecting.ts --state TX --category p4 --limit 40
+ *   pnpm --filter @rhino/database exec tsx scripts/run-prospecting.ts --area RHINO --category p4 --limit 20
+ *   --area RHINO|EVERFLOW  50-mile warehouse radius (overrides state)
  *   --category p4|p3|p1  (P4 truck first — owner priority)
  *   --dry                collect + filter only, no AI, no writes
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { db } from "../src";
-import { runProspectingPipeline, type ProspectCategory } from "../../services/src/prospect-pipeline";
+import { runProspectingPipeline, type ProspectCategory, type ProspectArea } from "../../services/src/prospect-pipeline";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,6 +37,7 @@ async function main() {
   if (!placesKey) throw new Error("GOOGLE_PLACES_API_KEY not set");
 
   const result = await runProspectingPipeline({
+    area: arg("area")?.toUpperCase() as ProspectArea | undefined,
     country: (arg("country", "US") ?? "US").toUpperCase(),
     state: (arg("state") ?? "").toUpperCase(),
     category: arg("category", "p4") as ProspectCategory,

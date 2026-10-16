@@ -26,7 +26,7 @@ export { isValidUsZip, zipDistanceMiles, zipCityState, zipLatLng, optimizeStopOr
 export { askClaudeJson } from "./claude-json";
 export { fetchSiteText, extractEnrichment, type Enrichment } from "./prospect-enrich";
 export { scoreProspect, assignStateLocation, RHINO_STATES, EVERFLOW_STATES, type ProspectVerdict, type SixCheck } from "./prospect-score";
-export { searchPlacesPage, PLACES_COST_PER_CALL_USD, type PlaceCandidate } from "./places-collector";
+export { searchPlacesPage, PLACES_COST_PER_CALL_USD, type PlaceCandidate, type GeoCircle } from "./places-collector";
 export { sendEmail, isEmailConfigured } from "./email";
 export type {
   StockStatus,
@@ -37,7 +37,7 @@ export type {
   PublicPartSpecDTO,
   InternalProductHit,
 } from "./types";
-export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPECT_COUNTRIES, type ProspectCategory, type PipelineResult } from "./prospect-pipeline";
+export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPECT_COUNTRIES, PROSPECT_AREAS, type ProspectCategory, type ProspectArea, type PipelineResult } from "./prospect-pipeline";
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
 export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";
 export { searchShipmentsPage, aggregateConsignees, type CustomsSearchField, type CustomsShipmentRow, type ConsigneeAggregate } from "./customs-collector";
