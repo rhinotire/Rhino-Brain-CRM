@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { uploadProductPhoto, clearProductPhoto } from "@/actions/products";
 import { PatternPhotoShare } from "@/components/pattern-photo-share";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { useToast } from "@/components/ui/toast";
 
 export function ProductImageCell({ productId, imageUrl, storageReady }: {
@@ -23,8 +24,7 @@ export function ProductImageCell({ productId, imageUrl, storageReady }: {
   return (
     <div className="flex items-center gap-1.5">
       {url
-        /* eslint-disable-next-line @next/next/no-img-element */
-        ? <img src={url} alt="" className="h-9 w-9 rounded border border-slate-200 object-cover" />
+        ? <ImageLightbox src={url} trigger="thumb" />
         : <div className="flex h-9 w-9 items-center justify-center rounded border border-dashed border-slate-300 text-xs text-slate-300">🛞</div>}
       <form action={action}>
         <input type="hidden" name="productId" value={productId} />
