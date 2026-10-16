@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, canWrite, hasPerm, isAccounting, defaultLocationId } from "@/lib/auth";
@@ -117,6 +118,9 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
     taxId: g("taxId", 40),
     signature: g("signature"),
     signedAt: new Date().toISOString(),
+    // e-signature audit trail (ESIGN/UETA: intent + association + retention)
+    signedIp: (headers().get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 45) || null,
+    signedUserAgent: (headers().get("user-agent") ?? "").slice(0, 200) || null,
   };
 
   // blank invite → create the customer now (or merge into an exact-name match)
@@ -159,16 +163,36 @@ export async function submitAccountSetup(_prev: ActionResult | null, formData: F
       const storagePath = `${target.id}/RESALE_CERTIFICATE/${Date.now()}-online.${ext}`;
       await uploadObject(storagePath, await cert.arrayBuffer(), cert.type);
       const expRaw = g("certExpiry", 12);
+      // FL annual resale certificates all expire Dec 31 — default when the customer leaves it blank
+      const flDefault = data.state?.toUpperCase() === "FL" ? new Date(`${new Date().getFullYear()}-12-31T12:00:00Z`) : null;
       await db.customerDocument.create({
         data: {
           customerId: target.id, type: "RESALE_CERTIFICATE",
           fileName: `Resale certificate — submitted online.${ext}`,
           storagePath, fileSize: cert.size, mimeType: cert.type,
-          expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expRaw) ? new Date(expRaw + "T12:00:00Z") : null,
+          expiresAt: /^\d{4}-\d{2}-\d{2}$/.test(expRaw) ? new Date(expRaw + "T12:00:00Z") : flDefault,
           sensitive: false, uploadedById: null,
         },
       }).catch(() => {});
     }
+  }
+
+  // drawn e-signature image → customer documents (audit evidence)
+  const sigRaw = String(formData.get("signatureImage") ?? "");
+  if (sigRaw.startsWith("data:image/png;base64,") && sigRaw.length < 400000 && isStorageConfigured()) {
+    try {
+      const png = Buffer.from(sigRaw.slice("data:image/png;base64,".length), "base64");
+      const sigPath = `${target.id}/ACCOUNT_APPLICATION/${Date.now()}-signature.png`;
+      await uploadObject(sigPath, png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer, "image/png");
+      await db.customerDocument.create({
+        data: {
+          customerId: target.id, type: "ACCOUNT_APPLICATION",
+          fileName: `E-signature — ${data.signature.slice(0, 50)} (${data.signedAt.slice(0, 10)}).png`,
+          storagePath: sigPath, fileSize: png.length, mimeType: "image/png",
+          sensitive: false, uploadedById: null,
+        },
+      });
+    } catch { /* signature image is best-effort; the typed signature + IP are already recorded */ }
   }
 
   await db.customer.update({

@@ -744,8 +744,15 @@ model CustomerDocument {
   sensitive   Boolean      @default(false) // DRIVER_LICENSE / CREDIT_CARD_AUTH
   notes       String?
 
-  uploadedById String? // null = submitted by the customer via a public link
-  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+  // official-registry verification trail (resale certificates)
+  verifyStatus   String? // VERIFIED | FAILED | RECHECK
+  verifiedAt     DateTime?
+  verifiedById   String?
+  verifyNotes    String?
+  evidencePath   String? // screenshot of the official lookup result
+  lastRemindedOn DateTime? // recheck-reminder dedupe
+  uploadedById   String? // null = submitted by the customer via a public link
+  uploadedBy     User?     @relation(fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
 

@@ -8,6 +8,7 @@ import { QuickLogButton } from "@/components/quick-log";
 import { PhoneDialer } from "@/components/phone-dialer";
 import { SendTextButton } from "@/components/send-text";
 import { AccountSetupButton, type AccountInviteInfo } from "@/components/account-setup-invite";
+import { CertVerifyPanel } from "@/components/cert-verify-panel";
 import { isTwilioConfigured, isSmsConfigured } from "@/lib/twilio";
 import { NewTaskButton } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
@@ -60,6 +61,14 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     ? await db.installer.findFirst({ where: { customerId: customer.id }, select: { id: true } })
     : null;
   const twilioReady = isTwilioConfigured();
+
+  // names of whoever verified resale certificates (for the verification panel)
+  const verifierIds = [...new Set(customer.documents.map(d => d.verifiedById).filter((x): x is string => !!x))];
+  const verifierNames = new Map<string, string>(
+    verifierIds.length
+      ? (await db.user.findMany({ where: { id: { in: verifierIds } }, select: { id: true, name: true } })).map(u => [u.id, u.name] as const)
+      : [],
+  );
   const temp = customerTemperature(customer.lastContactAt);
   const days = daysSince(customer.lastContactAt);
   const openTasks = customer.tasks.filter(t => t.status === "OPEN");
@@ -304,6 +313,25 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
                   ))}
                 </div>
               </Card>
+            );
+          })()}
+
+          {(() => {
+            const certDocs = customer.documents.filter(d => d.type === "RESALE_CERTIFICATE");
+            if (certDocs.length === 0) return null;
+            return (
+              <CertVerifyPanel
+                companyName={customer.companyName}
+                taxId={customer.taxId}
+                customerState={customer.state}
+                certs={certDocs.map(d => ({
+                  id: d.id, fileName: d.fileName,
+                  expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+                  verifyStatus: d.verifyStatus, verifiedAt: d.verifiedAt ? d.verifiedAt.toISOString() : null,
+                  verifiedBy: d.verifiedById ? (verifierNames.get(d.verifiedById) ?? null) : null,
+                  verifyNotes: d.verifyNotes,
+                }))}
+              />
             );
           })()}
 

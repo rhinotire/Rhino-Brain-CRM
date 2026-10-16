@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { submitAccountSetup } from "@/actions/account-setup";
+import { SignaturePad } from "@/components/signature-pad";
 
 const input = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base";
 const label = "mt-4 block text-sm font-semibold text-slate-700";
@@ -37,6 +38,12 @@ export function AccountSetupForm({ token, companyName, prefill }: {
 }) {
   const [state, action] = useFormState(submitAccountSetup, null);
   const [certName, setCertName] = useState("");
+  const [sigData, setSigData] = useState<string | null>(null);
+
+  const submit = (fd: FormData) => {
+    if (sigData) fd.set("signatureImage", sigData);
+    action(fd);
+  };
 
   if (state?.ok) {
     return (
@@ -49,7 +56,7 @@ export function AccountSetupForm({ token, companyName, prefill }: {
   }
 
   return (
-    <form action={action}>
+    <form action={submit}>
       <input type="hidden" name="token" value={token} />
 
       <h2 className="mt-6 border-b border-slate-200 pb-1 text-base font-bold text-slate-800">1. Business / Empresa</h2>
@@ -119,8 +126,11 @@ export function AccountSetupForm({ token, companyName, prefill }: {
           <span className="mt-1 block text-xs text-slate-500">Certifico que esta información es correcta y estoy autorizado para abrir una cuenta de mayoreo.</span>
         </span>
       </label>
-      <label className={label}>Type your full name as signature * <span className={hint}>Escriba su nombre completo como firma</span></label>
+      <label className={label}>Type your full name * <span className={hint}>Escriba su nombre completo</span></label>
       <input name="signature" required minLength={3} className={`${input} font-serif italic`} />
+      <div className="mt-4">
+        <SignaturePad onChange={setSigData} labelEn="Signature *" labelEs="Firma" />
+      </div>
 
       {state?.error && <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <Submit />

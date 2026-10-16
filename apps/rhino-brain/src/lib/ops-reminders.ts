@@ -30,9 +30,54 @@ export async function generateTaskReminders(): Promise<void> {
   }
 }
 
+/**
+ * Resale-certificate rechecks: bell the rep + admins once per ET day when a
+ * cert is expired / expiring within 30d, or its last verification is older
+ * than a year (FL certs roll over every Dec 31).
+ */
+export async function generateCertRecheckReminders(): Promise<void> {
+  const now = new Date();
+  const soon = new Date(now.getTime() + 30 * 86400000);
+  const yearAgo = new Date(now.getTime() - 365 * 86400000);
+  const docs = await db.customerDocument.findMany({
+    where: {
+      type: "RESALE_CERTIFICATE",
+      OR: [
+        { expiresAt: { lte: soon } },
+        { verifyStatus: "VERIFIED", verifiedAt: { lt: yearAgo } },
+      ],
+    },
+    select: {
+      id: true, expiresAt: true, verifiedAt: true, lastRemindedOn: true,
+      customer: { select: { id: true, companyName: true, assignedRepId: true, locationId: true } },
+    },
+    take: 100,
+  });
+  const due = docs.filter(d => !d.lastRemindedOn || etDay(d.lastRemindedOn) !== etDay(now));
+  if (due.length === 0) return;
+  const admins = await db.user.findMany({ where: { role: "ADMIN", active: true }, select: { id: true } });
+
+  for (const d of due) {
+    const expired = d.expiresAt && d.expiresAt < now;
+    const title = expired
+      ? `🔴 Resale cert EXPIRED — ${d.customer.companyName}`
+      : d.expiresAt && d.expiresAt <= soon
+        ? `⏰ Resale cert expiring soon — ${d.customer.companyName}`
+        : `🔎 Resale cert recheck due (1 yr) — ${d.customer.companyName}`;
+    const targets = [...new Set([d.customer.assignedRepId, ...admins.map(a => a.id)].filter((x): x is string => !!x))];
+    await Promise.all(targets.map(uid =>
+      db.notification.create({
+        data: { type: expired ? "TASK_OVERDUE" : "TASK_DUE", title, body: "Open the customer page → Verification panel.", link: `/customers/${d.customer.id}`, userId: uid },
+      }).catch(() => null),
+    ));
+    await db.customerDocument.update({ where: { id: d.id }, data: { lastRemindedOn: now } }).catch(() => {});
+  }
+}
+
 /** All lazy daily reminders — fired from the app layout on any page load. */
 export async function generateDailyReminders(hasOpsPerm: boolean): Promise<void> {
   await generateTaskReminders().catch(() => {});
+  await generateCertRecheckReminders().catch(() => {});
   if (hasOpsPerm) await generateOpsReminders().catch(() => {});
 }
 
