@@ -80,11 +80,15 @@ export default async function MyWorkPage() {
     take: 5,
     select: { id: true, companyName: true, city: true, state: true, phone: true, score: true, productLine: true, assignedRepId: true, meta: true },
   });
-  const prospectRows: ProspectRow[] = todaysProspects.map(l => ({
-    id: l.id, companyName: l.companyName, city: l.city, state: l.state, phone: l.phone,
-    website: typeof (l.meta as { website?: string } | null)?.website === "string" ? (l.meta as { website: string }).website : null,
-    score: l.score, productLine: l.productLine, mine: l.assignedRepId === me,
-  }));
+  const prospectRows: ProspectRow[] = todaysProspects.map(l => {
+    const meta = (l.meta ?? {}) as { website?: string; contacts?: ProspectRow["contacts"] };
+    return {
+      id: l.id, companyName: l.companyName, city: l.city, state: l.state, phone: l.phone,
+      website: typeof meta.website === "string" ? meta.website : null,
+      score: l.score, productLine: l.productLine, mine: l.assignedRepId === me,
+      contacts: Array.isArray(meta.contacts) ? meta.contacts : [],
+    };
+  });
   const phoneEnabled = isTwilioConfigured() && hasPerm(session, "phone");
 
   const quotesToFollowUp = quotesRaw.filter(q => q.status === "FOLLOW_UP_NEEDED" || quoteNeedsFollowUp(q, now));

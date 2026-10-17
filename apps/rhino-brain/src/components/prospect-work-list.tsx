@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { claimProspect, getOpenerDraft } from "@/actions/my-prospects";
+import { claimProspect, getOpenerDraft, findProspectContacts } from "@/actions/my-prospects";
 import { PhoneDialer } from "@/components/phone-dialer";
 import { Modal } from "@/components/ui/modal";
 import { Button, Badge, EmptyState } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
-import type { OutreachDraft } from "@rhino/services";
+import type { OutreachDraft, ProspectContact } from "@rhino/services";
 
 export type ProspectRow = {
   id: string;
@@ -18,6 +18,7 @@ export type ProspectRow = {
   score: number | null;
   productLine: string | null;
   mine: boolean;
+  contacts: ProspectContact[];
 };
 
 const LINE_LABEL: Record<string, string> = {
@@ -30,6 +31,7 @@ export function ProspectWorkList({ prospects, phoneEnabled }: { prospects: Prosp
   const [rows, setRows] = useState(prospects);
   const [draftFor, setDraftFor] = useState<{ row: ProspectRow; draft: OutreachDraft } | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [diggingId, setDiggingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const toast = useToast();
 
@@ -42,6 +44,18 @@ export function ProspectWorkList({ prospects, phoneEnabled }: { prospects: Prosp
       setLoadingId(null);
       if (r.ok && r.draft) setDraftFor({ row, draft: r.draft });
       else toast(r.error ?? "Could not load the opener", "error");
+    });
+  };
+
+  const digContacts = (row: ProspectRow) => {
+    setDiggingId(row.id);
+    startTransition(async () => {
+      const r = await findProspectContacts(row.id);
+      setDiggingId(null);
+      if (r.ok && r.contacts) {
+        setRows(rs => rs.map(x => (x.id === row.id ? { ...x, contacts: r.contacts! } : x)));
+        toast(`Found ${r.contacts.length} decision-maker${r.contacts.length > 1 ? "s" : ""} ✓`);
+      } else toast(r.error ?? "Contact lookup failed", "error");
     });
   };
 
@@ -63,29 +77,53 @@ export function ProspectWorkList({ prospects, phoneEnabled }: { prospects: Prosp
     <>
       <ul className="divide-y divide-slate-50">
         {rows.map(p => (
-          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <div className="min-w-0">
-              <span className="font-medium text-slate-800">{p.companyName}</span>
-              {typeof p.score === "number" && (
-                <Badge className={`ml-2 ${p.score >= 70 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>AI {p.score}</Badge>
-              )}
-              {p.mine && <Badge className="ml-1 bg-brand-50 text-brand-700">Yours</Badge>}
-              <div className="text-xs text-slate-500">
-                {[p.city, p.state].filter(Boolean).join(", ")}
-                {p.productLine && LINE_LABEL[p.productLine] ? ` · ${LINE_LABEL[p.productLine]}` : ""}
-                {p.phone ? ` · ${p.phone}` : ""}
-                {p.website && (
-                  <a href={p.website} target="_blank" rel="noopener" className="ml-1 text-brand-700 hover:underline">site ↗</a>
+          <li key={p.id} className="py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="font-medium text-slate-800">{p.companyName}</span>
+                {typeof p.score === "number" && (
+                  <Badge className={`ml-2 ${p.score >= 70 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>AI {p.score}</Badge>
                 )}
+                {p.mine && <Badge className="ml-1 bg-brand-50 text-brand-700">Yours</Badge>}
+                <div className="text-xs text-slate-500">
+                  {[p.city, p.state].filter(Boolean).join(", ")}
+                  {p.productLine && LINE_LABEL[p.productLine] ? ` · ${LINE_LABEL[p.productLine]}` : ""}
+                  {p.phone ? ` · ${p.phone}` : ""}
+                  {p.website && (
+                    <a href={p.website} target="_blank" rel="noopener" className="ml-1 text-brand-700 hover:underline">site ↗</a>
+                  )}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {p.phone && <PhoneDialer phone={p.phone} enabled={phoneEnabled} />}
+                {p.contacts.length === 0 && (
+                  <Button size="sm" variant="secondary" onClick={() => digContacts(p)} disabled={diggingId === p.id}>
+                    {diggingId === p.id ? "Searching…" : "👤 Find contact"}
+                  </Button>
+                )}
+                <Button size="sm" variant="secondary" onClick={() => openDraft(p)} disabled={loadingId === p.id}>
+                  {loadingId === p.id ? "Writing…" : "🧠 Opener"}
+                </Button>
+                {!p.mine && <Button size="sm" onClick={() => claim(p)}>✓ Claim</Button>}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {p.phone && <PhoneDialer phone={p.phone} enabled={phoneEnabled} />}
-              <Button size="sm" variant="secondary" onClick={() => openDraft(p)} disabled={loadingId === p.id}>
-                {loadingId === p.id ? "Writing…" : "🧠 Opener"}
-              </Button>
-              {!p.mine && <Button size="sm" onClick={() => claim(p)}>✓ Claim</Button>}
-            </div>
+            {p.contacts.length > 0 && (
+              <div className="mt-1.5 space-y-0.5 rounded-md border border-emerald-200 bg-emerald-50/50 px-2 py-1.5">
+                {p.contacts.map((c, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
+                    <span className="font-semibold text-slate-800">{c.name}</span>
+                    <span className="rounded bg-emerald-100 px-1 py-0.5 font-semibold text-emerald-800">{c.title}</span>
+                    {c.email && <a href={`mailto:${c.email}`} className="text-slate-700 hover:underline">✉ {c.email}{c.emailStatus === "verified" || c.emailStatus === "valid" ? " ✓" : ""}</a>}
+                    {c.phone && (phoneEnabled
+                      ? <PhoneDialer phone={c.phone} enabled label={`☎ ${c.phone}`} />
+                      : <a href={`tel:${c.phone}`} className="text-slate-700 hover:underline">☎ {c.phone}</a>)}
+                    {c.linkedinUrl && (
+                      <a href={c.linkedinUrl.startsWith("http") ? c.linkedinUrl : `https://${c.linkedinUrl}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">in↗</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>
