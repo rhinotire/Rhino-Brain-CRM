@@ -1,0 +1,14 @@
+{
+  "name": "tireguru-sync",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Automated TireGuru Business Center report pull (stock / prices / AR aging / salesperson sales) into RHINO BRAIN. No API exists; this replays the report forms with a persistent logged-in browser profile.",
+  "scripts": {
+    "login": "node sync.mjs --login",
+    "sync": "node sync.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.61.1"
+  }
+}
