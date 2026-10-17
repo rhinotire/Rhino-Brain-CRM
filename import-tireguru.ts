@@ -195,15 +195,19 @@ async function main() {
   const existing = await db.product.findMany({
     select: { id: true, sku: true, cost: true, priceA: true, priceB: true, priceC: true, priceD: true, msrp: true },
   });
-  const existingBySku = new Map(existing.map((p) => [p.sku, p]));
+  // Case/whitespace-insensitive SKU match — the report and the DB disagree on
+  // casing for a handful of SKUs, and an exact-match miss turns into a create
+  // that dies on the sku unique constraint (hit 2026-10-17).
+  const skuKey = (s: string) => s.trim().toUpperCase();
+  const existingBySku = new Map(existing.map((p) => [skuKey(p.sku), p]));
 
   // union of stock SKUs + price-only SKUs (price report includes zero-stock items)
   const stockSkus = new Set(stock.map((r) => r.sku));
   const priceOnly = STOCKED_ONLY
     ? []
-    : price.rows.filter((r) => !stockSkus.has(r.sku) && !existingBySku.has(r.sku) && !stockSkus.has(stripAlphaPrefix(r.sku)));
+    : price.rows.filter((r) => !stockSkus.has(r.sku) && !existingBySku.has(skuKey(r.sku)) && !stockSkus.has(stripAlphaPrefix(r.sku)));
 
-  const newFromStock = stock.filter((r) => !existingBySku.has(r.sku));
+  const newFromStock = stock.filter((r) => !existingBySku.has(skuKey(r.sku)));
   const matchedPrices = stock.filter((r) => priceFor(r.sku)).length;
 
   console.log(`\n=== TireGuru import ${APPLY ? "(APPLY)" : "(dry run)"} — location ${location.name} [${location.shortTag}] ===`);
@@ -240,7 +244,7 @@ async function main() {
       cost: r.avgCost ?? undefined,
       ...priceData(p),
     };
-    const found = existingBySku.get(r.sku);
+    const found = existingBySku.get(skuKey(r.sku));
     const product = found
       ? INVENTORY_ONLY
         ? found
@@ -248,7 +252,7 @@ async function main() {
       : await db.product.create({
           data: { sku: r.sku, description: r.description, category: guessCategory(r), ...base },
         });
-    if (found) updated++; else created++;
+    if (found) updated++; else { created++; existingBySku.set(skuKey(r.sku), product); } // register so a duplicate report row updates instead of re-creating
     await db.inventorySnapshot.upsert({
       where: { productId_locationId: { productId: product.id, locationId: location.id } },
       create: { productId: product.id, locationId: location.id, quantity: r.onHand, reservedQty: r.committed, incomingQty: r.onOrder },
@@ -259,6 +263,7 @@ async function main() {
   }
 
   for (const p of priceOnly) {
+    if (existingBySku.has(skuKey(p.sku))) continue; // created above or duplicate price row
     await db.product.create({
       data: {
         sku: p.sku,
