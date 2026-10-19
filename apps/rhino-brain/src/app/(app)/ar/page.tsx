@@ -93,23 +93,37 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
     locTag: string | null; days: number; bucket: (typeof withBucket)[number]["bucket"];
     balance: number; count: number;
   };
-  const groups = new Map<string, Group>();
+  const groups = new Map<string, Group & { pastDue: number; bucketSums: Record<string, number> }>();
   for (const x of filtered) {
     const key = x.inv.customer?.id ?? `raw:${x.inv.customerName.toLowerCase()}`;
-    const g = groups.get(key);
+    const bal = Number(x.inv.balance);
+    let g = groups.get(key);
     if (!g) {
-      groups.set(key, {
+      g = {
         key, customerId: x.inv.customer?.id ?? null, name: x.inv.customerName,
         rep: x.inv.customer?.assignedRep?.name ?? null, locTag: x.inv.location?.shortTag ?? null,
-        days: x.days, bucket: x.bucket, balance: Number(x.inv.balance), count: 1,
-      });
-    } else {
-      g.balance += Number(x.inv.balance);
-      g.count++;
-      if (x.days > g.days) { g.days = x.days; g.bucket = x.bucket; }
+        days: 0, bucket: x.bucket, balance: 0, count: 0, pastDue: 0, bucketSums: {},
+      };
+      groups.set(key, g);
     }
+    g.balance += bal;
+    g.count++;
+    g.bucketSums[x.bucket.key] = (g.bucketSums[x.bucket.key] ?? 0) + bal;
+    if (x.days > 0 && bal > 0) g.pastDue += bal;
+    if (x.days > g.days) g.days = x.days;
   }
-  const grouped = [...groups.values()].sort((a, b) => b.days - a.days);
+  // The aging badge shows where the LARGEST past-due amount sits — a $1 残额
+  // 101 days old must not paint a mostly-current customer as 91-120d overdue
+  // (owner feedback 2026-10-19, WELD RITE case). Days still show the oldest.
+  const OVERDUE_KEYS = ["b120plus", "b120", "b90", "b60", "b30"];
+  for (const g of groups.values()) {
+    const overdue = OVERDUE_KEYS.map(k => ({ k, sum: g.bucketSums[k] ?? 0 })).filter(x => x.sum > 0);
+    const dominant = overdue.sort((a, b) => b.sum - a.sum)[0]?.k
+      ?? (g.bucketSums.credit ? "credit" : "current");
+    g.bucket = (dominant === "credit" ? { key: "credit", label: "Credit / prepaid", min: 0, max: 0 } : BUCKETS.find(b => b.key === dominant)) ?? g.bucket;
+  }
+  // Big real debts first: past-due amount, then age.
+  const grouped = [...groups.values()].sort((a, b) => (b.pastDue - a.pastDue) || (b.days - a.days));
   // Totals above are computed from ALL invoices; the table renders a bounded page to keep the DOM light.
   const ROW_CAP = 300;
   const shown = grouped.slice(0, ROW_CAP);
@@ -151,7 +165,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
       </form>
 
       <Table>
-        <THead cols={["Customer", "Rep", "Aging (worst)", "Days Past Due", "Invoices", "Balance", "Location", ...(canWriteOff ? [""] : [])]} />
+        <THead cols={["Customer", "Rep", "Aging (main)", "Oldest (days)", "Invoices", "Past Due", "Balance", "Location", ...(canWriteOff ? [""] : [])]} />
         <tbody>
           {shown.map(g => (
             <tr key={g.key} className="border-b border-slate-50 hover:bg-slate-50">
@@ -168,6 +182,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
               </td>
               <td className="px-3 py-2 tabular-nums">{g.days > 0 ? <span className="font-semibold text-red-600">{g.days}</span> : "—"}</td>
               <td className="px-3 py-2 tabular-nums text-slate-500">{g.count}</td>
+              <td className="px-3 py-2 tabular-nums">{g.pastDue > 0 ? <span className="font-semibold text-red-700">{fmtMoney(g.pastDue)}</span> : "—"}</td>
               <td className="px-3 py-2 font-semibold tabular-nums">{fmtMoney(g.balance)}</td>
               <td className="px-3 py-2">{g.locTag ?? "—"}</td>
               {canWriteOff && (
@@ -177,7 +192,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
               )}
             </tr>
           ))}
-          {grouped.length === 0 && <EmptyRow colSpan={canWriteOff ? 8 : 7} message={writeOffView ? "No written-off customers." : "No open invoices in this view."} />}
+          {grouped.length === 0 && <EmptyRow colSpan={canWriteOff ? 9 : 8} message={writeOffView ? "No written-off customers." : "No open invoices in this view."} />}
         </tbody>
       </Table>
       {grouped.length > shown.length && (
