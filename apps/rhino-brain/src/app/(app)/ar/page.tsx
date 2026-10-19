@@ -90,7 +90,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
   // "duplicates"). Balances are summed, aging shows the worst invoice.
   type Group = {
     key: string; customerId: string | null; name: string; rep: string | null;
-    locTag: string | null; days: number; bucket: (typeof withBucket)[number]["bucket"];
+    locTag: string | null; locationId: string | null; days: number; bucket: (typeof withBucket)[number]["bucket"];
     balance: number; count: number;
   };
   const groups = new Map<string, Group & { pastDue: number; bucketSums: Record<string, number> }>();
@@ -101,7 +101,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
     if (!g) {
       g = {
         key, customerId: x.inv.customer?.id ?? null, name: x.inv.customerName,
-        rep: x.inv.customer?.assignedRep?.name ?? null, locTag: x.inv.location?.shortTag ?? null,
+        rep: x.inv.customer?.assignedRep?.name ?? null, locTag: x.inv.location?.shortTag ?? null, locationId: x.inv.locationId ?? null,
         days: 0, bucket: x.bucket, balance: 0, count: 0, pastDue: 0, bucketSums: {},
       };
       groups.set(key, g);
@@ -187,7 +187,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
               <td className="px-3 py-2">{g.locTag ?? "—"}</td>
               {canWriteOff && (
                 <td className="px-3 py-2">
-                  {g.customerId && <WriteOffButton customerId={g.customerId} companyName={g.name} writtenOff={writeOffView} />}
+                  {(g.customerId || (g.locationId && !writeOffView)) && <WriteOffButton customerId={g.customerId} companyName={g.name} writtenOff={writeOffView} locationId={g.locationId} />}
                 </td>
               )}
             </tr>

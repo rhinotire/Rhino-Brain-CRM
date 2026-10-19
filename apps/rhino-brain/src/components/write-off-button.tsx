@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setCustomerWriteOff } from "@/actions/collections";
+import { setCustomerWriteOff, writeOffUnmatchedAr } from "@/actions/collections";
 import { Modal } from "@/components/ui/modal";
 import { Button, Textarea, Field } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 
 /** A/R bad-debt control: 💀 Write off marks the whole customer (all invoices
- * leave the aging stats); Restore brings them back. Audited server-side. */
-export function WriteOffButton({ customerId, companyName, writtenOff }: {
-  customerId: string; companyName: string; writtenOff: boolean;
+ * leave the aging stats); Restore brings them back. Audited server-side.
+ * Rows with no CRM customer record (TireGuru-only names) pass locationId
+ * instead of customerId — the server auto-creates an INACTIVE archive. */
+export function WriteOffButton({ customerId, companyName, writtenOff, locationId }: {
+  customerId: string | null; companyName: string; writtenOff: boolean; locationId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -20,7 +22,11 @@ export function WriteOffButton({ customerId, companyName, writtenOff }: {
 
   const run = (writeOff: boolean) => {
     startTransition(async () => {
-      const r = await setCustomerWriteOff(customerId, writeOff, note);
+      const r = customerId
+        ? await setCustomerWriteOff(customerId, writeOff, note)
+        : writeOff && locationId
+          ? await writeOffUnmatchedAr(companyName, locationId, note)
+          : { ok: false as const, error: "Missing customer reference" };
       if (r.ok) {
         toast(writeOff ? `${companyName} written off — removed from aging` : `${companyName} restored to aging`);
         setOpen(false);

@@ -156,3 +156,59 @@ export async function setCustomerWriteOff(
   revalidatePath(`/customers/${customerId}`);
   return { ok: true };
 }
+
+/**
+ * Write off an A/R name that has NO CRM customer record (TireGuru INACTIVE
+ * customers were never imported — VARIIS WHEELS case, 2026-10-19). Creates a
+ * minimal INACTIVE customer archive carrying the write-off flag and links the
+ * name's invoices; future aging syncs re-match it by name, so the write-off
+ * sticks.
+ */
+export async function writeOffUnmatchedAr(
+  customerName: string,
+  locationId: string,
+  note?: string
+): Promise<ActionResult> {
+  const session = await requireSession();
+  if (!hasPerm(session, "ar") || !(isManager(session) || isAccounting(session)))
+    return { ok: false, error: "Only managers/accounting can write off balances." };
+  const name = customerName.trim();
+  if (!name) return { ok: false, error: "Missing customer name." };
+  if (!canWrite(session, { locationId })) return { ok: false, error: "Not your company's customer." };
+
+  let customer = await db.customer.findFirst({
+    where: { companyName: { equals: name, mode: "insensitive" }, locationId },
+  });
+  if (!customer) {
+    customer = await db.customer.create({
+      data: {
+        companyName: name,
+        locationId,
+        status: "INACTIVE", // mirrors TireGuru — these are closed/inactive accounts
+        notes: "Auto-created from A/R write-off (no CRM record existed; TireGuru-only name).",
+      },
+    });
+  }
+  await db.customer.update({
+    where: { id: customer.id },
+    data: { arWriteOffAt: new Date(), arWriteOffById: session.userId, arWriteOffNote: note?.trim().slice(0, 300) || null },
+  });
+  await db.invoice.updateMany({
+    where: { customerId: null, locationId, customerName: { equals: name, mode: "insensitive" } },
+    data: { customerId: customer.id },
+  });
+  await db.activity.create({
+    data: {
+      type: "INTERNAL_NOTE",
+      subject: "💀 A/R written off — closed/uncollectable (record auto-created)",
+      notes: note?.trim() || undefined,
+      customerId: customer.id,
+      repId: session.userId,
+      locationId,
+      meaningful: true,
+    },
+  }).catch(() => {});
+  revalidatePath("/ar");
+  revalidatePath("/ar/collections");
+  return { ok: true };
+}
