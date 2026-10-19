@@ -22,7 +22,10 @@ npm run login        # a browser window opens — sign in to TireGuru yourself
    - Inventory Price List — Multiple Levels (2025 GoodLuck + Retail Markup only)
    - Customer Aged Trial Balance (all locations, detailed)
    - Salesperson Sales Analysis (month-to-date, invoice detail)
-2. Runs the proven `import-tireguru.ts --apply` to sync stock + prices into the
+2. Polls the CRM freight-quote inbox (/api/cron/freight-poll) so carrier
+   replies land in /freight automatically — needs cronSecret + crmBase keys
+   in the credentials file.
+3. Runs the proven `import-tireguru.ts --apply` to sync stock + prices into the
    CRM database. (Aging + sales importers come next; files are collected now.)
 
 Manual run: `npm run sync`. Log: `sync.log` in this folder.

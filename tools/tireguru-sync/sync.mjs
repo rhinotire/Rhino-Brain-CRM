@@ -305,6 +305,20 @@ async function main() {
       } else log("skipping aging import (download missing)");
     }
 
+    // Piggyback: poll the freight-quote inbox on the CRM (no Vercel sub-daily
+    // crons on Hobby; this robot already runs every 2h). Config keys crmBase +
+    // cronSecret in the local credentials file enable it.
+    try {
+      const cfg = JSON.parse(readFileSync(CRED_FILE, "utf8").replace(/^﻿/, ""));
+      if (cfg.cronSecret) {
+        const base = cfg.crmBase || "https://rhino-brain-crm.vercel.app";
+        const r = await fetch(`${base}/api/cron/freight-poll`, { headers: { authorization: `Bearer ${cfg.cronSecret}` } });
+        log(`freight inbox poll: ${r.status} ${(await r.text()).slice(0, 200)}`);
+      }
+    } catch (e) {
+      log(`freight inbox poll failed: ${e instanceof Error ? e.message : e}`);
+    }
+
     const got = Object.keys(files).length;
     log(`run complete — ${got} reports saved, ${failures} failed`);
     process.exitCode = failures === 0 ? 0 : 1;
