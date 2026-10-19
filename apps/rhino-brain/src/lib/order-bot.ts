@@ -74,21 +74,30 @@ Quantities: "4条"/"4 tires"/"x4" → 4. If no qty said for an item, use 1. Neve
     const q = iq.query.trim();
     const qty = Math.max(1, Math.min(500, Math.round(iq.qty || 1)));
     const bySku = await db.product.findFirst({ where: { sku: { equals: q, mode: "insensitive" } }, select: { sku: true, description: true, priceA: true } });
-    let p = bySku;
+    let p: { sku: string; description: string; priceA: unknown } | null = bySku;
     if (!p) {
-      const sizeToken = (q.match(/\d{2,3}[\/xX ]?\d{2,3}[rRdD]?\d{2}(?:\.\d)?|\d{2}[xX]\d{1,2}(?:\.\d+)?/) || [])[0];
-      const words = q.split(/\s+/).filter(w => w.length > 1 && w !== sizeToken);
+      // Sizes arrive in any dictated shape — 205/55R16, 205-55-16, 205 55 16,
+      // ST235/80R16 — so match on DIGITS ONLY against sizeSpec/sku/description.
+      const rawSize = (q.match(/(?:[a-zA-Z]{0,2})?\d{2,3}[\s\/xX.·-]{0,2}\d{2,3}[\s\/xXrRdD.·-]{0,2}\d{2}(?:\.\d)?|\d{2}[xX]\d{1,2}(?:\.\d+)?/) || [])[0];
+      const sizeDigits = rawSize ? rawSize.replace(/\D/g, "") : null;
+      const words = q.replace(rawSize ?? "\u0000", " ").split(/\s+/).filter(w => w.length > 1).slice(0, 3);
       const found = await db.product.findMany({
-        where: {
-          AND: [
-            ...(sizeToken ? [{ OR: [{ sizeSpec: { contains: sizeToken.replace(/\s/g, ""), mode: "insensitive" as const } }, { description: { contains: sizeToken, mode: "insensitive" as const } }, { sku: { contains: sizeToken.replace(/[\/\s]/g, ""), mode: "insensitive" as const } }] }] : []),
-            ...words.slice(0, 3).map(w => ({ OR: [{ description: { contains: w, mode: "insensitive" as const } }, { brand: { contains: w, mode: "insensitive" as const } }, { sku: { contains: w, mode: "insensitive" as const } }] })),
-          ],
-        },
-        select: { sku: true, description: true, priceA: true },
-        take: 2,
+        where: words.length
+          ? { AND: words.map(w => ({ OR: [{ description: { contains: w, mode: "insensitive" as const } }, { brand: { contains: w, mode: "insensitive" as const } }, { sku: { contains: w, mode: "insensitive" as const } }] })) }
+          : undefined,
+        select: { sku: true, description: true, priceA: true, sizeSpec: true, brand: true },
+        take: sizeDigits ? 500 : 2,
       });
-      p = found[0] ?? null;
+      const pool = sizeDigits
+        ? found.filter(x => `${x.sizeSpec ?? ""}|${x.sku}|${x.description}`.replace(/\D/g, "").includes(sizeDigits))
+        : found;
+      p = pool[0] ?? null;
+      // size given but the word filter was too strict (e.g. brand misheard) —
+      // retry on size alone so "205-55-16" still finds 205/55R16 stock
+      if (!p && sizeDigits && words.length) {
+        const all = await db.product.findMany({ select: { sku: true, description: true, priceA: true, sizeSpec: true }, take: 4000 });
+        p = all.find(x => `${x.sizeSpec ?? ""}|${x.sku}`.replace(/\D/g, "").includes(sizeDigits)) ?? null;
+      }
     }
     items.push(p
       ? { sku: p.sku, description: p.description, qty, price: p.priceA ? Number(p.priceA) : null, matched: true }
