@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isTwilioConfigured, validateTwilioSignature } from "@/lib/twilio";
-import { parseOrderSms, orderSummarySms } from "@/lib/order-bot";
+import { processOwnerSms, orderSummarySms } from "@/lib/order-bot";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // order parsing calls Claude
@@ -39,12 +39,15 @@ async function handleOrderBot(digits: string, body: string): Promise<NextRespons
     return replyTwiml(`✅ Confirmed #${pending.id.slice(-6)} — the robot will key it into TireGuru within ~5 minutes and text you the work-order number.`);
   }
 
-  // anything else from the owner's phone = a new order to parse
+  // anything else from the owner's phone: price/stock/AR query or a new order
   try {
+    const result = await processOwnerSms(body);
+    if (result.kind === "reply") return replyTwiml(result.text);
+
+    const parsed = result.order;
+    if (!parsed.ok) return replyTwiml(`⚠️ Couldn't read that as an order (${parsed.error}). Say customer + items + quantities, e.g. "BUDS AUTO, 8x ST235/80R16 Rhino ST".`);
     // supersede any older unconfirmed draft so "1" always means the newest one
     await db.posOrderRequest.updateMany({ where: { phoneFrom: digits, status: "PENDING_CONFIRM" }, data: { status: "CANCELLED" } });
-    const parsed = await parseOrderSms(body);
-    if (!parsed.ok) return replyTwiml(`⚠️ Couldn't read that as an order (${parsed.error}). Say customer + items + quantities, e.g. "BUDS AUTO, 8x ST235/80R16 Rhino ST".`);
     const req = await db.posOrderRequest.create({
       data: {
         phoneFrom: digits,
@@ -59,7 +62,7 @@ async function handleOrderBot(digits: string, body: string): Promise<NextRespons
     });
     return replyTwiml(orderSummarySms(parsed, req.id));
   } catch (e) {
-    return replyTwiml(`⚠️ Order bot error: ${e instanceof Error ? e.message.slice(0, 200) : "unknown"}`);
+    return replyTwiml(`⚠️ Bot error: ${e instanceof Error ? e.message.slice(0, 200) : "unknown"}`);
   }
 }
 
