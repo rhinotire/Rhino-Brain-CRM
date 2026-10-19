@@ -41,13 +41,14 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   const now = new Date();
   const showDead = searchParams.dead === "1";
 
-  // overdue, positive, matched to a customer, inside the caller's scope
+  // overdue, positive, matched to a customer, inside the caller's scope —
+  // written-off (closed/uncollectable) customers never show up for collection
   const where: Prisma.InvoiceWhereInput = {
     balance: { gt: 0 },
     dueDate: { lt: now },
     customerId: { not: null },
+    customer: { is: { arWriteOffAt: null, ...(session.role === "SALES_REP" ? repScope(session) : {}) } },
     ...locationScope(session),
-    ...(session.role === "SALES_REP" ? { customer: { ...repScope(session) } } : {}),
   };
   const twilioReady = isTwilioConfigured();
   const smsReady = isSmsConfigured();

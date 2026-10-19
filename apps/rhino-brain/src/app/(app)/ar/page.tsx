@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope , hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard, Select, Button, Input } from "@/components/ui/primitives";
+import { WriteOffButton } from "@/components/write-off-button";
 import { fmtMoney, fmtDate } from "@/lib/domain";
 import type { Prisma } from "@prisma/client";
 
@@ -33,13 +34,23 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
   const manager = seesAll; // controls rep filter + rep column
   const now = new Date();
 
+  // 💀 Written-off (closed/uncollectable) customers are excluded from stats and
+  // the default list; the "Written off" view shows only them. Invoices with no
+  // matched customer can't be written off, so they stay in the default view.
+  const writeOffView = searchParams.bucket === "writeoff";
+  const and: Prisma.InvoiceWhereInput[] = [
+    writeOffView
+      ? { customer: { is: { arWriteOffAt: { not: null } } } }
+      : { OR: [{ customerId: null }, { customer: { is: { arWriteOffAt: null } } }] },
+  ];
+  // Only sales reps are limited to their own customers; managers and accounting see all.
+  if (session.role === "SALES_REP") and.push({ customer: { is: { assignedRepId: session.userId } } });
+  else if (searchParams.rep) and.push({ customer: { is: { assignedRepId: searchParams.rep } } });
   const where: Prisma.InvoiceWhereInput = {
     balance: { not: 0 }, // negative = customer credit / prepayment
     ...(Object.keys(locationScope(session)).length ? { locationId: locationScope(session).locationId } : {}),
+    AND: and,
   };
-  // Only sales reps are limited to their own customers; managers and accounting see all.
-  if (session.role === "SALES_REP") where.customer = { assignedRepId: session.userId };
-  else if (searchParams.rep) where.customer = { assignedRepId: searchParams.rep };
   const q = searchParams.q?.trim();
   if (q) where.customerName = { contains: q, mode: "insensitive" };
 
@@ -71,14 +82,39 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
   const grandTotal = totals.reduce((s, t) => s + t.sum, 0) + creditTotal;
   const pastDueTotal = totals.filter(t => t.key !== "current").reduce((s, t) => s + t.sum, 0);
 
-  const filtered = searchParams.bucket
+  const filtered = searchParams.bucket && !writeOffView
     ? withBucket.filter(x => x.bucket.key === searchParams.bucket)
     : withBucket;
-  // Worst first: most overdue at the top.
-  filtered.sort((a, b) => b.days - a.days);
+
+  // ONE ROW PER CUSTOMER (owner request 2026-10-17: per-invoice rows read as
+  // "duplicates"). Balances are summed, aging shows the worst invoice.
+  type Group = {
+    key: string; customerId: string | null; name: string; rep: string | null;
+    locTag: string | null; days: number; bucket: (typeof withBucket)[number]["bucket"];
+    balance: number; count: number;
+  };
+  const groups = new Map<string, Group>();
+  for (const x of filtered) {
+    const key = x.inv.customer?.id ?? `raw:${x.inv.customerName.toLowerCase()}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, {
+        key, customerId: x.inv.customer?.id ?? null, name: x.inv.customerName,
+        rep: x.inv.customer?.assignedRep?.name ?? null, locTag: x.inv.location?.shortTag ?? null,
+        days: x.days, bucket: x.bucket, balance: Number(x.inv.balance), count: 1,
+      });
+    } else {
+      g.balance += Number(x.inv.balance);
+      g.count++;
+      if (x.days > g.days) { g.days = x.days; g.bucket = x.bucket; }
+    }
+  }
+  const grouped = [...groups.values()].sort((a, b) => b.days - a.days);
   // Totals above are computed from ALL invoices; the table renders a bounded page to keep the DOM light.
   const ROW_CAP = 300;
-  const shown = filtered.slice(0, ROW_CAP);
+  const shown = grouped.slice(0, ROW_CAP);
+  const canWriteOff = seesAll;
+  const lastSync = await db.invoice.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, source: true } });
 
   return (
     <div className="space-y-4">
@@ -103,6 +139,7 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
           <option value="">All buckets</option>
           {BUCKETS.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
           <option value="credit">Credit / prepaid</option>
+          {seesAll && <option value="writeoff">💀 Written off</option>}
         </Select>
         {manager && (
           <Select name="rep" defaultValue={searchParams.rep ?? ""}>
@@ -114,35 +151,42 @@ export default async function ARAgingPage({ searchParams }: { searchParams: Sear
       </form>
 
       <Table>
-        <THead cols={["Customer", "Rep", "Aging", "Days Past Due", "Amount", "Balance", "Due Date", "Location"]} />
+        <THead cols={["Customer", "Rep", "Aging (worst)", "Days Past Due", "Invoices", "Balance", "Location", ...(canWriteOff ? [""] : [])]} />
         <tbody>
-          {shown.map(({ inv, days, bucket }) => (
-            <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50">
+          {shown.map(g => (
+            <tr key={g.key} className="border-b border-slate-50 hover:bg-slate-50">
               <td className="px-3 py-2 font-medium">
-                {inv.customer
-                  ? <Link href={`/customers/${inv.customer.id}`} className="text-brand-700 hover:underline">{inv.customerName}</Link>
-                  : inv.customerName}
+                {g.customerId
+                  ? <Link href={`/customers/${g.customerId}`} className="text-brand-700 hover:underline">{g.name}</Link>
+                  : g.name}
               </td>
-              <td className="px-3 py-2 text-slate-600">{inv.customer?.assignedRep?.name ?? "—"}</td>
+              <td className="px-3 py-2 text-slate-600">{g.rep ?? "—"}</td>
               <td className="px-3 py-2">
-                <Badge className={bucket.key === "credit" || bucket.key === "current" ? "bg-emerald-100 text-emerald-700"
-                  : bucket.key === "b30" ? "bg-amber-100 text-amber-700"
-                  : "bg-red-100 text-red-700"}>{bucket.label}</Badge>
+                <Badge className={g.bucket.key === "credit" || g.bucket.key === "current" ? "bg-emerald-100 text-emerald-700"
+                  : g.bucket.key === "b30" ? "bg-amber-100 text-amber-700"
+                  : "bg-red-100 text-red-700"}>{g.bucket.label}</Badge>
               </td>
-              <td className="px-3 py-2 tabular-nums">{days > 0 ? <span className="font-semibold text-red-600">{days}</span> : "—"}</td>
-              <td className="px-3 py-2 tabular-nums">{fmtMoney(Number(inv.amount))}</td>
-              <td className="px-3 py-2 font-semibold tabular-nums">{fmtMoney(Number(inv.balance))}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{fmtDate(inv.dueDate)}</td>
-              <td className="px-3 py-2">{inv.location?.shortTag ?? "—"}</td>
+              <td className="px-3 py-2 tabular-nums">{g.days > 0 ? <span className="font-semibold text-red-600">{g.days}</span> : "—"}</td>
+              <td className="px-3 py-2 tabular-nums text-slate-500">{g.count}</td>
+              <td className="px-3 py-2 font-semibold tabular-nums">{fmtMoney(g.balance)}</td>
+              <td className="px-3 py-2">{g.locTag ?? "—"}</td>
+              {canWriteOff && (
+                <td className="px-3 py-2">
+                  {g.customerId && <WriteOffButton customerId={g.customerId} companyName={g.name} writtenOff={writeOffView} />}
+                </td>
+              )}
             </tr>
           ))}
-          {filtered.length === 0 && <EmptyRow colSpan={8} message="No open invoices in this view." />}
+          {grouped.length === 0 && <EmptyRow colSpan={canWriteOff ? 8 : 7} message={writeOffView ? "No written-off customers." : "No open invoices in this view."} />}
         </tbody>
       </Table>
-      {filtered.length > shown.length && (
-        <p className="text-xs text-slate-400">Showing the {shown.length} most overdue of {filtered.length} — filter by bucket or customer to narrow down. (Totals above cover all {filtered.length}.)</p>
+      {grouped.length > shown.length && (
+        <p className="text-xs text-slate-400">Showing the {shown.length} most overdue of {grouped.length} customers — filter by bucket or name to narrow down. (Totals above cover everything.)</p>
       )}
-      <p className="text-xs text-slate-400">Aging is computed from each invoice&apos;s due date as of today. Imported from the accounting export on Jul 7, 2026.</p>
+      <p className="text-xs text-slate-400">
+        Aging is computed from each invoice&apos;s due date as of today.
+        {lastSync && <> Last synced {lastSync.source === "TIREGURU_SYNC" ? "from TireGuru" : "by import"}: {lastSync.createdAt.toLocaleString("en-US", { timeZone: "America/New_York" })} ET.</>}
+      </p>
     </div>
   );
 }

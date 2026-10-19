@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, canWrite } from "@/lib/auth";
+import { requireSession, canWrite, isManager, isAccounting, hasPerm } from "@/lib/auth";
 import { sendEmail, isEmailConfigured } from "@rhino/services";
 import { fmtMoney } from "@/lib/domain";
 import type { ActionResult } from "./auth";
@@ -110,5 +110,49 @@ export async function sendCollectionEmail(customerId: string, subject: string, b
   });
   await db.customer.update({ where: { id: customerId }, data: { lastContactAt: new Date() } });
   revalidatePath("/ar/collections");
+  return { ok: true };
+}
+
+/**
+ * Bad-debt write-off (owner request 2026-10-17): mark a closed/defunct
+ * customer so their balances leave the A/R aging stats and collections queue.
+ * Reversible, audited (who/when/why + an Activity note). Managers/accounting
+ * with the A/R permission only.
+ */
+export async function setCustomerWriteOff(
+  customerId: string,
+  writeOff: boolean,
+  note?: string
+): Promise<ActionResult> {
+  const session = await requireSession();
+  if (!hasPerm(session, "ar") || !(isManager(session) || isAccounting(session)))
+    return { ok: false, error: "Only managers/accounting can write off balances." };
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true, companyName: true, locationId: true },
+  });
+  if (!customer) return { ok: false, error: "Customer not found." };
+  if (!canWrite(session, { locationId: customer.locationId })) return { ok: false, error: "Not your company's customer." };
+
+  await db.customer.update({
+    where: { id: customerId },
+    data: writeOff
+      ? { arWriteOffAt: new Date(), arWriteOffById: session.userId, arWriteOffNote: note?.trim().slice(0, 300) || null }
+      : { arWriteOffAt: null, arWriteOffById: null, arWriteOffNote: null },
+  });
+  await db.activity.create({
+    data: {
+      type: "INTERNAL_NOTE",
+      subject: writeOff ? "💀 A/R written off — closed/uncollectable" : "A/R write-off REVERSED — balances back in aging",
+      notes: note?.trim() || undefined,
+      customerId,
+      repId: session.userId,
+      locationId: customer.locationId,
+      meaningful: true,
+    },
+  }).catch(() => {});
+  revalidatePath("/ar");
+  revalidatePath("/ar/collections");
+  revalidatePath(`/customers/${customerId}`);
   return { ok: true };
 }

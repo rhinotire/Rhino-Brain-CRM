@@ -320,6 +320,13 @@ model Customer {
   email          String?
   website        String?
   taxId          String? // sales-tax / EIN from the online account application
+
+  // A/R bad-debt write-off (owner request 2026-10-17): closed/defunct customers
+  // whose balances are uncollectable. Written-off customers are excluded from
+  // A/R aging stats & collections by default but reviewable and reversible.
+  arWriteOffAt   DateTime?
+  arWriteOffById String?
+  arWriteOffNote String?
   facebookUrl    String?
   instagramUrl   String?
   whatsapp       String?
