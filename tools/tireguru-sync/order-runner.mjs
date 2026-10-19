@@ -127,12 +127,37 @@ async function createWorkOrder(page, order) {
     if (!seen) throw new Error(`item ${item.sku} did not appear on the ticket — aborting before save`);
   }
 
-  // 5. note + WO number from the header
+  // 5. WO number (header) + internal work_id (URL)
   const woNo = await page.evaluate(() => (document.body.innerText.match(/Work Order\s*#\s*(\d+)/i) || [])[1] ?? null);
+  const workId = (page.url().match(/work_id=(\d+)/) || [])[1] ?? null;
 
   // 6. save & quit
   await page.evaluate(() => window.doQuit(""));
   await page.waitForTimeout(6000);
+
+  // 7. set status to "New Order" (owner's workflow: the desk/warehouse works
+  //    off that status). Resolved by label — status IDs are per company.
+  //    sendText stays UNCHECKED so the customer never gets an automatic text.
+  if (workId) {
+    await page.goto(`${BASE}/invoicing/wo_status_change.php?woID=${workId}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForTimeout(2000);
+    const hasOption = await page.evaluate(() => {
+      const sel = document.querySelector("select[name=statusID]");
+      const opt = sel && [...sel.options].find(o => /^new order$/i.test(o.textContent.trim()));
+      if (!opt) return false;
+      sel.value = opt.value;
+      const st = document.querySelector("input[name=sendText]");
+      if (st) st.checked = false;
+      return true;
+    });
+    if (hasOption) {
+      await page.locator("text=Change Status").first().click().catch(() => {});
+      await page.waitForTimeout(3000);
+      log(`  status → New Order for WO #${woNo}`);
+    } else {
+      log(`  ! could not find "New Order" status option for WO #${woNo} — left at default`);
+    }
+  }
   return woNo ?? "unknown";
 }
 
