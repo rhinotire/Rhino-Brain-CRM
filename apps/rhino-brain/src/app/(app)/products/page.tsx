@@ -59,7 +59,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     db.product.count({ where }),
     db.product.findMany({
       where,
-      orderBy: [{ sizeSpec: "asc" }, { sku: "asc" }],
+      // category first (enum order: PCR → LT → TBR → trailer tires → wheels →
+      // trailer parts → oil → other) so tires lead and 汽配 parts sort last
+      orderBy: [{ category: "asc" }, { sizeSpec: "asc" }, { sku: "asc" }],
       take: 200,
       include: { inventory: { select: { locationId: true, quantity: true } } },
     }),
