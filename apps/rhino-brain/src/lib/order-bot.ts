@@ -113,7 +113,7 @@ async function matchProduct(q: string): Promise<MatchedProduct | null> {
   const pool = sizeDigits
     ? found.filter(x => `${x.sizeSpec ?? ""}|${x.sku}|${x.description}`.replace(/\D/g, "").includes(sizeDigits))
     : found;
-  let p = pool[0] ?? null;
+  let p: (typeof pool)[number] | null = pool[0] ?? null;
   if (!p && sizeDigits && words.length) {
     const all = await db.product.findMany({ select: { id: true, sku: true, description: true, priceA: true, sizeSpec: true }, take: 4000 });
     p = all.find(x => `${x.sizeSpec ?? ""}|${x.sku}`.replace(/\D/g, "").includes(sizeDigits)) ?? null;
