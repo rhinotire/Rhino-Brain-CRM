@@ -166,8 +166,20 @@ async function main() {
   if (queue.length === 0) { console.log("queue empty"); return; }
   log(`processing ${queue.length} confirmed order(s)…`);
 
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
-  const page = ctx.pages()[0] ?? (await ctx.newPage());
+  // first-run profile initialization can crash headless Edge once — retry
+  let ctx, page;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
+      page = ctx.pages()[0] ?? (await ctx.newPage());
+      break;
+    } catch (e) {
+      await ctx?.close().catch(() => {});
+      if (attempt >= 3) throw e;
+      log(`browser launch failed (attempt ${attempt}) — retrying: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
   page.on("dialog", async (d) => { log(`dialog: ${d.message().slice(0, 150)}`); await d.accept(); });
 
   try {
