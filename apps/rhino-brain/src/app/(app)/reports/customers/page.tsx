@@ -41,7 +41,7 @@ export default async function CustomerReport({ searchParams }: { searchParams: S
       orderBy: { lastContactAt: "asc" },
       take: 1000,
     }),
-    db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }), // rep filter: only this company's users
   ]);
 
   const withTemp = customers.map(c => ({ ...c, temp: customerTemperature(c.lastContactAt, now) }));
