@@ -247,6 +247,7 @@ model Location {
   opsItems         OpsItem[]
   repairTickets    RepairTicket[]
   Vehicle          Vehicle[]
+  PosOrderRequest  PosOrderRequest[]
 }
 
 model User {
@@ -312,14 +313,14 @@ model ChatMessage {
 }
 
 model Customer {
-  id             String            @id @default(cuid())
-  companyName    String
-  contactPerson  String?
-  phone          String? // company phone
-  contactCell    String?
-  email          String?
-  website        String?
-  taxId          String? // sales-tax / EIN from the online account application
+  id            String  @id @default(cuid())
+  companyName   String
+  contactPerson String?
+  phone         String? // company phone
+  contactCell   String?
+  email         String?
+  website       String?
+  taxId         String? // sales-tax / EIN from the online account application
 
   // A/R bad-debt write-off (owner request 2026-10-17): closed/defunct customers
   // whose balances are uncollectable. Written-off customers are excluded from
@@ -377,6 +378,7 @@ model Customer {
   accountSetupInvites AccountSetupInvite[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  PosOrderRequest     PosOrderRequest[]
 
   @@index([assignedRepId])
   @@index([locationId])
@@ -1058,6 +1060,39 @@ model AiUsage {
 }
 
 // A/R aging — open receivable invoices imported from the accounting export
+// ---------- SMS → TireGuru work-order bot (owner request 2026-10-19) ----------
+// Owner texts an order while driving; AI parses it, owner confirms by SMS,
+// the PC robot keys a Work Order into TireGuru and reports back the number.
+enum PosOrderStatus {
+  PENDING_CONFIRM // parsed, awaiting owner's "1" reply
+  CONFIRMED // owner confirmed — queued for the PC robot
+  SUBMITTED // robot created the TireGuru work order
+  FAILED // robot could not create it (error says why)
+  CANCELLED // owner replied 0 / expired
+}
+
+model PosOrderRequest {
+  id           String         @id @default(cuid())
+  phoneFrom    String // owner's number (last 10 digits)
+  rawText      String // the SMS as dictated
+  status       PosOrderStatus @default(PENDING_CONFIRM)
+  customerId   String?
+  customer     Customer?      @relation(fields: [customerId], references: [id])
+  customerName String // matched TireGuru/CRM name (raw query if unmatched)
+  items        Json // [{sku, description, qty, price}]
+  total        Decimal?       @db.Decimal(12, 2)
+  notes        String?
+  workOrderNo  String? // TireGuru ticket # once created
+  error        String?
+  locationId   String?
+  location     Location?      @relation(fields: [locationId], references: [id])
+  createdAt    DateTime       @default(now())
+  confirmedAt  DateTime?
+  submittedAt  DateTime?
+
+  @@index([status])
+}
+
 model Invoice {
   invoiceNo    String? // external invoice # — only present when a per-invoice report was imported
   id           String    @id @default(cuid())
