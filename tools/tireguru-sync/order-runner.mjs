@@ -110,21 +110,43 @@ async function createWorkOrder(page, order) {
   }
   if (!page.url().includes("invoicing.php")) throw new Error(`did not reach the WO editor (at ${page.url()})`);
 
-  // 4. add items: qty + prod_code + Enter per line
+  // 4. add items. Enter in prod_code opens a LOOKUP overlay (mainDiv frame):
+  //    pick the matching row (checkIT), set its qty box, click "Add to Order",
+  //    then verify the line landed in the invoice_items frame. (The first
+  //    version skipped the overlay and saved empty orders — 2026-10-19.)
   for (const item of order.items) {
     if (!item.sku) throw new Error(`item without SKU: ${item.description}`);
     await page.locator("input[name=qty]").fill(String(item.qty));
     await page.locator("input[name=prod_code]").fill(item.sku);
     await page.locator("input[name=prod_code]").press("Enter");
-    await page.waitForTimeout(4000);
-    // verify the line landed in the items frame
-    const seen = await page.evaluate((sku) => {
-      for (const f of document.querySelectorAll("frame, iframe")) {
-        try { if ((f.contentDocument?.body?.innerText || "").toUpperCase().includes(sku.toUpperCase())) return true; } catch { /* x-origin */ }
-      }
-      return (document.body.innerText || "").toUpperCase().includes(sku.toUpperCase());
+    await page.waitForTimeout(4500);
+
+    const frame = page.frames().find(f => f.name() === "mainDiv");
+    if (!frame) throw new Error("item lookup overlay did not open");
+    const rows = await frame.evaluate((sku) =>
+      [...document.querySelectorAll("tr[onclick*=checkIT]")].map(tr => {
+        const oc = tr.getAttribute("onclick") || "";
+        return {
+          id: Number((oc.match(/checkIT\((\d+)\)/) || [])[1] ?? 0),
+          price: Number((oc.match(/setSelectedPrice\(([\d.]+)\)/) || [])[1] ?? 0),
+          hasSku: (tr.textContent || "").toUpperCase().includes(sku.toUpperCase()),
+        };
+      }).filter(r => r.id > 0 && r.hasSku), item.sku);
+    if (rows.length === 0) throw new Error(`lookup showed no row for ${item.sku}`);
+    const target = rows.find(r => r.price > 0) ?? rows[0]; // skip zero-price legacy duplicates
+    await frame.evaluate(({ id, qty }) => {
+      window.checkIT(id);
+      const q = document.getElementById("qty_" + id);
+      if (q) q.value = String(qty);
+    }, { id: target.id, qty: item.qty });
+    await frame.locator("text=Add to Order").first().click();
+    await page.waitForTimeout(4500);
+
+    const landed = await page.evaluate((sku) => {
+      const f = [...document.querySelectorAll("frame, iframe")].find(x => (x.name || x.id) === "invoice_items");
+      try { return (f.contentDocument?.body?.innerText || "").toUpperCase().includes(sku.toUpperCase()); } catch { return false; }
     }, item.sku);
-    if (!seen) throw new Error(`item ${item.sku} did not appear on the ticket — aborting before save`);
+    if (!landed) throw new Error(`item ${item.sku} did not land on the ticket — aborting before save`);
   }
 
   // 5. WO number (header) + internal work_id (URL)
