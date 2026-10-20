@@ -12,11 +12,19 @@ export const maxDuration = 60;
  * company, month-to-date, top reps, A/R past due, and fresh AI prospects.
  * Sales figures come from the TireGuru mirror (PosSale, synced every 2h).
  */
-function etDayStart(d: Date): Date {
-  const et = new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  et.setHours(0, 0, 0, 0);
-  const offset = d.getTime() - new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime();
-  return new Date(et.getTime() + offset);
+/** UTC instant of midnight (ET) for the ET calendar day containing `d`,
+ * shifted by dayOffset days / clamped to the 1st when monthStart. Sales rows
+ * are stored at ET-midnight, so boundaries must be exact (the first version
+ * was off by 4h and dropped Oct 1 from MTD). */
+function etMidnightUTC(d: Date, dayOffset: number, firstOfMonth = false): Date {
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d); // YYYY-MM-DD
+  const [y, m, day] = ymd.split("-").map(Number);
+  for (const off of [4, 5]) { // EDT / EST
+    const t = Date.UTC(y, m - 1, (firstOfMonth ? 1 : day) + dayOffset, off, 0, 0);
+    const hour = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }).format(new Date(t));
+    if (hour === "0" || hour === "24") return new Date(t);
+  }
+  return new Date(Date.UTC(y, m - 1, (firstOfMonth ? 1 : day) + dayOffset, 5));
 }
 
 export async function GET(req: Request) {
@@ -26,10 +34,9 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const todayStart = etDayStart(now);
-  const yStart = new Date(todayStart.getTime() - 86400000);
-  const monthStart = new Date(todayStart);
-  monthStart.setDate(1);
+  const todayStart = etMidnightUTC(now, 0);
+  const yStart = etMidnightUTC(now, -1);
+  const monthStart = etMidnightUTC(now, 0, true);
 
   const locs = await db.location.findMany({ where: { shortTag: { in: ["FL", "TX"] } }, select: { id: true, shortTag: true } });
   const byTag = Object.fromEntries(locs.map(l => [l.shortTag!, l.id]));
@@ -57,7 +64,9 @@ export async function GET(req: Request) {
     take: 2,
   });
   if (reps.length && Number(reps[0]._sum.sale ?? 0) > 0) {
-    lines.push("Top: " + reps.map(r => `${r.salesperson.split(",")[0]} ${fmtMoney(Number(r._sum.sale ?? 0))}`).join(", "));
+    const repName = (s: string) =>
+      /salesperson,\s*default/i.test(s) ? "TireLink/Default" : s.replace(/\s*\(\w+\)\s*$/, "").split(",")[0].trim();
+    lines.push("Top: " + reps.map(r => `${repName(r.salesperson)} ${fmtMoney(Number(r._sum.sale ?? 0))}`).join(", "));
   }
 
   // A/R past due (write-offs excluded)
