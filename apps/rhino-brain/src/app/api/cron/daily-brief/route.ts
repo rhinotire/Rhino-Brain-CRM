@@ -22,7 +22,7 @@ function etMidnightUTC(d: Date, dayOffset: number, firstOfMonth = false): Date {
   for (const off of [4, 5]) { // EDT / EST
     const t = Date.UTC(y, m - 1, (firstOfMonth ? 1 : day) + dayOffset, off, 0, 0);
     const hour = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }).format(new Date(t));
-    if (hour === "0" || hour === "24") return new Date(t);
+    if (Number(hour) % 24 === 0) return new Date(t); // formats as "0", "00" or "24" depending on runtime
   }
   return new Date(Date.UTC(y, m - 1, (firstOfMonth ? 1 : day) + dayOffset, 5));
 }
