@@ -158,9 +158,10 @@ export async function processOwnerSms(rawText: string, history: SmsTurn[] = []):
     if (items.length === 0) return { kind: "reply", text: "Which product? Say size/brand, e.g. \"price 205-55-16 Zeetex\"." };
     const blocks: string[] = [];
     for (const iq of items) {
-      // one size queried → list the cheapest options across brands
-      const matches = await matchProducts(iq.query, items.length === 1 ? 5 : 2);
-      if (matches.length === 0) blocks.push(`⚠️ no match: ${iq.query}`);
+      // one size queried → list the cheapest IN-STOCK options across brands
+      // (owner 2026-10-20: 只显示有库存的型号)
+      const matches = (await matchProducts(iq.query, 20)).filter(p => p.fl + p.tx > 0).slice(0, items.length === 1 ? 5 : 2);
+      if (matches.length === 0) blocks.push(`⚠️ ${iq.query}: no stock (FL/TX both 0)`);
       else blocks.push(matches.map((p, i) => productLine(p, matches.length > 1 ? i : undefined)).join("\n"));
     }
     return { kind: "reply", text: blocks.join("\n—\n") };
