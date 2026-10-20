@@ -1072,6 +1072,23 @@ enum PosOrderStatus {
   CANCELLED // owner replied 0 / expired
 }
 
+// Competitor dealer-portal prices (QTD / TGI / Tire Dispatch — the owner holds
+// dealer accounts at each; his PC robot checks a size watchlist daily).
+model CompetitorPrice {
+  id           String   @id @default(cuid())
+  site         String // qtd | tgi | tiredispatch
+  sizeKey      String // digits-only size, e.g. 2358016
+  description  String // size/ply + pattern/brand as the portal shows it
+  partCode     String?
+  availability String?
+  fet          Decimal? @db.Decimal(10, 2)
+  price        Decimal  @db.Decimal(12, 2)
+  fetchedAt    DateTime @default(now())
+
+  @@index([sizeKey])
+  @@index([site, sizeKey])
+}
+
 // Per-invoice sales mirror from TireGuru's Salesperson Sales Analysis (synced
 // every 2h, month-to-date snapshot per location). Feeds the owner's daily
 // brief and real-revenue rep dashboards.
