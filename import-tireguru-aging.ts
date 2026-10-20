@@ -31,7 +31,7 @@ const LOC_TAG: Record<string, "FL" | "TX"> = { "1": "FL", "5": "TX" };
 const norm = (s: string) => s.toLowerCase().replace(/\s*&\s*/g, "&").replace(/\s+/g, " ").trim();
 const last10 = (p: string) => p.replace(/\D/g, "").slice(-10);
 
-type Row = { customerName: string; phones: string[]; locTag: "FL" | "TX"; invoiceNo: string; dueDate: Date; balance: number };
+type Row = { customerName: string; phones: string[]; locTag: "FL" | "TX" | "SKIP"; invoiceNo: string; dueDate: Date; balance: number };
 
 function parseDate(v: unknown): Date | null {
   if (v instanceof Date) return v;
@@ -42,64 +42,86 @@ function parseDate(v: unknown): Date | null {
   return new Date(year, Number(m[1]) - 1, Number(m[2]));
 }
 
-function parse(): { rows: Row[]; skippedOtherLoc: number } {
+function parse(): { rows: Row[]; skippedOtherLoc: number; mismatches: number } {
   const wb = XLSX.readFile(FILE!);
   const sheet = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: null }) as unknown[][];
   const out: Row[] = [];
   let skippedOtherLoc = 0;
   let customerName = "";
   let phones: string[] = [];
-  // group buffer: rows that may be collapsed by a following "BALANCE" line
-  let group: Row[] = [];
-  const flush = () => { out.push(...group); group = []; };
+  // ONE pending invoice accumulating its -PMT lines. A "BALANCE" marker nets
+  // ONLY that invoice (the first version collapsed every row since the last
+  // marker, which pinned current balances onto months-old invoices —
+  // MATTHEW TIRE bug, 2026-10-20).
+  let current: Row | null = null;
+  let sectionSum = 0; // our net for the section, checked against CUST BALNCE
+  let mismatches = 0;
+  const emit = () => {
+    if (current) {
+      current.balance = Math.round(current.balance * 100) / 100;
+      sectionSum += current.balance;
+      if (current.balance !== 0 && current.locTag !== "SKIP") out.push(current);
+      current = null;
+    }
+  };
 
   for (const r of sheet) {
     const c0 = typeof r[0] === "string" ? r[0] : null;
     if (c0 && c0.includes("SalesPerson:")) {
-      flush();
+      emit();
       customerName = c0.split("SalesPerson:")[0].trim();
       phones = [];
+      sectionSum = 0;
       continue;
     }
     if (c0?.trim().startsWith("Business:") || c0?.trim().startsWith("Cell:")) {
       phones.push(...c0.split(/[;]/).map(s => s.replace(/^[^:]*:/, "").trim()).filter(Boolean));
       continue;
     }
-    if (c0 && c0.toUpperCase().includes("CUST BALNCE")) { flush(); continue; }
-    if (c0 && c0.toUpperCase().includes("TOTAL BALANCE")) { flush(); break; }
+    if (c0 && c0.toUpperCase().includes("CUST BALNCE")) {
+      emit();
+      // validation: our per-customer net must equal TireGuru's own total
+      const reported = typeof r[2] === "number" ? r[2] : null;
+      if (reported !== null && Math.abs(sectionSum - reported) > 0.01) {
+        mismatches++;
+        if (mismatches <= 5) console.log(`!! mismatch ${customerName}: parsed ${sectionSum.toFixed(2)} vs report ${reported.toFixed(2)}`);
+      }
+      continue;
+    }
+    if (c0 && c0.toUpperCase().includes("TOTAL BALANCE")) { emit(); break; }
 
     const due = r[4];
     const buckets = r.slice(5, 11).map(v => (typeof v === "number" ? v : 0));
     const balance = Math.round(buckets.reduce((s, v) => s + v, 0) * 100) / 100;
 
-    // "BALANCE" marker: the group nets out to this value → replace the group
+    // "BALANCE" marker: nets the invoice directly above it (+ its payments)
     if (typeof due === "string" && due.trim().toUpperCase() === "BALANCE") {
-      const first = group.find(g => g.invoiceNo && g.invoiceNo !== "-PMT") ?? group[0];
-      if (first) {
-        out.push({ ...first, balance });
-        group = [];
-      }
+      if (current) { current.balance = balance; emit(); }
       continue;
     }
 
     if (!customerName || r[1] === null || r[2] === null) { continue; }
     const locKey = String(r[1]).replace(/^0+/, "");
-    const locTag = LOC_TAG[locKey];
-    if (!locTag) { skippedOtherLoc++; continue; }
-    if (balance === 0) continue;
+    const locTag = LOC_TAG[locKey] ?? "SKIP"; // other entities still count toward the CUST BALNCE check
+    if (locTag === "SKIP") skippedOtherLoc++;
+    const ref = String(r[2]).trim();
     const dueDate = parseDate(r[4]) ?? parseDate(r[3]);
+    const isPayment = /PMT/i.test(ref) || !parseDate(r[4]);
+    if (isPayment && current) { current.balance += balance; continue; } // unapplied payment on the invoice above
+    emit(); // a new invoice line closes the previous one as-is
     if (!dueDate) continue;
-    group.push({ customerName, phones: [...phones], locTag, invoiceNo: String(r[2]).trim(), dueDate, balance });
+    current = { customerName, phones: [...phones], locTag, invoiceNo: ref, dueDate, balance };
   }
-  flush();
-  return { rows: out, skippedOtherLoc };
+  emit();
+  return { rows: out, skippedOtherLoc, mismatches };
 }
 
 async function main() {
-  const { rows, skippedOtherLoc } = parse();
+  const { rows, skippedOtherLoc, mismatches } = parse();
   const byTag: Record<"FL" | "TX", Row[]> = { FL: [], TX: [] };
-  for (const r of rows) byTag[r.locTag].push(r);
-  console.log(`Parsed ${rows.length} open items (FL ${byTag.FL.length} / TX ${byTag.TX.length}); skipped ${skippedOtherLoc} rows of other entities`);
+  for (const r of rows) { if (r.locTag !== "SKIP") byTag[r.locTag].push(r); }
+  console.log(`Parsed ${rows.length} open items (FL ${byTag.FL.length} / TX ${byTag.TX.length}); skipped ${skippedOtherLoc} rows of other entities; per-customer total mismatches: ${mismatches}`);
+  if (mismatches > 10) { console.error("too many per-customer mismatches — refusing to import"); process.exit(1); }
   const total = rows.reduce((s, r) => s + r.balance, 0);
   console.log(`Net balance parsed: $${total.toFixed(2)}`);
   if (!APPLY) { console.log("Dry run — re-run with --apply to write."); return; }
