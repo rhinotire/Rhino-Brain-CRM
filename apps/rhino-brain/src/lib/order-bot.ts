@@ -42,21 +42,23 @@ type Intent = {
   notes?: string | null;
 };
 
-async function classify(rawText: string): Promise<Intent> {
+export type SmsTurn = { role: "user" | "assistant"; content: string };
+
+async function classify(rawText: string, history: SmsTurn[] = []): Promise<Intent> {
   const anthropic = new Anthropic();
   const resp = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 700,
-    system: `You parse a tire-wholesale owner's dictated SMS (English or Chinese) into JSON.
+    system: `You parse a tire-wholesale owner's dictated SMS (English or Chinese) into JSON. Earlier turns of the SMS thread may be provided — use them to resolve follow-ups ("其他便宜的" / "what about 4 of those" inherit the size/brand/customer from context).
 Intents:
 - "order": he wants to PLACE an order for a customer ("order/下单/给X来4条").
-- "price": he asks a price / best price / 什么价 / 多少钱 for product(s).
+- "price": he asks a price / best price / cheapest / 什么价 / 多少钱 for product(s).
 - "stock": he asks availability / 有没有货 / 还有几条.
 - "ar": he asks what a customer owes / balance / 欠款 / 账龄.
 - "unknown": anything else.
-Reply ONLY JSON: {"intent": "...", "customer": string|null (business name if mentioned), "items": [{"query": string (product words: size/brand/sku, verbatim), "qty": number}] , "notes": string|null}.
+Reply ONLY JSON: {"intent": "...", "customer": string|null (business name if mentioned or implied by context), "items": [{"query": string (product words: size/brand/sku — resolve from context when the new text only says "others/cheaper/those"), "qty": number}], "notes": string|null}.
 Quantities: "4条"/"4 pcs"/"x4" → 4; if none said use 1. Never invent items. For "ar" items is [].`,
-    messages: [{ role: "user", content: rawText }],
+    messages: [...history.slice(-8), { role: "user", content: rawText }],
   });
   const text = resp.content.filter(b => b.type === "text").map(b => (b.type === "text" ? b.text : "")).join("");
   const m = text.match(/\{[\s\S]*\}/);
@@ -89,65 +91,79 @@ async function matchCustomer(custQuery: string) {
   return customer ?? null;
 }
 
-type MatchedProduct = { id: string; sku: string; description: string; priceA: number | null; sizeSpec: string | null };
+type MatchedProduct = { id: string; sku: string; description: string; brand: string | null; priceA: number | null; sizeSpec: string | null; fl: number; tx: number };
 
-async function matchProduct(q: string): Promise<MatchedProduct | null> {
-  const bySku = await db.product.findFirst({
-    where: { sku: { equals: q.trim(), mode: "insensitive" } },
-    select: { id: true, sku: true, description: true, priceA: true, sizeSpec: true },
-  });
-  if (bySku) return { ...bySku, priceA: bySku.priceA ? Number(bySku.priceA) : null };
+const PRODUCT_SELECT = { id: true, sku: true, description: true, brand: true, priceA: true, sizeSpec: true } as const;
 
-  // Sizes arrive in any dictated shape — 205/55R16, 205-55-16, 205 55 16,
-  // ST235/80R16 — so match on DIGITS ONLY against sizeSpec/sku/description.
-  const rawSize = (q.match(/(?:[a-zA-Z]{0,2})?\d{2,3}[\s\/xX.·-]{0,2}\d{2,3}[\s\/xXrRdD.·-]{0,2}\d{2}(?:\.\d)?|\d{2}[xX]\d{1,2}(?:\.\d+)?/) || [])[0];
-  const sizeDigits = rawSize ? rawSize.replace(/\D/g, "") : null;
-  const words = q.replace(rawSize ?? "\u0000", " ").split(/\s+/).filter(w => w.length > 1).slice(0, 3);
-  const found = await db.product.findMany({
-    where: words.length
-      ? { AND: words.map(w => ({ OR: [{ description: { contains: w, mode: "insensitive" as const } }, { brand: { contains: w, mode: "insensitive" as const } }, { sku: { contains: w, mode: "insensitive" as const } }] })) }
-      : undefined,
-    select: { id: true, sku: true, description: true, priceA: true, sizeSpec: true },
-    take: sizeDigits ? 500 : 2,
-  });
-  const pool = sizeDigits
-    ? found.filter(x => `${x.sizeSpec ?? ""}|${x.sku}|${x.description}`.replace(/\D/g, "").includes(sizeDigits))
-    : found;
-  let p: (typeof pool)[number] | null = pool[0] ?? null;
-  if (!p && sizeDigits && words.length) {
-    const all = await db.product.findMany({ select: { id: true, sku: true, description: true, priceA: true, sizeSpec: true }, take: 4000 });
-    p = all.find(x => `${x.sizeSpec ?? ""}|${x.sku}`.replace(/\D/g, "").includes(sizeDigits)) ?? null;
+/** All matches for a dictated product query, cheapest first, in-stock first.
+ * Sizes arrive in any shape (205/55R17, 215-55-17, 215 55 17) → digits-only. */
+async function matchProducts(q: string, limit: number): Promise<MatchedProduct[]> {
+  const bySku = await db.product.findFirst({ where: { sku: { equals: q.trim(), mode: "insensitive" } }, select: PRODUCT_SELECT });
+  let pool: { id: string; sku: string; description: string; brand: string | null; priceA: unknown; sizeSpec: string | null }[];
+  if (bySku) pool = [bySku];
+  else {
+    const rawSize = (q.match(/(?:[a-zA-Z]{0,2})?\d{2,3}[\s\/xX.·-]{0,2}\d{2,3}[\s\/xXrRdD.·-]{0,2}\d{2}(?:\.\d)?|\d{2}[xX]\d{1,2}(?:\.\d+)?/) || [])[0];
+    const sizeDigits = rawSize ? rawSize.replace(/\D/g, "") : null;
+    const words = q.replace(rawSize ?? "\u0000", " ").split(/\s+/)
+      .filter(w => w.length > 1 && !/^(cheapest|cheap|price|best|tires?|便宜|最便宜|价格?)$/i.test(w)).slice(0, 3);
+    const found = await db.product.findMany({
+      where: words.length
+        ? { AND: words.map(w => ({ OR: [{ description: { contains: w, mode: "insensitive" as const } }, { brand: { contains: w, mode: "insensitive" as const } }, { sku: { contains: w, mode: "insensitive" as const } }] })) }
+        : undefined,
+      select: PRODUCT_SELECT,
+      take: sizeDigits ? 800 : 5,
+    });
+    pool = sizeDigits
+      ? found.filter(x => `${x.sizeSpec ?? ""}|${x.sku}|${x.description}`.replace(/\D/g, "").includes(sizeDigits))
+      : found;
+    // size given but the word filter (misheard brand) killed everything — size alone
+    if (pool.length === 0 && sizeDigits && words.length) {
+      const all = await db.product.findMany({ select: PRODUCT_SELECT, take: 4000 });
+      pool = all.filter(x => `${x.sizeSpec ?? ""}|${x.sku}`.replace(/\D/g, "").includes(sizeDigits));
+    }
   }
-  return p ? { ...p, priceA: p.priceA ? Number(p.priceA) : null } : null;
+  if (pool.length === 0) return [];
+
+  const inv = await db.inventorySnapshot.findMany({
+    where: { productId: { in: pool.map(p => p.id) } },
+    select: { productId: true, quantity: true, location: { select: { shortTag: true } } },
+  });
+  const stock: Record<string, { fl: number; tx: number }> = {};
+  for (const i of inv) {
+    const s = (stock[i.productId] ??= { fl: 0, tx: 0 });
+    if (i.location?.shortTag === "TX") s.tx += i.quantity; else if (i.location?.shortTag === "FL") s.fl += i.quantity;
+  }
+  return pool
+    .map(p => ({ ...p, priceA: p.priceA ? Number(p.priceA) : null, fl: stock[p.id]?.fl ?? 0, tx: stock[p.id]?.tx ?? 0 }))
+    .sort((a, b) => {
+      const aStock = a.fl + a.tx > 0 ? 0 : 1, bStock = b.fl + b.tx > 0 ? 0 : 1;
+      if (aStock !== bStock) return aStock - bStock; // in-stock first
+      return (a.priceA ?? 1e9) - (b.priceA ?? 1e9);  // then cheapest
+    })
+    .slice(0, limit);
 }
 
-async function stockLine(p: MatchedProduct): Promise<string> {
-  const inv = await db.inventorySnapshot.findMany({
-    where: { productId: p.id },
-    select: { quantity: true, location: { select: { shortTag: true } } },
-  });
-  const by: Record<string, number> = {};
-  for (const i of inv) { const t = i.location?.shortTag ?? "?"; by[t] = (by[t] ?? 0) + i.quantity; }
-  const parts = ["FL", "TX"].map(t => `${t} ${by[t] ?? 0}`).join(" / ");
-  return `${p.sku} ${p.sizeSpec ?? ""} ${p.description.slice(0, 30)}\n  ${p.priceA !== null ? fmtMoney(p.priceA) : "no price"} · stock: ${parts}`;
-}
+const productLine = (p: MatchedProduct, i?: number) =>
+  `${i !== undefined ? `${i + 1}. ` : ""}${p.brand ?? ""} ${p.sizeSpec ?? ""} ${p.description.slice(0, 26)}\n  ${p.priceA !== null ? fmtMoney(p.priceA) : "no price"} · FL ${p.fl} / TX ${p.tx} · ${p.sku}`;
 
 // ---------------------------------------------------------------------------
 // entry point for the SMS webhook
 // ---------------------------------------------------------------------------
-export async function processOwnerSms(rawText: string): Promise<OwnerSmsResult> {
+export async function processOwnerSms(rawText: string, history: SmsTurn[] = []): Promise<OwnerSmsResult> {
   if (!process.env.ANTHROPIC_API_KEY) return { kind: "reply", text: "AI not configured on the server." };
-  const parsed = await classify(rawText);
+  const parsed = await classify(rawText, history);
 
   if (parsed.intent === "price" || parsed.intent === "stock") {
-    const items = (parsed.items ?? []).filter(i => i?.query).slice(0, 5);
+    const items = (parsed.items ?? []).filter(i => i?.query).slice(0, 3);
     if (items.length === 0) return { kind: "reply", text: "Which product? Say size/brand, e.g. \"price 205-55-16 Zeetex\"." };
-    const lines: string[] = [];
+    const blocks: string[] = [];
     for (const iq of items) {
-      const p = await matchProduct(iq.query);
-      lines.push(p ? await stockLine(p) : `⚠️ no match: ${iq.query}`);
+      // one size queried → list the cheapest options across brands
+      const matches = await matchProducts(iq.query, items.length === 1 ? 5 : 2);
+      if (matches.length === 0) blocks.push(`⚠️ no match: ${iq.query}`);
+      else blocks.push(matches.map((p, i) => productLine(p, matches.length > 1 ? i : undefined)).join("\n"));
     }
-    return { kind: "reply", text: lines.join("\n") };
+    return { kind: "reply", text: blocks.join("\n—\n") };
   }
 
   if (parsed.intent === "ar") {
@@ -192,7 +208,7 @@ async function buildOrder(parsed: Intent): Promise<ParsedOrder> {
   const items: ParsedItem[] = [];
   for (const iq of itemQueries) {
     const qty = Math.max(1, Math.min(500, Math.round(iq.qty || 1)));
-    const p = await matchProduct(iq.query);
+    const p = (await matchProducts(iq.query, 1))[0] ?? null;
     items.push(p
       ? { sku: p.sku, description: p.description, qty, price: p.priceA, matched: true }
       : { sku: null, description: iq.query, qty, price: null, matched: false });

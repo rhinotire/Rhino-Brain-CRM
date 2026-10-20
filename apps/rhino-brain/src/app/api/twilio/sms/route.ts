@@ -39,10 +39,25 @@ async function handleOrderBot(digits: string, body: string): Promise<NextRespons
     return replyTwiml(`✅ Confirmed #${pending.id.slice(-6)} — the robot will key it into TireGuru within ~5 minutes and text you the work-order number.`);
   }
 
-  // anything else from the owner's phone: price/stock/AR query or a new order
+  // anything else from the owner's phone: price/stock/AR query or a new order.
+  // The last 2h of turns give follow-ups ("其他便宜的") their context.
   try {
-    const result = await processOwnerSms(body);
-    if (result.kind === "reply") return replyTwiml(result.text);
+    const recent = await db.ownerSmsLog.findMany({
+      where: { phoneFrom: digits, createdAt: { gte: new Date(Date.now() - 2 * 3600000) } },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    });
+    const history = recent.reverse().map(r => ({ role: (r.direction === "IN" ? "user" : "assistant") as "user" | "assistant", content: r.body.slice(0, 500) }));
+    const logTurn = async (direction: "IN" | "OUT", text: string) => {
+      await db.ownerSmsLog.create({ data: { phoneFrom: digits, direction, body: text.slice(0, 1200) } }).catch(() => {});
+    };
+    await logTurn("IN", body);
+
+    const result = await processOwnerSms(body, history);
+    if (result.kind === "reply") {
+      await logTurn("OUT", result.text);
+      return replyTwiml(result.text);
+    }
 
     const parsed = result.order;
     if (!parsed.ok) return replyTwiml(`⚠️ Couldn't read that as an order (${parsed.error}). Say customer + items + quantities, e.g. "BUDS AUTO, 8x ST235/80R16 Rhino ST".`);
@@ -60,7 +75,9 @@ async function handleOrderBot(digits: string, body: string): Promise<NextRespons
         notes: parsed.notes,
       },
     });
-    return replyTwiml(orderSummarySms(parsed, req.id));
+    const summary = orderSummarySms(parsed, req.id);
+    await db.ownerSmsLog.create({ data: { phoneFrom: digits, direction: "OUT", body: summary.slice(0, 1200) } }).catch(() => {});
+    return replyTwiml(summary);
   } catch (e) {
     return replyTwiml(`⚠️ Bot error: ${e instanceof Error ? e.message.slice(0, 200) : "unknown"}`);
   }

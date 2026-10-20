@@ -1071,6 +1071,18 @@ enum PosOrderStatus {
   CANCELLED // owner replied 0 / expired
 }
 
+// Short-term SMS conversation log so the owner's follow-up texts ("其他便宜的")
+// carry context — the webhook feeds the last ~2h of turns back to the AI.
+model OwnerSmsLog {
+  id        String   @id @default(cuid())
+  phoneFrom String
+  direction String // IN | OUT
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([phoneFrom, createdAt])
+}
+
 model PosOrderRequest {
   id           String         @id @default(cuid())
   phoneFrom    String // owner's number (last 10 digits)
