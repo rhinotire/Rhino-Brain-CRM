@@ -85,12 +85,26 @@ async function tgi(page, creds, sizes) {
   return rows;
 }
 
+const PENDING_MODE = process.argv.includes("--pending");
+
 async function main() {
   const creds = JSON.parse(readFileSync(CRED_FILE, "utf8").replace(/^﻿/, ""));
-  const wl = await fetch(`${CRM}/api/cron/competitor-prices`, { headers: AUTH });
-  if (!wl.ok) throw new Error(`watchlist fetch ${wl.status}`);
-  const { sizes } = await wl.json();
-  log(`watchlist: ${sizes.length} sizes`);
+  let sizes, lookupIds = [];
+  if (PENDING_MODE) {
+    // on-demand queue from the /competitors search box — exit fast when empty
+    const r = await fetch(`${CRM}/api/cron/competitor-prices?pending=1`, { headers: AUTH });
+    if (!r.ok) throw new Error(`pending fetch ${r.status}`);
+    const { lookups } = await r.json();
+    if (!lookups.length) { console.log("no pending lookups"); return; }
+    sizes = lookups;
+    lookupIds = lookups.map(l => l.id);
+    log(`pending lookups: ${sizes.map(s => s.display).join(", ")}`);
+  } else {
+    const wl = await fetch(`${CRM}/api/cron/competitor-prices`, { headers: AUTH });
+    if (!wl.ok) throw new Error(`watchlist fetch ${wl.status}`);
+    sizes = (await wl.json()).sizes;
+    log(`watchlist: ${sizes.length} sizes`);
+  }
 
   const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
@@ -103,7 +117,7 @@ async function main() {
         const res = await fetch(`${CRM}/api/cron/competitor-prices`, {
           method: "POST",
           headers: { ...AUTH, "content-type": "application/json" },
-          body: JSON.stringify({ site: name, rows }),
+          body: JSON.stringify({ site: name, rows, lookupDone: lookupIds }),
         });
         log(`${name}: posted ${rows.length} rows → ${res.status} ${(await res.text()).slice(0, 120)}`);
       } catch (e) {

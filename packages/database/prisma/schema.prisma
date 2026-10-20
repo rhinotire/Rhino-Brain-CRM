@@ -1089,6 +1089,20 @@ model CompetitorPrice {
   @@index([site, sizeKey])
 }
 
+// On-demand competitor lookups queued from the /competitors search box; the
+// PC robot drains this every few minutes, and looked-up sizes join the daily
+// watchlist.
+model CompetitorLookup {
+  id        String    @id @default(cuid())
+  sizeKey   String
+  display   String
+  status    String    @default("PENDING") // PENDING | DONE | FAILED
+  createdAt DateTime  @default(now())
+  doneAt    DateTime?
+
+  @@index([status])
+}
+
 // Per-invoice sales mirror from TireGuru's Salesperson Sales Analysis (synced
 // every 2h, month-to-date snapshot per location). Feeds the owner's daily
 // brief and real-revenue rep dashboards.

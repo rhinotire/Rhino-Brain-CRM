@@ -19,6 +19,16 @@ function authorized(req: Request): boolean {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // ?pending=1 → on-demand lookup queue from the /competitors search box
+  if (new URL(req.url).searchParams.get("pending")) {
+    const lookups = await db.competitorLookup.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 5,
+      select: { id: true, sizeKey: true, display: true },
+    });
+    return NextResponse.json({ lookups });
+  }
   // watchlist = tire sizes with the most units on hand across both warehouses
   const products = await db.product.findMany({
     where: {
@@ -43,15 +53,22 @@ export async function GET(req: Request) {
     .sort((a, b) => b[1].qty - a[1].qty)
     .slice(0, 30)
     .map(([sizeKey, v]) => ({ sizeKey, display: v.display }));
-  return NextResponse.json({ sizes });
+  // sizes the owner once searched stay on the daily watch
+  const searched = await db.competitorLookup.findMany({ distinct: ["sizeKey"], select: { sizeKey: true, display: true } });
+  for (const s of searched) if (!sizes.some(x => x.sizeKey === s.sizeKey)) sizes.push({ sizeKey: s.sizeKey, display: s.display });
+  return NextResponse.json({ sizes: sizes.slice(0, 60) });
 }
 
 export async function POST(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { site, rows } = (await req.json()) as {
+  const { site, rows, lookupDone } = (await req.json()) as {
     site: string;
     rows: { sizeKey: string; description: string; partCode?: string; availability?: string; fet?: number; price: number }[];
+    lookupDone?: string[];
   };
+  if (Array.isArray(lookupDone) && lookupDone.length) {
+    await db.competitorLookup.updateMany({ where: { id: { in: lookupDone.slice(0, 20) } }, data: { status: "DONE", doneAt: new Date() } });
+  }
   if (!site || !Array.isArray(rows)) return NextResponse.json({ error: "site and rows required" }, { status: 400 });
   const clean = rows.filter(r => r.sizeKey && r.description && Number.isFinite(r.price) && r.price > 0).slice(0, 2000);
   const sizeKeys = [...new Set(clean.map(r => r.sizeKey))];

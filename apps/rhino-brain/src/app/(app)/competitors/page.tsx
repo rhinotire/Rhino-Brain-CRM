@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession, hasPerm, isManager, isAccounting } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { fmtMoney } from "@/lib/domain";
+import { CompetitorSearch } from "@/components/competitor-search";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,11 @@ const SITE_LABEL: Record<string, string> = { tgi: "TGI", qtd: "QTD", tiredispatc
  * competitor's cheapest — red when we're undercut. Managers only (pricing
  * intelligence is not for rep-level eyes).
  */
-export default async function CompetitorsPage() {
+export default async function CompetitorsPage({ searchParams }: { searchParams: { q?: string } }) {
   const session = await requireSession();
   if (!hasPerm(session, "products") || !(isManager(session) || isAccounting(session))) redirect("/my-work");
 
+  const qDigits = (searchParams.q ?? "").replace(/-?s*d+s*PR/i, "").replace(/D/g, "");
   const comp = await db.competitorPrice.findMany({ orderBy: { fetchedAt: "desc" } });
   const lastFetch = comp[0]?.fetchedAt ?? null;
   const sizeKeys = [...new Set(comp.map(c => c.sizeKey))];
@@ -59,7 +61,8 @@ export default async function CompetitorsPage() {
       best,
       undercut: !!my && Number.isFinite(cheapest) && cheapest < my.price,
     };
-  }).sort((a, b) => Number(b.undercut) - Number(a.undercut) || a.display.localeCompare(b.display));
+  }).filter(r => !qDigits || r.sizeKey.includes(qDigits))
+    .sort((a, b) => Number(b.undercut) - Number(a.undercut) || a.display.localeCompare(b.display));
 
   const sites = [...new Set(comp.map(c => c.site))];
   const undercutCount = rows.filter(r => r.undercut).length;
@@ -73,6 +76,8 @@ export default async function CompetitorsPage() {
           {lastFetch && <> · last check {lastFetch.toLocaleString("en-US", { timeZone: "America/New_York" })} ET</>}
         </p>
       </div>
+
+      <CompetitorSearch hasData={rows.length > 0} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Sizes watched" value={String(rows.length)} />
@@ -114,7 +119,7 @@ export default async function CompetitorsPage() {
               </td>
             </tr>
           ))}
-          {rows.length === 0 && <EmptyRow colSpan={4 + sites.length} message="No competitor data yet — the robot runs daily at 9am (or trigger it from the office PC)." />}
+          {rows.length === 0 && <EmptyRow colSpan={4 + sites.length} message={qDigits ? "No data for this size yet — use the Fetch button above to pull it live." : "No competitor data yet — the robot runs daily at 9am."} />}
         </tbody>
       </Table>
       <p className="text-xs text-slate-400">Prices are what YOUR dealer account sees at each competitor. Internal use only.</p>
