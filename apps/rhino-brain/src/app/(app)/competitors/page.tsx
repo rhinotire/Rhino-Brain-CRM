@@ -20,7 +20,7 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
   const session = await requireSession();
   if (!hasPerm(session, "products") || !(isManager(session) || isAccounting(session))) redirect("/my-work");
 
-  const qDigits = (searchParams.q ?? "").replace(/-?s*d+s*PR/i, "").replace(/D/g, "");
+  const qDigits = (searchParams.q ?? "").replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
   const comp = await db.competitorPrice.findMany({ orderBy: { fetchedAt: "desc" } });
   const lastFetch = comp[0]?.fetchedAt ?? null;
   const sizeKeys = [...new Set(comp.map(c => c.sizeKey))];
@@ -67,6 +67,18 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
   const sites = [...new Set(comp.map(c => c.site))];
   const undercutCount = rows.filter(r => r.undercut).length;
 
+  // searching a specific size → DETAIL view: every competitor offer for that
+  // size (not just each site's cheapest) plus all our in-stock options
+  const detailOffers = qDigits
+    ? comp.filter(c => c.sizeKey.includes(qDigits)).sort((a, b) => Number(a.price) - Number(b.price))
+    : [];
+  const detailMine = qDigits
+    ? products
+        .filter(p => p.sizeSpec!.replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "").includes(qDigits))
+        .map(p => ({ sku: p.sku, brand: p.brand, description: p.description, price: Number(p.priceA), qty: p.inventory.reduce((s, i) => s + i.quantity, 0), sizeSpec: p.sizeSpec! }))
+        .sort((a, b) => a.price - b.price)
+    : [];
+
   return (
     <div className="space-y-4">
       <div>
@@ -77,8 +89,52 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
         </p>
       </div>
 
-      <CompetitorSearch hasData={rows.length > 0} />
+      <CompetitorSearch hasData={rows.length > 0 || detailOffers.length > 0} />
 
+      {qDigits ? (
+        <>
+          <h2 className="text-sm font-semibold text-slate-700">Our in-stock options ({detailMine.length})</h2>
+          <Table>
+            <THead cols={["Brand", "Size", "Description", "SKU", "Price", "In stock"]} />
+            <tbody>
+              {detailMine.map(p => (
+                <tr key={p.sku} className="border-b border-slate-50">
+                  <td className="px-3 py-2 font-medium">{p.brand ?? "—"}</td>
+                  <td className="px-3 py-2">{p.sizeSpec}</td>
+                  <td className="px-3 py-2 text-slate-600">{p.description.slice(0, 40)}</td>
+                  <td className="px-3 py-2 text-xs text-slate-400">{p.sku}</td>
+                  <td className="px-3 py-2 font-semibold tabular-nums">{fmtMoney(p.price)}</td>
+                  <td className="px-3 py-2 tabular-nums">{p.qty}</td>
+                </tr>
+              ))}
+              {detailMine.length === 0 && <EmptyRow colSpan={6} message="No in-stock product of this size on our side." />}
+            </tbody>
+          </Table>
+
+          <h2 className="text-sm font-semibold text-slate-700">Competitor offers ({detailOffers.length})</h2>
+          <Table>
+            <THead cols={["Site", "Description", "Part Code", "Availability", "FET", "Price"]} />
+            <tbody>
+              {detailOffers.map(c => {
+                const beats = detailMine.length > 0 && Number(c.price) < detailMine[0].price;
+                return (
+                  <tr key={c.id} className="border-b border-slate-50">
+                    <td className="px-3 py-2 font-medium">{SITE_LABEL[c.site] ?? c.site}</td>
+                    <td className="px-3 py-2">{c.description}</td>
+                    <td className="px-3 py-2 text-xs text-slate-400">{c.partCode ?? "—"}</td>
+                    <td className="px-3 py-2">{c.availability ?? "—"}</td>
+                    <td className="px-3 py-2 tabular-nums text-slate-500">{c.fet ? fmtMoney(Number(c.fet)) : "—"}</td>
+                    <td className={`px-3 py-2 font-semibold tabular-nums ${beats ? "text-red-600" : ""}`}>{fmtMoney(Number(c.price))}</td>
+                  </tr>
+                );
+              })}
+              {detailOffers.length === 0 && <EmptyRow colSpan={6} message="No competitor data for this size yet — use the Fetch button above." />}
+            </tbody>
+          </Table>
+          <p className="text-xs text-slate-400">Red price = cheaper than our cheapest in-stock option of this size.</p>
+        </>
+      ) : (
+      <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Sizes watched" value={String(rows.length)} />
         <StatCard label="You're undercut on" value={String(undercutCount)} tone={undercutCount > 0 ? "danger" : "good"} />
@@ -123,6 +179,8 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
         </tbody>
       </Table>
       <p className="text-xs text-slate-400">Prices are what YOUR dealer account sees at each competitor. Internal use only.</p>
+      </>
+      )}
     </div>
   );
 }
