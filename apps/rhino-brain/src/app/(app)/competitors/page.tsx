@@ -30,7 +30,7 @@ export default async function CompetitorsPage() {
   });
   const mine = new Map<string, { price: number; label: string; qty: number; display: string }>();
   for (const p of products) {
-    const key = p.sizeSpec!.replace(/\D/g, "");
+    const key = p.sizeSpec!.replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
     if (!sizeKeys.includes(key)) continue;
     const price = Number(p.priceA);
     const qty = p.inventory.reduce((s, i) => s + i.quantity, 0);

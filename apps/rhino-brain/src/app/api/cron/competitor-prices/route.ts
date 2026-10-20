@@ -32,7 +32,8 @@ export async function GET(req: Request) {
   const bySize = new Map<string, { display: string; qty: number }>();
   for (const p of products) {
     const display = p.sizeSpec!.trim();
-    const sizeKey = display.replace(/\D/g, "");
+    // ply rating (…-14PR) is not part of the size — searching with it finds nothing
+    const sizeKey = display.replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
     if (sizeKey.length < 5) continue;
     const qty = p.inventory.reduce((s, i) => s + i.quantity, 0);
     const cur = bySize.get(sizeKey);
