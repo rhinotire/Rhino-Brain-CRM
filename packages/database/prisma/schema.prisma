@@ -248,6 +248,7 @@ model Location {
   repairTickets    RepairTicket[]
   Vehicle          Vehicle[]
   PosOrderRequest  PosOrderRequest[]
+  PosSale          PosSale[]
 }
 
 model User {
@@ -1069,6 +1070,25 @@ enum PosOrderStatus {
   SUBMITTED // robot created the TireGuru work order
   FAILED // robot could not create it (error says why)
   CANCELLED // owner replied 0 / expired
+}
+
+// Per-invoice sales mirror from TireGuru's Salesperson Sales Analysis (synced
+// every 2h, month-to-date snapshot per location). Feeds the owner's daily
+// brief and real-revenue rep dashboards.
+model PosSale {
+  id          String   @id @default(cuid())
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id])
+  salesperson String
+  invoiceNo   String
+  date        DateTime
+  qty         Int
+  sale        Decimal  @db.Decimal(12, 2)
+  gp          Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([locationId, date])
+  @@index([date])
 }
 
 // Short-term SMS conversation log so the owner's follow-up texts ("其他便宜的")

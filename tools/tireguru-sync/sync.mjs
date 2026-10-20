@@ -303,6 +303,13 @@ async function main() {
         runImporter("A/R aging (all locations)",
           `npx tsx ../../import-tireguru-aging.ts --file "${aged}" --apply`);
       } else log("skipping aging import (download missing)");
+      for (const tag of ["FL", "TX"]) {
+        const sales = files[`salesperson_sales_${tag}`];
+        if (sales) {
+          runImporter(`sales ${tag}`,
+            `npx tsx ../../import-tireguru-sales.ts --file "${sales}" --location ${tag} --apply`);
+        }
+      }
     }
 
     // Piggyback: poll the freight-quote inbox on the CRM (no Vercel sub-daily
