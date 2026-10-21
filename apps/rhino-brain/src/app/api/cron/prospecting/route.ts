@@ -12,7 +12,7 @@ export const maxDuration = 300; // Places sweep + per-lead AI enrich/score
  * owner's priority. New leads land in /prospecting and each rep's My Work.
  */
 const ROTATION: ProspectCategory[] = ["p4", "p3", "p4", "p1"];
-const LIMIT_PER_AREA = 12; // candidates per area per day — keeps Places + Claude spend small
+const LIMIT_PER_AREA = 30; // deeper pages — first-page results exhausted within days (2026-10-21) // candidates per area per day — keeps Places + Claude spend small
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;

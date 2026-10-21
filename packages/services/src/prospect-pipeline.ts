@@ -16,9 +16,9 @@ export type ProspectCategory = "p4" | "p3" | "p1";
 
 // Search queries per product line (spec §7). P4 truck first — owner priority.
 export const PROSPECT_QUERIES: Record<ProspectCategory, string[]> = {
-  p4: ["commercial truck tire dealer", "truck tire shop", "truck repair shop", "trucking company", "fleet services"],
-  p3: ["tire wholesaler", "tire shop", "used and new tire dealer"],
-  p1: ["trailer parts distributor", "trailer tires wholesale", "trailer manufacturer"],
+  p4: ["commercial truck tire dealer", "truck tire shop", "truck repair shop", "trucking company", "fleet services", "mobile truck tire service", "semi truck repair", "diesel truck repair"],
+  p3: ["tire wholesaler", "tire shop", "used and new tire dealer", "used tire shop", "discount tire store", "auto repair and tires"],
+  p1: ["trailer parts distributor", "trailer tires wholesale", "trailer manufacturer", "trailer dealer", "trailer repair shop", "utility trailer sales"],
 };
 
 /**
