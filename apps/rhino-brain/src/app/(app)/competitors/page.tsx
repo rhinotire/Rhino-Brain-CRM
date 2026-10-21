@@ -93,45 +93,56 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
 
       {qDigits ? (
         <>
-          <h2 className="text-sm font-semibold text-slate-700">Our in-stock options ({detailMine.length})</h2>
-          <Table>
-            <THead cols={["Brand", "Size", "Description", "SKU", "Price", "In stock"]} />
-            <tbody>
-              {detailMine.map(p => (
-                <tr key={p.sku} className="border-b border-slate-50">
-                  <td className="px-3 py-2 font-medium">{p.brand ?? "—"}</td>
-                  <td className="px-3 py-2">{p.sizeSpec}</td>
-                  <td className="px-3 py-2 text-slate-600">{p.description.slice(0, 40)}</td>
-                  <td className="px-3 py-2 text-xs text-slate-400">{p.sku}</td>
-                  <td className="px-3 py-2 font-semibold tabular-nums">{fmtMoney(p.price)}</td>
-                  <td className="px-3 py-2 tabular-nums">{p.qty}</td>
-                </tr>
-              ))}
-              {detailMine.length === 0 && <EmptyRow colSpan={6} message="No in-stock product of this size on our side." />}
-            </tbody>
-          </Table>
-
-          <h2 className="text-sm font-semibold text-slate-700">Competitor offers ({detailOffers.length})</h2>
-          <Table>
-            <THead cols={["Site", "Description", "Part Code", "Availability", "FET", "Price"]} />
-            <tbody>
-              {detailOffers.map(c => {
-                const beats = detailMine.length > 0 && Number(c.price) < detailMine[0].price;
-                return (
-                  <tr key={c.id} className="border-b border-slate-50">
-                    <td className="px-3 py-2 font-medium">{SITE_LABEL[c.site] ?? c.site}</td>
-                    <td className="px-3 py-2">{c.description}</td>
-                    <td className="px-3 py-2 text-xs text-slate-400">{c.partCode ?? "—"}</td>
-                    <td className="px-3 py-2">{c.availability ?? "—"}</td>
-                    <td className="px-3 py-2 tabular-nums text-slate-500">{c.fet ? fmtMoney(Number(c.fet)) : "—"}</td>
-                    <td className={`px-3 py-2 font-semibold tabular-nums ${beats ? "text-red-600" : ""}`}>{fmtMoney(Number(c.price))}</td>
-                  </tr>
-                );
-              })}
-              {detailOffers.length === 0 && <EmptyRow colSpan={6} message="No competitor data for this size yet — use the Fetch button above." />}
-            </tbody>
-          </Table>
-          <p className="text-xs text-slate-400">Red price = cheaper than our cheapest in-stock option of this size.</p>
+          {/* four companies side by side — each column's offers cheapest-first */}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                name: "🦏 Rhino / Everflow",
+                items: detailMine.map(p => ({
+                  key: p.sku,
+                  top: `${p.brand ?? ""} ${p.description.slice(0, 30)}`.trim(),
+                  sub: `${p.sizeSpec} · ${p.qty} in stock · ${p.sku}`,
+                  price: p.price,
+                })),
+                ours: true,
+              },
+              ...["tgi", "qtd", "tiredispatch"].map(site => ({
+                name: SITE_LABEL[site] ?? site,
+                items: detailOffers.filter(c => c.site === site).map(c => ({
+                  key: c.id,
+                  top: c.description.slice(0, 44),
+                  sub: `${c.availability ?? ""}${c.partCode ? ` · ${c.partCode}` : ""}`,
+                  price: Number(c.price),
+                })),
+                ours: false,
+              })),
+            ].map(col => {
+              const ourBest = detailMine[0]?.price;
+              return (
+                <div key={col.name} className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className={`border-b border-slate-100 px-3 py-2 text-sm font-semibold ${col.ours ? "text-brand-700" : "text-slate-700"}`}>
+                    {col.name} <span className="font-normal text-slate-400">({col.items.length})</span>
+                  </div>
+                  <div className="divide-y divide-slate-50">
+                    {col.items.map(it => {
+                      const beats = !col.ours && ourBest !== undefined && it.price < ourBest;
+                      return (
+                        <div key={it.key} className="flex items-start justify-between gap-2 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-slate-800">{it.top}</div>
+                            <div className="truncate text-xs text-slate-400">{it.sub}</div>
+                          </div>
+                          <div className={`shrink-0 text-sm font-semibold tabular-nums ${beats ? "text-red-600" : ""}`}>{fmtMoney(it.price)}</div>
+                        </div>
+                      );
+                    })}
+                    {col.items.length === 0 && <div className="px-3 py-3 text-xs text-slate-400">{col.ours ? "No in-stock product of this size." : "No data — use Fetch above."}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-400">Each column sorted cheapest first. Red = cheaper than our cheapest in-stock option. Competitor prices are their dealer cost to you (incl. FET where shown).</p>
         </>
       ) : (
       <>

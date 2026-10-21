@@ -87,6 +87,59 @@ async function tgi(page, creds, sizes) {
 
 const PENDING_MODE = process.argv.includes("--pending");
 
+async function qtd(page, creds, sizes) {
+  await page.goto("https://qtdonline.com/login-user/", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForTimeout(3000);
+  if (await page.locator("input[name=customer_id]").count()) {
+    await page.locator("input[name=customer_id]").fill(creds.username);
+    await page.locator("input[name=password]").fill(creds.password);
+    await page.locator("text=Sign In").first().click();
+    await page.waitForTimeout(7000);
+  }
+  if (!(await page.evaluate(() => document.body.innerText.includes("Log Out")))) throw new Error("QTD login failed");
+
+  const rows = [];
+  for (const s of sizes) {
+    try {
+      await page.goto("https://qtdonline.com/", { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(2500);
+      await page.locator("input[name=quick_tire_size_1]").fill(s.sizeKey);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(12000);
+      // result cells (mapped 2026-10-20): [3]=prod#, [7]=size, [8]=desc+brand,
+      // [9]=local avail, [11]=next-day avail, [16]=cost (dealer, incl FET)
+      const found = await page.evaluate(() => {
+        const out = [];
+        const seen = new Set();
+        for (const tr of document.querySelectorAll("table tr")) {
+          const c = [...tr.children].map(td => (td.innerText || "").trim());
+          if (c.length < 17 || !/\d{2,3}\/\d{2,3}R?\d{2}/.test(c[7] ?? "")) continue;
+          if (!c[3] || seen.has(c[3])) continue;
+          seen.add(c[3]);
+          out.push({ partCode: c[3], size: c[7], desc: c[8], local: c[9], nextDay: c[11], cost: c[16] });
+        }
+        return out;
+      });
+      for (const f of found) {
+        const price = money(f.cost);
+        if (!price) continue;
+        rows.push({
+          sizeKey: s.sizeKey,
+          description: `${f.size} ${f.desc}`.replace(/\s+/g, " ").slice(0, 120),
+          partCode: f.partCode || undefined,
+          availability: `${f.local || 0} local / ${(f.nextDay || "0").trim()} ND`.slice(0, 30),
+          price,
+        });
+      }
+      log(`  qtd ${s.display}: ${found.length} offers`);
+      await sleep(2000);
+    } catch (e) {
+      log(`  qtd ${s.display} failed: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+    }
+  }
+  return rows;
+}
+
 async function main() {
   const creds = JSON.parse(readFileSync(CRED_FILE, "utf8").replace(/^﻿/, ""));
   let sizes, lookupIds = [];
@@ -109,7 +162,7 @@ async function main() {
   const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   try {
-    const sites = [["tgi", tgi]]; // qtd / tiredispatch: to be mapped
+    const sites = [["tgi", tgi], ["qtd", qtd]]; // tiredispatch: blocked on valid credentials
     for (const [name, run] of sites) {
       if (!creds[name]?.username || creds[name].username === "FILL_ME") { log(`${name}: no credentials — skipped`); continue; }
       try {
