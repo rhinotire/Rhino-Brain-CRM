@@ -113,7 +113,8 @@ async function qtd(page, creds, sizes) {
         const seen = new Set();
         for (const tr of document.querySelectorAll("table tr")) {
           const c = [...tr.children].map(td => (td.innerText || "").trim());
-          if (c.length < 17 || !/\d{2,3}\/\d{2,3}R?\d{2}/.test(c[7] ?? "")) continue;
+          // size cell: metric (215/55R17), flotation (33X12.50R18) or ST/LT variants
+          if (c.length < 17 || !/(\d{2,3}\/\d{2,3}R?\d{2})|(\d{2}X\d{2}(\.\d+)?R?\d{2})/i.test(c[7] ?? "")) continue;
           if (!c[3] || seen.has(c[3])) continue;
           seen.add(c[3]);
           out.push({ partCode: c[3], size: c[7], desc: c[8], local: c[9], nextDay: c[11], cost: c[16] });
