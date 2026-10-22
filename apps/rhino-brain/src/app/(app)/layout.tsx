@@ -92,6 +92,7 @@ const repGroups: NavGroup[] = [
   ]},
   { title: "Products", items: [
     { href: "/products", label: "Products & Stock", icon: "📦" },
+    { href: "/competitors", label: "Competitor Prices", icon: "🕵️" },
     { href: "/lost-sales", label: "My Lost Sales", icon: "💸" },
     { href: "/ar", label: "My A/R", icon: "💰" },
   ]},

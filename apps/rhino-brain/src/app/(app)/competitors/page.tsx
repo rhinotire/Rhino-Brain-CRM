@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireSession, hasPerm, isManager, isAccounting } from "@/lib/auth";
+import { requireSession, hasPerm } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { fmtMoney } from "@/lib/domain";
 import { CompetitorSearch } from "@/components/competitor-search";
@@ -18,7 +18,7 @@ const SITE_LABEL: Record<string, string> = { tgi: "TGI", qtd: "QTD", tiredispatc
  */
 export default async function CompetitorsPage({ searchParams }: { searchParams: { q?: string } }) {
   const session = await requireSession();
-  if (!hasPerm(session, "products") || !(isManager(session) || isAccounting(session))) redirect("/my-work");
+  if (!hasPerm(session, "products")) redirect("/my-work"); // reps included (owner request 2026-10-22)
 
   const qDigits = (searchParams.q ?? "").replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
   const comp = await db.competitorPrice.findMany({ orderBy: { fetchedAt: "desc" } });
