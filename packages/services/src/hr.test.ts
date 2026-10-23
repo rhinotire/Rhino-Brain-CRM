@@ -37,15 +37,9 @@ describe("worstExpiryStatus", () => {
 });
 
 describe("employee doc permissions", () => {
-  it("non-sensitive: admin + manager can download, others cannot", () => {
-    expect(canDownloadEmployeeDoc("ADMIN", false)).toBe(true);
-    expect(canDownloadEmployeeDoc("MANAGER", false)).toBe(true);
-    expect(canDownloadEmployeeDoc("SALES_REP", false)).toBe(false);
-    expect(canDownloadEmployeeDoc("ACCOUNTING", false)).toBe(false);
-  });
-  it("sensitive: ADMIN only", () => {
-    expect(canDownloadEmployeeDoc("ADMIN", true)).toBe(true);
-    expect(canDownloadEmployeeDoc("MANAGER", true)).toBe(false);
+  it("download: anyone with the HR permission can, including sensitive docs", () => {
+    expect(canDownloadEmployeeDoc(true)).toBe(true);
+    expect(canDownloadEmployeeDoc(false)).toBe(false);
   });
   it("delete: ADMIN only", () => {
     expect(canDeleteEmployeeDoc("ADMIN")).toBe(true);

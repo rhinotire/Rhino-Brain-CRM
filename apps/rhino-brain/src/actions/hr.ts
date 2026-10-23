@@ -150,7 +150,7 @@ export async function getEmployeeDocumentUrl(documentId: string): Promise<{ url?
   if (!doc) return { error: "Document not found." };
   const emp = await getScopedEmployee(session, doc.employeeId);
   if (!emp) return { error: "Document not found." };
-  if (!canDownloadEmployeeDoc(session.role, doc.sensitive)) return { error: "Only the admin can open this document." };
+  if (!canDownloadEmployeeDoc(hasPerm(session, "hr"))) return { error: "No HR permission." };
   try {
     return { url: await createEmployeeSignedUrl(doc.storagePath, 300) };
   } catch (e) {

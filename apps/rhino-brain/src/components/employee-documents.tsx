@@ -83,9 +83,8 @@ export function EmployeeDocuments({ employeeId, docs, isAdmin, storageReady }: {
                     {d.expiresAt && ` · expires ${new Date(d.expiresAt).toLocaleDateString("en-US")}`}
                   </span>
                   <span className="flex shrink-0 gap-2">
-                    {(!d.sensitive || isAdmin)
-                      ? <button type="button" onClick={() => download(d.id)} className="text-brand-600 hover:underline">Download</button>
-                      : <span className="text-slate-400">admin only</span>}
+                    <button type="button" onClick={() => download(d.id)} className="text-brand-600 hover:underline">Download</button>
+                    {d.sensitive && <span className="text-slate-400" title="Contains sensitive personal info">🔒</span>}
                     {isAdmin && <button type="button" onClick={() => remove(d.id)} className="text-red-500 hover:underline">Delete</button>}
                   </span>
                 </div>

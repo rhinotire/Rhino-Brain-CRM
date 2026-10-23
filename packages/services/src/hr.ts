@@ -25,10 +25,15 @@ export function worstExpiryStatus(expirations: (Date | null | undefined)[], now:
   return worst;
 }
 
-/** Sensitive docs (license / work permit / bank info) open for ADMIN only. */
-export function canDownloadEmployeeDoc(role: string, sensitive: boolean): boolean {
-  if (sensitive) return role === "ADMIN";
-  return role === "ADMIN" || role === "MANAGER";
+/**
+ * Any HR-permission holder can view employee documents, sensitive ones
+ * (license / work permit / SSN / bank info) included — holding the HR
+ * permission is itself the authorization to handle employee files, and the
+ * /hr pages and actions already gate on it (owner decision 2026-10-23: the
+ * HR staffer who uploads the docs must be able to read them back).
+ */
+export function canDownloadEmployeeDoc(hasHrPermission: boolean): boolean {
+  return hasHrPermission;
 }
 
 export function canDeleteEmployeeDoc(role: string): boolean {
