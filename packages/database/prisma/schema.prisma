@@ -1076,6 +1076,7 @@ enum PosOrderStatus {
 // dealer accounts at each; his PC robot checks a size watchlist daily).
 model CompetitorPrice {
   id           String   @id @default(cuid())
+  company      String   @default("RHINO") // RHINO (FL cos) | EVERFLOW (TX cos) — which side's competitor set
   site         String // qtd | tgi | tiredispatch
   sizeKey      String // digits-only size, e.g. 2358016
   description  String // size/ply + pattern/brand as the portal shows it
@@ -1094,6 +1095,7 @@ model CompetitorPrice {
 // watchlist.
 model CompetitorLookup {
   id        String    @id @default(cuid())
+  company   String    @default("RHINO")
   sizeKey   String
   display   String
   status    String    @default("PENDING") // PENDING | DONE | FAILED

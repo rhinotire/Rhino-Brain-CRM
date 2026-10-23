@@ -1,13 +1,22 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, hasPerm } from "@/lib/auth";
+import { companyFor } from "@/actions/competitor-lookup";
 import { Table, THead, EmptyRow, Badge, StatCard } from "@/components/ui/primitives";
 import { fmtMoney } from "@/lib/domain";
 import { CompetitorSearch } from "@/components/competitor-search";
 
 export const dynamic = "force-dynamic";
 
-const SITE_LABEL: Record<string, string> = { tgi: "TGI", qtd: "QTD", tiredispatch: "Tire Dispatch" };
+const SITE_LABEL: Record<string, string> = {
+  tgi: "TGI", qtd: "QTD", tiredispatch: "Tire Dispatch",
+  economytire: "Economy Tire", bzo: "BZO", bhy: "BHY",
+};
+// which competitor columns belong to each company
+const COMPANY_SITES: Record<string, string[]> = {
+  RHINO: ["tgi", "qtd", "tiredispatch"],
+  EVERFLOW: ["economytire", "bzo", "bhy"],
+};
 
 /**
  * Competitor Prices (owner request 2026-10-20): the PC robot checks the
@@ -20,22 +29,25 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
   const session = await requireSession();
   if (!hasPerm(session, "products")) redirect("/my-work"); // reps included (owner request 2026-10-22)
 
+  const company = await companyFor(session);
+  const myTag = company === "EVERFLOW" ? "TX" : "FL";
+
   const qDigits = (searchParams.q ?? "").replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
-  const comp = await db.competitorPrice.findMany({ orderBy: { fetchedAt: "desc" } });
+  const comp = await db.competitorPrice.findMany({ where: { company }, orderBy: { fetchedAt: "desc" } });
   const lastFetch = comp[0]?.fetchedAt ?? null;
   const sizeKeys = [...new Set(comp.map(c => c.sizeKey))];
 
-  // our best (cheapest priceA) in-stock product per size
+  // our best (cheapest priceA) in-stock product per size — at OUR warehouse
   const products = await db.product.findMany({
-    where: { active: true, sizeSpec: { not: null }, priceA: { not: null }, inventory: { some: { quantity: { gt: 0 } } } },
-    select: { sku: true, description: true, brand: true, sizeSpec: true, priceA: true, inventory: { select: { quantity: true } } },
+    where: { active: true, sizeSpec: { not: null }, priceA: { not: null }, inventory: { some: { quantity: { gt: 0 }, location: { shortTag: myTag } } } },
+    select: { sku: true, description: true, brand: true, sizeSpec: true, priceA: true, inventory: { select: { quantity: true, location: { select: { shortTag: true } } } } },
   });
   const mine = new Map<string, { price: number; label: string; qty: number; display: string }>();
   for (const p of products) {
     const key = p.sizeSpec!.replace(/-?\s*\d+\s*PR\b/i, "").replace(/\D/g, "");
     if (!sizeKeys.includes(key)) continue;
     const price = Number(p.priceA);
-    const qty = p.inventory.reduce((s, i) => s + i.quantity, 0);
+    const qty = p.inventory.filter(i => i.location?.shortTag === myTag).reduce((s, i) => s + i.quantity, 0);
     const cur = mine.get(key);
     if (!cur || price < cur.price) mine.set(key, { price, label: `${p.brand ?? ""} ${p.description.slice(0, 24)}`, qty, display: p.sizeSpec!.trim() });
   }
@@ -64,7 +76,7 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
   }).filter(r => !qDigits || r.sizeKey.includes(qDigits))
     .sort((a, b) => Number(b.undercut) - Number(a.undercut) || a.display.localeCompare(b.display));
 
-  const sites = [...new Set(comp.map(c => c.site))];
+  const sites = COMPANY_SITES[company];
   const undercutCount = rows.filter(r => r.undercut).length;
 
   // searching a specific size → DETAIL view: every competitor offer for that
@@ -97,7 +109,7 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                name: "🦏 Rhino / Everflow",
+                name: company === "EVERFLOW" ? "🏷️ Everflow (ours)" : "🦏 Rhino (ours)",
                 items: detailMine.map(p => ({
                   key: p.sku,
                   top: `${p.brand ?? ""} ${p.description.slice(0, 30)}`.trim(),
@@ -106,7 +118,7 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
                 })),
                 ours: true,
               },
-              ...["tgi", "qtd", "tiredispatch"].map(site => ({
+              ...COMPANY_SITES[company].map(site => ({
                 name: SITE_LABEL[site] ?? site,
                 items: detailOffers.filter(c => c.site === site).map(c => ({
                   key: c.id,
