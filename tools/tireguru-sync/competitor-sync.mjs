@@ -94,6 +94,10 @@ async function tgi(page, creds, sizes) {
 }
 
 const PENDING_MODE = process.argv.includes("--pending");
+// --only=bhy (or a comma list) restricts the run to those sites — handy for
+// debugging one portal without a full ~5-min sweep.
+const ONLY = (process.argv.find(a => a.startsWith("--only=")) || "").slice(7).split(",").map(s => s.trim()).filter(Boolean);
+const wantSite = (name) => ONLY.length === 0 || ONLY.includes(name);
 
 async function qtd(page, creds, sizes) {
   await page.goto("https://qtdonline.com/login-user/", { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -264,9 +268,13 @@ function tireLinkV3(siteName) {
         await page.waitForTimeout(5000);
         await page.locator("input[name=raw]").fill(s.sizeKey);
         await page.waitForTimeout(1000);
+        // Pressing Enter is what actually applies the size filter: the portal's
+        // search is a JS handler bound to the input, and a native form.submit()
+        // bypasses it and hits a server endpoint that returns the whole catalog.
+        // So Enter is the primary path; form.submit() is only a fallback for
+        // the rare portal that doesn't submit on Enter at all.
         await page.keyboard.press("Enter");
         await page.waitForTimeout(3000);
-        // some portals (BHY) don't submit on Enter — fall back to form.submit()
         if (!/results/.test(page.url())) {
           await page.evaluate(() => { const f = document.querySelector("input[name=raw]")?.closest("form"); if (f) f.submit(); });
           await page.waitForTimeout(3000);
@@ -398,11 +406,12 @@ async function main() {
 
   // TGI + QTD share one browser page (Edge singleton — only one persistent
   // context at a time); every other site runs in its own context afterward.
-  if (hasCreds("tgi") || hasCreds("qtd")) {
+  if ((hasCreds("tgi") || hasCreds("qtd")) && (wantSite("tgi") || wantSite("qtd"))) {
     const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
     const page = ctx.pages()[0] ?? (await ctx.newPage());
     try {
       for (const [name, run] of [["tgi", tgi], ["qtd", qtd]]) {
+        if (!wantSite(name)) continue;
         if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
         try { await post(name, await run(page, creds[name], sizesFor.RHINO)); }
         catch (e) { log(`${name} FAILED: ${e instanceof Error ? e.message.split("\n")[0] : e}`); }
@@ -412,9 +421,8 @@ async function main() {
   }
 
   // own-context sites, run sequentially so only one Edge instance is ever up
-  // bhy TEMPORARILY DISABLED: its /lookup search ignores the raw size filter
-  // (form.submit returns the default catalog) — mechanism still to be mapped.
-  for (const [name, run] of [["tiredispatch", tiredispatch], ["economytire", economytire], ["bzo", bzo]]) {
+  for (const [name, run] of [["tiredispatch", tiredispatch], ["economytire", economytire], ["bzo", bzo], ["bhy", bhy]]) {
+    if (!wantSite(name)) continue;
     if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
     const company = SITE_COMPANY[name];
     try { await post(name, await run(null, creds[name], sizesFor[company])); }
