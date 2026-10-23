@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   const { company: rawCompany, site, rows, lookupDone } = (await req.json()) as {
     company?: string;
     site: string;
-    rows: { sizeKey: string; description: string; partCode?: string; availability?: string; fet?: number; price: number }[];
+    rows: { sizeKey: string; brand?: string; description: string; partCode?: string; availability?: string; fet?: number; price: number }[];
     lookupDone?: string[];
   };
   const company = rawCompany === "EVERFLOW" ? "EVERFLOW" : "RHINO";
@@ -85,6 +85,7 @@ export async function POST(req: Request) {
         company,
         site,
         sizeKey: r.sizeKey.slice(0, 20),
+        brand: r.brand?.slice(0, 40) ?? null,
         description: r.description.slice(0, 120),
         partCode: r.partCode?.slice(0, 40) ?? null,
         availability: r.availability?.slice(0, 30) ?? null,

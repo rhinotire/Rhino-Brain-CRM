@@ -73,9 +73,11 @@ async function tgi(page, creds, sizes) {
       for (const f of found) {
         const price = money(f.price);
         if (!price) continue;
+        const descr = f.description.replace(/\s+/g, " ").trim();
         rows.push({
           sizeKey: s.sizeKey,
-          description: f.description.replace(/\s+/g, " ").slice(0, 120),
+          brand: (descr.split(" ").pop() || "").slice(0, 24) || undefined, // TGI puts brand last
+          description: descr.slice(0, 120),
           partCode: f.partCode || undefined,
           availability: f.availability || undefined,
           fet: money(f.fet) ?? undefined,
@@ -130,9 +132,11 @@ async function qtd(page, creds, sizes) {
       for (const f of found) {
         const price = money(f.cost);
         if (!price) continue;
+        const d = (f.desc || "").replace(/\s+/g, " ").trim();
         rows.push({
           sizeKey: s.sizeKey,
-          description: `${f.size} ${f.desc}`.replace(/\s+/g, " ").slice(0, 120),
+          brand: (d.split(" ").pop() || "").slice(0, 24) || undefined, // QTD puts brand last
+          description: `${f.size} ${d}`.replace(/\s+/g, " ").slice(0, 120),
           partCode: f.partCode || undefined,
           availability: `${f.local || 0} local / ${(f.nextDay || "0").trim()} ND`.slice(0, 30),
           price,
@@ -209,6 +213,7 @@ async function tiredispatch(_sharedPage, creds, sizes) {
         if (!price || price > 9000) continue; // $9,999.85 = no-price placeholder
         rows.push({
           sizeKey: s.sizeKey,
+          brand: (f.title.split(/[,\s]/)[0] || "").slice(0, 24) || undefined, // TD puts brand first
           description: f.title.slice(0, 120),
           partCode: f.sku || undefined,
           availability: f.avail ? `${f.avail} avail` : undefined,
@@ -284,7 +289,7 @@ function tireLinkV3(siteName) {
               if (!cost) continue;
               const item = c[ci.item] || "";
               if (seen.has(item)) continue; seen.add(item);
-              out.push({ item, descr: `${c[ci.desc] || ""} ${c[ci.brand] || ""}`.trim(), size: c[ci.size] || "", cost, fet: money(c[ci.fet]), ftw: (c[ci.oh] || "").replace(/[^\d+]/g, "") });
+              out.push({ item, brand: c[ci.brand] || "", descr: c[ci.desc] || "", size: c[ci.size] || "", cost, fet: money(c[ci.fet]), ftw: (c[ci.oh] || "").replace(/[^\d+]/g, "") });
             }
             return out;
           }
@@ -311,7 +316,8 @@ function tireLinkV3(siteName) {
             const key = item || name || size + cost;
             if (seen.has(key)) continue;
             seen.add(key);
-            out.push({ item, descr: name, size, cost, fet, ftw });
+            const brand = (card.querySelector("img")?.alt || "").trim();
+            out.push({ item, brand, descr: name, size, cost, fet, ftw });
           }
           return out;
         });
@@ -324,6 +330,7 @@ function tireLinkV3(siteName) {
           kept++;
           rows.push({
             sizeKey: s.sizeKey,
+            brand: f.brand || undefined,
             description: `${f.size} ${f.descr}`.replace(/\s+/g, " ").slice(0, 120),
             partCode: f.item || undefined,
             availability: f.ftw ? `${f.ftw} Ft.Worth` : undefined,

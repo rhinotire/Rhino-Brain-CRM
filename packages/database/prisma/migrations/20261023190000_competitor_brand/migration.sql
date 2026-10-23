@@ -1,0 +1,1 @@
+ALTER TABLE "CompetitorPrice" ADD COLUMN IF NOT EXISTS "brand" TEXT;

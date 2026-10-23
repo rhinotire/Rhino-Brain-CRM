@@ -1079,6 +1079,7 @@ model CompetitorPrice {
   company      String   @default("RHINO") // RHINO (FL cos) | EVERFLOW (TX cos) — which side's competitor set
   site         String // qtd | tgi | tiredispatch
   sizeKey      String // digits-only size, e.g. 2358016
+  brand        String? // manufacturer, when the portal exposes it separately
   description  String // size/ply + pattern/brand as the portal shows it
   partCode     String?
   availability String?

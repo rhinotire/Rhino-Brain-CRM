@@ -122,7 +122,7 @@ export default async function CompetitorsPage({ searchParams }: { searchParams: 
                 name: SITE_LABEL[site] ?? site,
                 items: detailOffers.filter(c => c.site === site).map(c => ({
                   key: c.id,
-                  top: c.description.slice(0, 44),
+                  top: `${c.brand ? c.brand + " · " : ""}${c.description.slice(0, 40)}`,
                   sub: `${c.availability ?? ""}${c.partCode ? ` · ${c.partCode}` : ""}`,
                   price: Number(c.price),
                 })),
