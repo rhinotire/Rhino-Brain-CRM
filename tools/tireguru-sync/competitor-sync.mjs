@@ -227,54 +227,141 @@ async function tiredispatch(_sharedPage, creds, sizes) {
   }
 }
 
-async function main() {
-  const creds = JSON.parse(readFileSync(CRED_FILE, "utf8").replace(/^﻿/, ""));
-  let sizes, lookupIds = [];
-  if (PENDING_MODE) {
-    // on-demand queue from the /competitors search box — exit fast when empty
-    const r = await fetch(`${CRM}/api/cron/competitor-prices?pending=1`, { headers: AUTH });
-    if (!r.ok) throw new Error(`pending fetch ${r.status}`);
-    const { lookups } = await r.json();
-    if (!lookups.length) { console.log("no pending lookups"); return; }
-    sizes = lookups;
-    lookupIds = lookups.map(l => l.id);
-    log(`pending lookups: ${sizes.map(s => s.display).join(", ")}`);
-  } else {
-    const wl = await fetch(`${CRM}/api/cron/competitor-prices`, { headers: AUTH });
-    if (!wl.ok) throw new Error(`watchlist fetch ${wl.status}`);
-    sizes = (await wl.json()).sizes;
-    log(`watchlist: ${sizes.length} sizes`);
-  }
-
-  const post = async (name, rows) => {
-    const res = await fetch(`${CRM}/api/cron/competitor-prices`, {
-      method: "POST",
-      headers: { ...AUTH, "content-type": "application/json" },
-      body: JSON.stringify({ site: name, rows, lookupDone: lookupIds }),
-    });
-    log(`${name}: posted ${rows.length} rows → ${res.status} ${(await res.text()).slice(0, 120)}`);
-  };
-  const hasCreds = (name) => creds[name]?.username && creds[name].username !== "FILL_ME";
-
-  // TGI + QTD share one browser page. Only ONE msedge persistent context can
-  // run at a time (Edge singleton), so Tire Dispatch runs AFTER this one closes.
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
+/** Economy Tire — TireLink v3 SPA portal (tl-….tirelinkv3.tireguru.net).
+ * Login at economytire.com redirects to the portal; /lookup/tires raw search;
+ * product cards show "Cost: $X/ea", "FET: $X/ea", "OH: N Ft. Worth: N". */
+async function economytire(_shared, creds, sizes) {
+  const ctx = await chromium.launchPersistentContext(join(homedir(), ".economytire-profile"), { headless: true, channel: "msedge", viewport: { width: 1366, height: 1100 } });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   try {
-    for (const [name, run] of [["tgi", tgi], ["qtd", qtd]]) {
-      if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
-      try { await post(name, await run(page, creds[name], sizes)); }
-      catch (e) { log(`${name} FAILED: ${e instanceof Error ? e.message.split("\n")[0] : e}`); }
+    await page.goto("https://www.economytire.com/", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForTimeout(4000);
+    if (await page.locator("input[name=username]").count()) {
+      await page.locator("input[name=username]").fill(creds.username);
+      await page.locator("input[type=password]").first().fill(creds.password);
+      await page.evaluate(() => { const b = [...document.querySelectorAll("button,input[type=submit],a")].find(e => /^log ?in|^sign ?in/i.test((e.value || e.textContent || "").trim())); b?.click(); });
+      await page.waitForTimeout(8000);
     }
+    if (!/tirelinkv3/.test(page.url())) throw new Error("Economy Tire login failed");
+    const portal = new URL(page.url()).origin;
+
+    const rows = [];
+    for (const s of sizes) {
+      try {
+        await page.goto(`${portal}/lookup/tires`, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await page.waitForTimeout(4000);
+        await page.locator("input[name=raw]").fill(s.sizeKey);
+        await page.keyboard.press("Enter");
+        await page.waitForTimeout(9000);
+        const found = await page.evaluate(() => {
+          const out = []; const seen = new Set();
+          // the details/price column has exactly ONE "Cost:" and a "Size:"
+          const cells = [...document.querySelectorAll("div,article,li")].filter(e => {
+            const x = e.innerText || "";
+            return (x.match(/Cost:/g) || []).length === 1 && /Size:/.test(x);
+          });
+          const leaves = cells.filter(el => !cells.some(o => o !== el && el.contains(o)));
+          const oneCost = (el) => ((el.innerText || "").match(/Cost:/g) || []).length === 1;
+          for (const leaf of leaves) {
+            // climb to the LARGEST ancestor still holding exactly one Cost: = the whole card
+            let card = leaf;
+            while (card.parentElement && oneCost(card.parentElement)) card = card.parentElement;
+            const t = (card.innerText || "").replace(/\s+/g, " ");
+            const size = (t.match(/Size:\s*(\S+)/) || [])[1] || "";
+            const cost = (t.match(/Cost:\s*\$([\d,]+\.\d{2})/) || [])[1];
+            const fet = (t.match(/FET:\s*\$([\d,]+\.\d{2})/) || [])[1];
+            const ftw = (t.match(/Ft\.?\s*Worth:\s*([\d+]+)/i) || [])[1];
+            if (!cost) continue;
+            const ls = (card.innerText || "").split("\n").map(l => l.trim()).filter(Boolean);
+            const item = ls.find(l => /^[A-Z0-9][A-Z0-9'\- ]{3,}$/.test(l) && /\d/.test(l)) || "";
+            const name = ls.find(l => /[A-Za-z]{3}/.test(l) && l !== item && !/^(Size|Speed|Load|Ply|Service|Cost|FET|OH|QTY|MFG|Weight|Material|Compare|Add to|New Search|Display|Sort|Filters)\b/i.test(l) && l.length < 60) || "";
+            const key = item || name || size + cost;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ item, descr: name, size, cost, fet, ftw });
+          }
+          return out;
+        });
+        for (const f of found) {
+          const price = money(f.cost);
+          if (!price) continue;
+          rows.push({
+            sizeKey: s.sizeKey,
+            description: `${f.size} ${f.descr}`.replace(/\s+/g, " ").slice(0, 120),
+            partCode: f.item || undefined,
+            availability: f.ftw ? `${f.ftw} Ft.Worth` : undefined,
+            fet: money(f.fet) ?? undefined,
+            price,
+          });
+        }
+        log(`  economytire ${s.display}: ${found.length} offers`);
+        await sleep(2000);
+      } catch (e) {
+        log(`  economytire ${s.display} failed: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+      }
+    }
+    return rows;
   } finally {
     await ctx.close();
   }
-  await sleep(5000); // let the shared Edge process fully exit before TD launches
+}
 
-  // Tire Dispatch — its own context, after the shared one is fully closed.
-  if (hasCreds("tiredispatch")) {
-    try { await post("tiredispatch", await tiredispatch(null, creds.tiredispatch, sizes)); }
-    catch (e) { log(`tiredispatch FAILED: ${e instanceof Error ? e.message.split("\n")[0] : e}`); }
+// which company each competitor site belongs to
+const SITE_COMPANY = { tgi: "RHINO", qtd: "RHINO", tiredispatch: "RHINO", economytire: "EVERFLOW", bzo: "EVERFLOW", bhy: "EVERFLOW" };
+
+async function main() {
+  const creds = JSON.parse(readFileSync(CRED_FILE, "utf8").replace(/^﻿/, ""));
+  const hasCreds = (name) => creds[name]?.username && creds[name].username !== "FILL_ME";
+
+  // per-company watchlist + lookup queue
+  const sizesFor = {}, lookupIdsFor = {};
+  for (const company of ["RHINO", "EVERFLOW"]) {
+    if (PENDING_MODE) {
+      const r = await fetch(`${CRM}/api/cron/competitor-prices?pending=1&company=${company}`, { headers: AUTH });
+      const { lookups } = r.ok ? await r.json() : { lookups: [] };
+      sizesFor[company] = lookups;
+      lookupIdsFor[company] = lookups.map(l => l.id);
+    } else {
+      const wl = await fetch(`${CRM}/api/cron/competitor-prices?company=${company}`, { headers: AUTH });
+      sizesFor[company] = wl.ok ? (await wl.json()).sizes : [];
+      lookupIdsFor[company] = [];
+    }
+  }
+  if (PENDING_MODE && sizesFor.RHINO.length === 0 && sizesFor.EVERFLOW.length === 0) { console.log("no pending lookups"); return; }
+  log(`sizes — RHINO ${sizesFor.RHINO.length}, EVERFLOW ${sizesFor.EVERFLOW.length}`);
+
+  const post = async (name, rows) => {
+    const company = SITE_COMPANY[name];
+    const res = await fetch(`${CRM}/api/cron/competitor-prices`, {
+      method: "POST",
+      headers: { ...AUTH, "content-type": "application/json" },
+      body: JSON.stringify({ company, site: name, rows, lookupDone: lookupIdsFor[company] }),
+    });
+    log(`${name}: posted ${rows.length} rows → ${res.status} ${(await res.text()).slice(0, 120)}`);
+  };
+
+  // TGI + QTD share one browser page (Edge singleton — only one persistent
+  // context at a time); every other site runs in its own context afterward.
+  if (hasCreds("tgi") || hasCreds("qtd")) {
+    const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true, channel: "msedge", viewport: { width: 1366, height: 900 } });
+    const page = ctx.pages()[0] ?? (await ctx.newPage());
+    try {
+      for (const [name, run] of [["tgi", tgi], ["qtd", qtd]]) {
+        if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
+        try { await post(name, await run(page, creds[name], sizesFor.RHINO)); }
+        catch (e) { log(`${name} FAILED: ${e instanceof Error ? e.message.split("\n")[0] : e}`); }
+      }
+    } finally { await ctx.close(); }
+    await sleep(5000);
+  }
+
+  // own-context sites, run sequentially so only one Edge instance is ever up
+  for (const [name, run] of [["tiredispatch", tiredispatch], ["economytire", economytire]]) {
+    if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
+    const company = SITE_COMPANY[name];
+    try { await post(name, await run(null, creds[name], sizesFor[company])); }
+    catch (e) { log(`${name} FAILED: ${e instanceof Error ? e.message.split("\n")[0] : e}`); }
+    await sleep(3000);
   }
   log("competitor sync complete");
 }
