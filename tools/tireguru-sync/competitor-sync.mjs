@@ -316,7 +316,15 @@ function tireLinkV3(siteName) {
             const key = item || name || size + cost;
             if (seen.has(key)) continue;
             seen.add(key);
-            const brand = (card.querySelector("img")?.alt || "").trim();
+            // brand sits in a logo image — use its alt/title only when it's a
+            // clean brand word (the product-photo filename is the pattern, not
+            // the brand, so it is deliberately not used → blank when unknown)
+            let brand = "";
+            for (const img of card.querySelectorAll("img")) {
+              const cand = [(img.getAttribute("title") || "").trim(), (img.getAttribute("alt") || "").trim()]
+                .find(x => x && !/image not available/i.test(x) && /^[A-Za-z][A-Za-z0-9 &.\-]{1,20}$/.test(x) && !/\d{2,}/.test(x));
+              if (cand) { brand = cand; break; }
+            }
             out.push({ item, brand, descr: name, size, cost, fet, ftw });
           }
           return out;
