@@ -227,35 +227,69 @@ async function tiredispatch(_sharedPage, creds, sizes) {
   }
 }
 
-/** Economy Tire — TireLink v3 SPA portal (tl-….tirelinkv3.tireguru.net).
- * Login at economytire.com redirects to the portal; /lookup/tires raw search;
- * product cards show "Cost: $X/ea", "FET: $X/ea", "OH: N Ft. Worth: N". */
-async function economytire(_shared, creds, sizes) {
-  const ctx = await chromium.launchPersistentContext(join(homedir(), ".economytire-profile"), { headless: true, channel: "msedge", viewport: { width: 1366, height: 1100 } });
+/** Generic TireLink v3 SPA portal scraper — Economy Tire, BZO, BHY all run it.
+ * Login page (own domain) has username + password (server is a hidden pre-set
+ * field); it redirects to tl-….tirelinkv3.tireguru.net. /lookup/tires raw
+ * search; product cards show "Cost: $X/ea", "FET: $X/ea", "OH: N Ft. Worth: N". */
+function tireLinkV3(siteName) {
+  return async function (_shared, creds, sizes) {
+  const ctx = await chromium.launchPersistentContext(join(homedir(), `.${siteName}-profile`), { headless: true, channel: "msedge", viewport: { width: 1366, height: 1100 } });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   try {
-    await page.goto("https://www.economytire.com/", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.goto(creds.url, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(4000);
-    if (await page.locator("input[name=username]").count()) {
-      await page.locator("input[name=username]").fill(creds.username);
+    const loginBox = page.locator("input[name=username], input[name=logID]").first();
+    if (await loginBox.count()) {
+      await loginBox.fill(creds.username);
       await page.locator("input[type=password]").first().fill(creds.password);
-      await page.evaluate(() => { const b = [...document.querySelectorAll("button,input[type=submit],a")].find(e => /^log ?in|^sign ?in/i.test((e.value || e.textContent || "").trim())); b?.click(); });
-      await page.waitForTimeout(8000);
+      await loginBox.press("Enter").catch(() => {});
+      await page.waitForTimeout(3000);
+      if (!/tirelinkv3/.test(page.url())) {
+        await page.evaluate(() => { const b = [...document.querySelectorAll("button,input[type=submit]")].find(e => /log ?in|sign ?in/i.test((e.value || e.textContent || "").trim())); b?.click(); }).catch(() => {});
+        await page.waitForTimeout(6000);
+      }
     }
-    if (!/tirelinkv3/.test(page.url())) throw new Error("Economy Tire login failed");
+    if (!/tirelinkv3/.test(page.url())) throw new Error(`${siteName} login failed`);
     const portal = new URL(page.url()).origin;
 
     const rows = [];
     for (const s of sizes) {
       try {
         await page.goto(`${portal}/lookup/tires`, { waitUntil: "domcontentloaded", timeout: 60000 });
-        await page.waitForTimeout(4000);
+        await page.waitForTimeout(5000);
         await page.locator("input[name=raw]").fill(s.sizeKey);
+        await page.waitForTimeout(1000);
         await page.keyboard.press("Enter");
-        await page.waitForTimeout(9000);
+        await page.waitForTimeout(3000);
+        // some portals (BHY) don't submit on Enter — fall back to form.submit()
+        if (!/results/.test(page.url())) {
+          await page.evaluate(() => { const f = document.querySelector("input[name=raw]")?.closest("form"); if (f) f.submit(); });
+          await page.waitForTimeout(3000);
+        }
+        await page.waitForTimeout(6000);
         const found = await page.evaluate(() => {
           const out = []; const seen = new Set();
-          // the details/price column has exactly ONE "Cost:" and a "Size:"
+          const money = (s) => (String(s || "").match(/\$?([\d,]+\.\d{2})/) || [])[1];
+
+          // --- TABLE layout (BZO/BHY default): ITEM SIZE DESCRIPTION BRAND MILEAGE OH COST FET ---
+          const table = [...document.querySelectorAll("table")].find(t => /COST/i.test(t.innerText) && /\$/.test(t.innerText));
+          if (table) {
+            const trs = [...table.querySelectorAll("tr")];
+            const header = [...(trs[0]?.children || [])].map(td => (td.innerText || "").trim().toUpperCase());
+            const col = (name) => header.findIndex(h => h.startsWith(name));
+            const ci = { item: col("ITEM"), size: col("SIZE"), desc: col("DESCRIPTION"), brand: col("BRAND"), oh: col("OH"), cost: col("COST"), fet: col("FET") };
+            for (const tr of trs.slice(1)) {
+              const c = [...tr.children].map(td => (td.innerText || "").trim());
+              const cost = money(c[ci.cost]);
+              if (!cost) continue;
+              const item = c[ci.item] || "";
+              if (seen.has(item)) continue; seen.add(item);
+              out.push({ item, descr: `${c[ci.desc] || ""} ${c[ci.brand] || ""}`.trim(), size: c[ci.size] || "", cost, fet: money(c[ci.fet]), ftw: (c[ci.oh] || "").replace(/[^\d+]/g, "") });
+            }
+            return out;
+          }
+
+          // --- CARD layout (Economy default): "Size:" + one "Cost: $X/ea" per card ---
           const cells = [...document.querySelectorAll("div,article,li")].filter(e => {
             const x = e.innerText || "";
             return (x.match(/Cost:/g) || []).length === 1 && /Size:/.test(x);
@@ -263,7 +297,6 @@ async function economytire(_shared, creds, sizes) {
           const leaves = cells.filter(el => !cells.some(o => o !== el && el.contains(o)));
           const oneCost = (el) => ((el.innerText || "").match(/Cost:/g) || []).length === 1;
           for (const leaf of leaves) {
-            // climb to the LARGEST ancestor still holding exactly one Cost: = the whole card
             let card = leaf;
             while (card.parentElement && oneCost(card.parentElement)) card = card.parentElement;
             const t = (card.innerText || "").replace(/\s+/g, " ");
@@ -282,9 +315,13 @@ async function economytire(_shared, creds, sizes) {
           }
           return out;
         });
+        let kept = 0;
         for (const f of found) {
           const price = money(f.cost);
           if (!price) continue;
+          // only the searched size — some portals (BHY) return related sizes too
+          if (f.size && f.size.replace(/\D/g, "") !== s.sizeKey) continue;
+          kept++;
           rows.push({
             sizeKey: s.sizeKey,
             description: `${f.size} ${f.descr}`.replace(/\s+/g, " ").slice(0, 120),
@@ -294,17 +331,21 @@ async function economytire(_shared, creds, sizes) {
             price,
           });
         }
-        log(`  economytire ${s.display}: ${found.length} offers`);
+        log(`  ${siteName} ${s.display}: ${found.length} found, ${kept} matched size`);
         await sleep(2000);
       } catch (e) {
-        log(`  economytire ${s.display} failed: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
+        log(`  ${siteName} ${s.display} failed: ${e instanceof Error ? e.message.split("\n")[0] : e}`);
       }
     }
     return rows;
   } finally {
     await ctx.close();
   }
+  };
 }
+const economytire = tireLinkV3("economytire");
+const bzo = tireLinkV3("bzo");
+const bhy = tireLinkV3("bhy");
 
 // which company each competitor site belongs to
 const SITE_COMPANY = { tgi: "RHINO", qtd: "RHINO", tiredispatch: "RHINO", economytire: "EVERFLOW", bzo: "EVERFLOW", bhy: "EVERFLOW" };
@@ -356,7 +397,9 @@ async function main() {
   }
 
   // own-context sites, run sequentially so only one Edge instance is ever up
-  for (const [name, run] of [["tiredispatch", tiredispatch], ["economytire", economytire]]) {
+  // bhy TEMPORARILY DISABLED: its /lookup search ignores the raw size filter
+  // (form.submit returns the default catalog) — mechanism still to be mapped.
+  for (const [name, run] of [["tiredispatch", tiredispatch], ["economytire", economytire], ["bzo", bzo]]) {
     if (!hasCreds(name)) { log(`${name}: no credentials — skipped`); continue; }
     const company = SITE_COMPANY[name];
     try { await post(name, await run(null, creds[name], sizesFor[company])); }
