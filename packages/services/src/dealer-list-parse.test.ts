@@ -50,4 +50,27 @@ describe("mergeDealerRows", () => {
     expect(out[0].street).toBe("1 Main");
     expect(out[0].zip).toBe("78701");
   });
+
+  it("keeps every distinct address when one phone covers several locations", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Chain Tire", city: "Bend", state: "OR", zip: "97701", street: "1 A St", phone: "509-248-1052", country: "USA", email: "", website: "" },
+      { brand: "FUEL OFF-ROAD", name: "Chain Tire", city: "Yakima", state: "WA", zip: "98901", street: "2 B St", phone: "(509) 248-1052", country: "USAA", email: "", website: "" },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].locations).toHaveLength(2);
+    expect(out[0].locations.map(l => l.city).sort()).toEqual(["Bend", "Yakima"]);
+    // top-level address keeps first-row behaviour
+    expect(out[0].city).toBe("Bend");
+  });
+
+  it("gives a single-row record exactly one location, and dedupes identical addresses", () => {
+    const single = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "ABC", city: "", state: "TX", phone: "", street: "", zip: "", country: "", email: "", website: "" },
+    ]);
+    expect(single[0].locations).toEqual([{ street: "", city: "", state: "TX", zip: "" }]);
+
+    const same = { name: "Rim Shop", city: "Austin", state: "TX", phone: "5125550000", street: "1 Main", zip: "78701", country: "", email: "", website: "" };
+    const merged = mergeDealerRows([{ ...same, brand: "KG1 FORGED" }, { ...same, brand: "JTX FORGED" }]);
+    expect(merged[0].locations).toHaveLength(1);
+  });
 });

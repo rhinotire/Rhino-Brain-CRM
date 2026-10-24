@@ -29,6 +29,8 @@ export type RawDealerRow = {
   website: string;
 };
 
+export type DealerLocation = { street: string; city: string; state: string; zip: string };
+
 export type DealerRecord = {
   name: string;
   street: string;
@@ -39,6 +41,10 @@ export type DealerRecord = {
   email: string;
   website: string;
   brands: string[]; // sorted, deduped
+  // Every distinct address merged into this record (one shared phone can cover
+  // several physical shops). Always >= 1 entry; top-level street/city/state/zip
+  // stay first-non-empty for existing readers.
+  locations: DealerLocation[];
   country: "US" | "CA" | "OTHER"; // derived from STATE, never from the Country column
   dedupeKey: string; // "" when not dedupable
 };
@@ -63,6 +69,13 @@ export function countryFromState(state: string): "US" | "CA" | "OTHER" {
 
 const FILL_FIELDS = ["name", "street", "city", "state", "zip", "phone", "email", "website"] as const;
 
+function addLocation(locations: DealerLocation[], loc: DealerLocation): void {
+  const dup = locations.some(
+    (l) => l.street === loc.street && l.city === loc.city && l.state === loc.state && l.zip === loc.zip,
+  );
+  if (!dup) locations.push(loc);
+}
+
 export function mergeDealerRows(rows: RawDealerRow[]): DealerRecord[] {
   const records: DealerRecord[] = [];
   const byKey = new Map<string, DealerRecord>();
@@ -82,18 +95,22 @@ export function mergeDealerRows(rows: RawDealerRow[]): DealerRecord[] {
     // Website is deliberately not part of the merge key (spec: phone/name+city).
     const dedupeKey = dedupeKeyFor({ phone: clean.phone, companyName: clean.name, city: clean.city });
 
+    const loc: DealerLocation = { street: clean.street, city: clean.city, state: clean.state, zip: clean.zip };
+
     // "" is never a merge key: a non-dedupable row stands alone.
     const existing = dedupeKey ? byKey.get(dedupeKey) : undefined;
     if (existing) {
       for (const f of FILL_FIELDS) if (!existing[f] && clean[f]) existing[f] = clean[f];
       existing.country = countryFromState(existing.state);
       if (brand && !existing.brands.includes(brand)) existing.brands.push(brand);
+      addLocation(existing.locations, loc);
       continue;
     }
 
     const rec: DealerRecord = {
       ...clean,
       brands: brand ? [brand] : [],
+      locations: [loc],
       country: countryFromState(clean.state),
       dedupeKey,
     };
