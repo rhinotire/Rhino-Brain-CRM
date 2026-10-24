@@ -81,7 +81,7 @@ function normStreet(street: string): string {
   return street
     .toUpperCase()
     .replace(/[.,#]/g, "")
-    .replace(/s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .split(" ")
     .map((t) => STREET_TOKENS[t] ?? t)
@@ -89,7 +89,7 @@ function normStreet(street: string): string {
 }
 
 function locationKey(l: DealerLocation): string {
-  const zip5 = l.zip.replace(/D/g, "").slice(0, 5);
+  const zip5 = l.zip.replace(/\D/g, "").slice(0, 5);
   return [normStreet(l.street), l.city.trim().toUpperCase(), l.state.trim().toUpperCase(), zip5].join("|");
 }
 

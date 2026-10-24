@@ -93,4 +93,27 @@ describe("mergeDealerRows", () => {
     ]);
     expect(out[0].locations).toHaveLength(2);
   });
+  it("collapses runs of whitespace in a street before comparing", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Gap Co", city: "Tempe", state: "AZ", zip: "85281", street: "100  N   Main  St", phone: "480-555-0199", country: "USA", email: "", website: "" },
+      { brand: "FUEL OFF-ROAD", name: "Gap Co", city: "Tempe", state: "AZ", zip: "85281", street: "100 N Main St", phone: "(480) 555-0199", country: "", email: "", website: "" },
+    ]);
+    expect(out[0].locations).toHaveLength(1);
+  });
+
+  it("reduces a padded or suffixed zip to its first five digits", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Zip Co", city: "Tempe", state: "AZ", zip: "  85281  ", street: "200 E Oak St", phone: "480-555-0200", country: "USA", email: "", website: "" },
+      { brand: "FUEL OFF-ROAD", name: "Zip Co", city: "Tempe", state: "AZ", zip: "85281-1234", street: "200 E Oak St", phone: "(480) 555-0200", country: "", email: "", website: "" },
+    ]);
+    expect(out[0].locations).toHaveLength(1);
+  });
+  it("ignores non-digit characters in a zip/postal code when comparing", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Postal Co", city: "Calgary", state: "AB", zip: "T4J 1R2", street: "9 Elm Rd", phone: "403-555-0300", country: "", email: "", website: "" },
+      { brand: "FUEL OFF-ROAD", name: "Postal Co", city: "Calgary", state: "AB", zip: "T4J1R2", street: "9 Elm Rd", phone: "(403) 555-0300", country: "", email: "", website: "" },
+    ]);
+    expect(out[0].locations).toHaveLength(1);
+    expect(out[0].locations[0].zip).toBe("T4J 1R2"); // original kept
+  });
 });
