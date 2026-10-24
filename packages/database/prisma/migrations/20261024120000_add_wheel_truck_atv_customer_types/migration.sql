@@ -1,0 +1,4 @@
+-- AlterEnum
+ALTER TYPE "CustomerType" ADD VALUE 'WHEEL_SHOP';
+ALTER TYPE "CustomerType" ADD VALUE 'TRUCK_TIRE_SHOP';
+ALTER TYPE "CustomerType" ADD VALUE 'ATV_GOLF';

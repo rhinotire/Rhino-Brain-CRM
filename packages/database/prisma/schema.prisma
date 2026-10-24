@@ -21,6 +21,9 @@ enum Role {
 
 enum CustomerType {
   TIRE_SHOP
+  WHEEL_SHOP
+  TRUCK_TIRE_SHOP
+  ATV_GOLF
   CAR_DEALER
   TRAILER_MANUFACTURER
   FLEET
