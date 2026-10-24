@@ -1,5 +1,5 @@
 import { assignStateLocation } from "./prospect-score";
-import { countryFromState } from "./dealer-list-parse";
+import { countryFromState } from "./geo-state";
 import type { DealerRecord } from "./dealer-list-parse";
 
 /**

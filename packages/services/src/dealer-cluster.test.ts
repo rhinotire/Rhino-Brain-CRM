@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { attachCoordinates, clusterByCity, milesFromHub } from "./dealer-cluster";
-import { countryFromState } from "./dealer-list-parse";
+import { countryFromState } from "./geo-state";
 import type { DealerRecord, DealerLocation } from "./dealer-list-parse";
 
 // Test fixture only. Country is derived from state exactly as the parser does.

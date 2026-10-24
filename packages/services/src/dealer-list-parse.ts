@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import * as XLSX from "xlsx";
 import { dedupeKeyFor } from "./prospect-dedupe";
+import { countryFromState } from "./geo-state";
+
+export { countryFromState } from "./geo-state";
 
 /**
  * Parser for the multi-brand wheel dealer-locator workbook. One sheet per
@@ -48,24 +51,6 @@ export type DealerRecord = {
   country: "US" | "CA" | "OTHER"; // derived from STATE, never from the Country column
   dedupeKey: string; // "" when not dedupable
 };
-
-const US_STATES = new Set(
-  (
-    "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO " +
-    "MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY " +
-    "DC PR GU VI AS MP"
-  ).split(" "),
-);
-const CA_PROVINCES = new Set(
-  "AB BC MB NB NL NS NT NU ON PE QC SK YT".split(" "),
-);
-
-export function countryFromState(state: string): "US" | "CA" | "OTHER" {
-  const s = state.trim().toUpperCase();
-  if (US_STATES.has(s)) return "US";
-  if (CA_PROVINCES.has(s)) return "CA";
-  return "OTHER";
-}
 
 const FILL_FIELDS = ["name", "street", "city", "state", "zip", "phone", "email", "website"] as const;
 
