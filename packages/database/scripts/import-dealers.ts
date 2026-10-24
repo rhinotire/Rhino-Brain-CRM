@@ -9,7 +9,7 @@
  *   --file        the Dealer-Locators workbook (required)
  *   --territory   rhino | everflow | all   (required; "all" = every parsed dealer,
  *                 home states to their location, non-home US to locationId=null,
- *                 Canada to Qingdao)
+ *                 Canada and unresolved states also locationId=null: parked, no rep sees them)
  *   --limit N     import at most N dealers, best release order first (tier, brands, email)
  *   --dry         classify and count only. Writes NOTHING. A write-blocking Prisma
  *                 extension makes that structural, not a convention.
@@ -167,15 +167,28 @@ async function main() {
   const custPhones = new Set(customers.map((c) => phoneKey(c.phone)).filter(Boolean));
   const custDomains = new Set(customers.map((c) => domainKey(c.website)).filter(Boolean));
 
-  const locByTag = async (tag: string) => (await db.location.findFirst({ where: { shortTag: tag }, select: { id: true } }))?.id ?? null;
-  const ids = { rhino: await locByTag("FL"), everflow: await locByTag("TX"), qingdao: await locByTag("QD") };
-  const needs = territoryArg === "rhino" ? ["rhino"] : territoryArg === "everflow" ? ["everflow"] : ["rhino", "everflow", "qingdao"];
+  // Every home-state rep assignment rides on these two ids. Location.shortTag is NOT unique in the
+  // schema, so require exactly ONE ACTIVE match per tag (refuse on 0 or 2+) and print the names.
+  // Qingdao is deliberately not resolved: Canada is parked with a null location.
+  const resolveLoc = async (tag: string): Promise<{ id: string; name: string } | null> => {
+    const hits = await db.location.findMany({ where: { shortTag: tag, active: true }, select: { id: true, name: true } });
+    if (hits.length > 1) {
+      console.error(`Ambiguous location: ${hits.length} ACTIVE locations have shortTag "${tag}" (${hits.map((h) => h.name).join(", ")}). Refusing to route dealers.`);
+      process.exit(1);
+    }
+    return hits[0] ?? null;
+  };
+  const flLoc = await resolveLoc("FL");
+  const txLoc = await resolveLoc("TX");
+  const ids = { rhino: flLoc?.id ?? null, everflow: txLoc?.id ?? null, qingdao: null as string | null };
+  const needs = territoryArg === "rhino" ? ["rhino"] : territoryArg === "everflow" ? ["everflow"] : ["rhino", "everflow"];
   for (const n of needs) {
-    if (!ids[n as keyof typeof ids]) {
-      console.error(`Location for "${n}" not found (shortTag FL / TX / QD). Refusing to route dealers to a null location.`);
+    if (!ids[n as "rhino" | "everflow"]) {
+      console.error(`No active location found for "${n}" (shortTag FL / TX). Refusing to route dealers to a null location.`);
       process.exit(1);
     }
   }
+  console.log(`Resolved locations: FL -> ${flLoc ? `"${flLoc.name}" (${flLoc.id})` : "none"} | TX -> ${txLoc ? `"${txLoc.name}" (${txLoc.id})` : "none"} | Canada/non-home US/unresolved -> null (no rep)`);
   const admin = arg("user")
     ? await db.user.findFirst({ where: { email: arg("user") }, select: { id: true, email: true } })
     : await db.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" }, select: { id: true, email: true } });
@@ -185,7 +198,7 @@ async function main() {
   }
   console.log(
     `Snapshot: ${exclusionRows.length} ExclusionList rows (${blacklistRows.length} BLACKLIST), ${leadRows.length} Leads, ${customers.length} Customers; ` +
-      `locations FL=${ids.rhino ? "ok" : "MISSING"} TX=${ids.everflow ? "ok" : "MISSING"} QD=${ids.qingdao ? "ok" : "MISSING"}; batch owner=${admin.email}`,
+      `batch owner=${admin.email}`,
   );
 
   // ---- plan every record -----------------------------------------------------------
@@ -293,7 +306,7 @@ async function main() {
     addGrid("WOULD CREATE", territory);
     (byTier[plan.tier] ??= row0())[territory]++;
     bump(byType, leadTypeFor(d));
-    bump(byLoc, plan.locationId === ids.rhino ? "Rhino (FL)" : plan.locationId === ids.everflow ? "Everflow (TX)" : plan.locationId === ids.qingdao ? "Qingdao (QD)" : "null (no rep)");
+    bump(byLoc, plan.locationId === null ? "null (no rep)" : plan.locationId === ids.rhino ? "Rhino (FL)" : plan.locationId === ids.everflow ? "Everflow (TX)" : "UNEXPECTED");
     if (territory === "Rhino" || territory === "Everflow") bump(coordSrc, c.p.coordSource);
     if (c.p.phoneNulled) phonesNulled++;
   }
@@ -347,15 +360,21 @@ async function main() {
   // The DB-backed gates run again on exactly the rows about to be created, so a blacklist
   // or exclusion row the in-memory snapshot somehow missed still stops the write.
   const gated: typeof creates = [];
-  let gateBlocked = 0;
+  const gateBlockedNames: string[] = [];
   await pool(creates, 8, async (c) => {
     const cand = { companyName: c.p.d.name, website: c.p.d.website, phone: c.p.d.phone };
     const bl = await findBlacklistMatch(cand);
     const ex = bl ? null : await isExcluded(cand);
-    if (bl || ex) gateBlocked++;
+    if (bl || ex) gateBlockedNames.push(`${c.p.d.name} (${c.p.d.city}, ${c.p.d.state}) [${bl ? "BLACKLIST" : "EXCLUDED"}]`);
     else gated.push(c);
   });
+  const gateBlocked = gateBlockedNames.length;
   console.log(`Live gate re-check: ${gated.length} clear, ${gateBlocked} blocked by findBlacklistMatch/isExcluded`);
+  if (gateBlocked) {
+    console.log("!! BLOCKED BY LIVE GATE (the in-memory snapshot had passed these):");
+    for (const n of gateBlockedNames) console.log(`   - ${n}`);
+    process.exitCode = 1; // the in-memory and live gates disagreed: surface it, never silently proceed
+  }
 
   if (gated.length === 0 && updates.length === 0) {
     console.log("Nothing to write (re-run against an already-imported list). No ImportBatch created.");
@@ -366,7 +385,8 @@ async function main() {
     data: { entity: "leads", fileName: batchFile, rowCount: examined.length, successful: 0, failed: 0, userId: admin.id },
   });
   let createdN = 0;
-  let failedN = 0;
+  let createFailedN = 0; // creates that did not land (error OR silently dropped by skipDuplicates)
+  let updateFailedN = 0;
   const failures: string[] = [];
 
   const toData = (c: (typeof gated)[number]): Prisma.LeadCreateManyInput => {
@@ -379,14 +399,31 @@ async function main() {
     try {
       const r = await db.lead.createMany({ data: chunk.map(toData), skipDuplicates: true });
       createdN += r.count;
+      if (r.count < chunk.length) {
+        // skipDuplicates discards a dedupeKey collision silently. Find out exactly who was dropped:
+        // everything in this chunk that did not land under THIS batch.
+        const landed = new Set(
+          (
+            await db.lead.findMany({
+              where: { importBatchId: batch.id, dedupeKey: { in: chunk.map((c) => c.p.d.dedupeKey) } },
+              select: { dedupeKey: true },
+            })
+          ).map((l) => l.dedupeKey),
+        );
+        for (const c of chunk) {
+          if (landed.has(c.p.d.dedupeKey)) continue;
+          createFailedN++;
+          failures.push(`${c.p.d.name} (${c.p.d.city}, ${c.p.d.state}): DROPPED by skipDuplicates, dedupeKey ${c.p.d.dedupeKey} already exists`);
+        }
+      }
     } catch (e) {
       for (const c of chunk) {
         try {
           await db.lead.create({ data: toData(c) });
           createdN++;
         } catch (e2) {
-          failedN++;
-          failures.push(`${c.p.d.name}: ${e2 instanceof Error ? e2.message.split("\n").pop() : e2}`);
+          createFailedN++;
+          failures.push(`${c.p.d.name} (${c.p.d.city}, ${c.p.d.state}): ${e2 instanceof Error ? e2.message.split("\n").pop() : e2}`);
         }
       }
     }
@@ -402,19 +439,33 @@ async function main() {
       await db.lead.update({ where: { id: u.lead.id }, data: data as Prisma.LeadUncheckedUpdateInput });
       updatedN++;
     } catch (e) {
-      failedN++;
-      failures.push(`${u.p.d.name}: ${e instanceof Error ? e.message.split("\n").pop() : e}`);
+      updateFailedN++;
+      failures.push(`UPDATE ${u.p.d.name}: ${e instanceof Error ? e.message.split("\n").pop() : e}`);
     }
   }
 
+  const failedN = createFailedN + updateFailedN;
   await db.importBatch.update({
     where: { id: batch.id },
     data: { successful: createdN + updatedN, failed: failedN },
   });
-  console.log(`\nImportBatch ${batch.id}: created ${createdN}, updated ${updatedN}, failed ${failedN}, skipped by live gate ${gateBlocked}`);
-  for (const f of failures.slice(0, 20)) console.log(`  FAILED ${f}`);
+  console.log(`\nImportBatch ${batch.id}: created ${createdN}, updated ${updatedN}, failed ${failedN}, blocked by live gate ${gateBlocked}`);
+  for (const f of failures) console.log(`  FAILED ${f}`);
+
+  // A shortfall must be impossible to miss: every gated row either landed or is named above.
+  if (createdN + createFailedN !== gated.length) {
+    console.error(`!! SHORTFALL: created ${createdN} + failed ${createFailedN} != ${gated.length} gated rows`);
+    process.exitCode = 1;
+  }
+  if (createdN !== creates.length) {
+    console.error(
+      `!! SHORTFALL vs plan: planned ${creates.length} creates, wrote ${createdN} ` +
+        `(live-gate blocked ${gateBlocked}, failed/dropped ${createFailedN}). Names are listed above.`,
+    );
+    process.exitCode = 1;
+  }
+  if (updateFailedN) process.exitCode = 1;
   console.log(`Lead total now: ${await db.lead.count()}`);
-  if (failedN) process.exitCode = 1;
 }
 
 main()

@@ -58,7 +58,7 @@ export function shouldImport(d: DealerRecord, flags: ImportFlags = {}): ImportDe
   if (flags.blacklisted) return { ok: false, reason: "BLACKLISTED" };
   if (flags.excluded) return { ok: false, reason: "EXCLUDED" };
   if (flags.alreadyLead) return { ok: false, reason: "ALREADY_LEAD" };
-  if (d.dedupeKey === "") return { ok: false, reason: "NON_DEDUPABLE" };
+  if (!d.dedupeKey) return { ok: false, reason: "NON_DEDUPABLE" };
   return { ok: true };
 }
 
@@ -114,9 +114,11 @@ export type LocationIds = { rhino: string | null; everflow: string | null; qingd
  * Territory routing:
  *   home states (Rhino / Everflow)  -> that company's location id
  *   non-home US state               -> null  (nurture pool: must NEVER reach a rep queue)
- *   Canada                          -> the Qingdao location
- *   unresolvable state              -> null  (we cannot claim it is international;
- *                                             parked unassigned rather than sent to Qingdao)
+ *   Canada                          -> null  (parked: still imported for the record, but a
+ *                                             Qingdao rep must not receive it in My Work)
+ *   unresolvable state              -> null  (we cannot claim it is international)
+ *
+ * ids.qingdao is accepted for signature stability but deliberately unused.
  *
  * Delegates the home-state decision to assignStateLocation so there is one
  * definition of "home".
@@ -126,7 +128,6 @@ export function locationForRecord(d: Pick<DealerRecord, "state" | "zip">, ids: L
   const home = assignStateLocation(geo.state);
   if (home === "RHINO") return ids.rhino;
   if (home === "EVERFLOW") return ids.everflow;
-  if (geo.country === "CA") return ids.qingdao;
   return null;
 }
 
@@ -365,13 +366,14 @@ export function buildMeta(d: DealerRecord, plan: LeadPlan): Record<string, unkno
 
 /** The data for a NEW Lead (everything except importBatchId, which the CLI adds). */
 export function buildNewLead(d: DealerRecord, plan: LeadPlan) {
-  const rawState = d.state.trim();
   return {
     companyName: d.name,
     phone: cleanPhone(d.phone),
     email: d.email.trim() || null,
     city: d.city.trim() || null,
-    state: plan.geo.repairedFromZip ? plan.geo.state : rawState || null,
+    // Only a state we recognise (US code or Canadian province, after repair) is written;
+    // junk such as "BC CANADA", "817" or "LAA" must not sit in a rep-visible, filterable column.
+    state: plan.geo.state && countryFromState(plan.geo.state) !== "OTHER" ? plan.geo.state : null,
     country: plan.geo.country,
     type: leadTypeFor(d),
     source: "PROSPECTING" as const,

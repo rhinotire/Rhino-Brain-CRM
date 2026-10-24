@@ -66,6 +66,10 @@ describe("shouldImport", () => {
   it("skips a non-dedupable record rather than writing an empty dedupeKey", () => {
     expect(shouldImport(rec({ dedupeKey: "" }))).toEqual({ ok: false, reason: "NON_DEDUPABLE" });
   });
+  it("treats a null or undefined dedupeKey as non-dedupable too", () => {
+    expect(shouldImport(rec({ dedupeKey: null as unknown as string }))).toEqual({ ok: false, reason: "NON_DEDUPABLE" });
+    expect(shouldImport(rec({ dedupeKey: undefined as unknown as string }))).toEqual({ ok: false, reason: "NON_DEDUPABLE" });
+  });
   it("blocks a blacklisted dealer from import", () => {
     expect(shouldImport(rec(), { blacklisted: true })).toEqual({ ok: false, reason: "BLACKLISTED" });
   });
@@ -97,9 +101,10 @@ describe("locationForRecord", () => {
     for (const s of ["FL", "GA", "AL", "SC", "NC", "TN", "MS"]) expect(locationForRecord(rec({ state: s }), ids)).toBe(ids.rhino);
     for (const s of ["TX", "OK", "LA", "AR", "NM"]) expect(locationForRecord(rec({ state: s }), ids)).toBe(ids.everflow);
   });
-  it("routes Canada to the Qingdao location", () => {
-    expect(locationForRecord(rec({ state: "ON", zip: "M3J 2C2" }), ids)).toBe(ids.qingdao);
-    expect(locationForRecord(rec({ state: "BC CANADA", zip: "V2T 6G1" }), ids)).toBe(ids.qingdao);
+  it("parks Canada with a null locationId: no rep (including the Qingdao rep) receives it", () => {
+    expect(locationForRecord(rec({ state: "ON", zip: "M3J 2C2" }), ids)).toBeNull();
+    expect(locationForRecord(rec({ state: "BC CANADA", zip: "V2T 6G1" }), ids)).toBeNull();
+    expect(locationForRecord(rec({ state: "QC" }), ids)).toBeNull();
   });
   it("parks an unresolvable state unassigned instead of sending it to Qingdao", () => {
     expect(locationForRecord(rec({ state: "", zip: "" }), ids)).toBeNull();
@@ -322,6 +327,19 @@ describe("buildNewLead", () => {
     expect(lead.state).toBe("LA");
     expect(lead.country).toBe("US");
     expect(lead.meta.stateRepairedFromZip).toEqual({ was: "LAA", now: "LA" });
+  });
+  it("writes a normalised state for a recognised one and null for junk", () => {
+    const st = (state: string, zip = "") => {
+      const d = rec({ state, zip });
+      return buildNewLead(d, plan({ geo: resolveGeo(d) })).state;
+    };
+    expect(st("fl")).toBe("FL");
+    expect(st(" tx ")).toBe("TX");
+    expect(st("ON", "M3J 2C2")).toBe("ON");
+    expect(st("BC CANADA", "V2T 6G1")).toBeNull();
+    expect(st("817")).toBeNull();
+    expect(st("")).toBeNull();
+    expect(st("LAA")).toBeNull(); // no zip to repair from
   });
   it("keeps a non-home dealer's locationId null", () => {
     expect(buildNewLead(rec({ state: "MT" }), plan({ locationId: null })).locationId).toBeNull();
