@@ -1,4 +1,5 @@
 import { assignStateLocation } from "./prospect-score";
+import { countryFromState } from "./dealer-list-parse";
 import type { DealerRecord } from "./dealer-list-parse";
 
 /**
@@ -28,13 +29,15 @@ export function tierFor(
 ): Tier {
   if (opts.isExistingCustomer) return 1;
 
-  // d.country is derived from the State code by the parser, never from the
-  // Country column. Canada and international are parked for this phase.
-  if (d.country !== "US") return 8;
+  // Territory is derived from the State code here, not read from the stored
+  // d.country, so a stale or rebuilt record cannot park a home-state dealer.
+  // Canada and international are parked for this phase.
+  const state = d.state.trim();
+  if (countryFromState(state) !== "US") return 8;
 
   const brandCount = d.brands.length;
 
-  if (assignStateLocation(d.state) !== null) {
+  if (assignStateLocation(state) !== null) {
     if (brandCount >= HOME_MULTI_BRAND_MIN) return 2;
     const miles = opts.milesFromHub;
     return miles != null && miles <= HUB_RADIUS_MILES ? 3 : 4;

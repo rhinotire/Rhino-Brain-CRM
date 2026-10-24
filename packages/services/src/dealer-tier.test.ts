@@ -60,8 +60,18 @@ describe("tierFor", () => {
   it("ranks an existing customer tier 1 even in Canada", () => {
     expect(tierFor(rec({ state: "ON" }), { isExistingCustomer: true })).toBe(1);
   });
-  it("reads territory from state, not from the country field", () => {
+  it("accepts a lowercase home-state code", () => {
     expect(tierFor(rec({ state: "tx", brands: ["A", "B"] }))).toBe(2);
+  });
+  it("reads territory from state, not from the country field", () => {
+    // a stale/incorrect country must not override a real home state
+    expect(tierFor(rec({ state: "FL", brands: ["A", "B"], country: "OTHER" }))).toBe(2);
+  });
+  it("does not let a stale US country rescue a Canadian state", () => {
+    expect(tierFor(rec({ state: "ON", brands: ["A", "B"], country: "US" }))).toBe(8);
+  });
+  it("trims a padded home-state code", () => {
+    expect(tierFor(rec({ state: " TX ", brands: ["A", "B"] }))).toBe(2);
   });
 });
 
@@ -91,9 +101,9 @@ describe("compareForRelease", () => {
     expect(compareForRelease(four, three)).toBeLessThan(0);
   });
   it("ranks brand count above email within a tier", () => {
-    const twoNoEmail = rec({ state: "FL", brands: ["A", "B", "C"], email: "" });
-    const twoEmail = rec({ state: "FL", brands: ["A", "B"], email: "x@y.com" });
-    expect(compareForRelease(twoNoEmail, twoEmail)).toBeLessThan(0);
+    const threeNoEmail = rec({ state: "FL", brands: ["A", "B", "C"], email: "" });
+    const twoWithEmail = rec({ state: "FL", brands: ["A", "B"], email: "x@y.com" });
+    expect(compareForRelease(threeNoEmail, twoWithEmail)).toBeLessThan(0);
   });
   it("treats a whitespace-only email as no email", () => {
     const real = rec({ email: "x@y.com" });
