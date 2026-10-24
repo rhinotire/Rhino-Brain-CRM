@@ -16,6 +16,8 @@ import {
   matchExistingLead,
   buildNewLead,
   buildMeta,
+  crossSellTaskFor,
+  crossSellMarker,
   GOLF_CART_BRAND,
   HIGH_DENSITY_MIN,
   IMPORT_SOURCE,
@@ -411,5 +413,60 @@ describe("mergeIntoExisting", () => {
     const merged = mergeIntoExisting({ assignedRepId: null, ...created }, d, plan({ tier: 3 }));
     expect(isNoopMerge(merged)).toBe(false);
     expect((merged.meta as Record<string, unknown>).tier).toBe(3);
+  });
+});
+
+describe("crossSellTaskFor", () => {
+  const customer = { id: "cust-1", companyName: "Acme Wheels", assignedRepId: "rep-1", locationId: "loc-rhino" };
+  const record = rec();
+
+  it("builds a cross-sell task naming the brands the customer carries", () => {
+    const t = crossSellTaskFor(customer, { ...record, brands: ["FUEL OFF-ROAD", "KG1 FORGED"] });
+    expect(t).not.toBeNull();
+    expect(t!.title).toContain("FUEL OFF-ROAD");
+    expect(t!.assigneeId).toBe(customer.assignedRepId);
+  });
+  it("creates no task for a blacklisted customer", () => {
+    expect(crossSellTaskFor(customer, record, { blacklisted: true })).toBeNull();
+  });
+  it("creates no task when the customer has no assigned rep", () => {
+    expect(crossSellTaskFor({ ...customer, assignedRepId: null }, record)).toBeNull();
+  });
+  it("creates no task when the assigned rep id is an empty string", () => {
+    expect(crossSellTaskFor({ ...customer, assignedRepId: "" }, record)).toBeNull();
+  });
+  it("fills every required Task column: due in 7 days, customer, location, creator", () => {
+    const now = new Date("2026-10-24T12:00:00.000Z");
+    const t = crossSellTaskFor(customer, record, { now, creatorId: "admin-1" })!;
+    expect(t.dueDate.toISOString()).toBe("2026-10-31T12:00:00.000Z");
+    expect(t.customerId).toBe("cust-1");
+    expect(t.locationId).toBe("loc-rhino");
+    expect(t.creatorId).toBe("admin-1");
+    expect(t.priority).toBe("MEDIUM");
+    expect(t.type).toBe("FOLLOW_UP");
+    expect("status" in t).toBe(false);
+  });
+  it("defaults the creator to the assigned rep when none is given", () => {
+    expect(crossSellTaskFor(customer, record)!.creatorId).toBe("rep-1");
+  });
+  it("embeds the dealer's dedupe marker in the description so a re-run can recognise it", () => {
+    const t = crossSellTaskFor(customer, record)!;
+    expect(t.description).toContain(crossSellMarker(record));
+    expect(crossSellMarker(record)).toContain(record.dedupeKey);
+  });
+  it("puts the marker alone on the first line: the importer's dedupe reads exactly that line", () => {
+    const t = crossSellTaskFor(customer, record)!;
+    expect(t.description.split("\n", 1)[0]).toBe(crossSellMarker(record));
+  });
+  it("gives non-dedupable dealers distinct markers (never the empty key)", () => {
+    const a = crossSellMarker(rec({ dedupeKey: "", name: "Alpha Wheels" }));
+    const b = crossSellMarker(rec({ dedupeKey: "", name: "Bravo Wheels" }));
+    expect(a).not.toBe(b);
+    expect(a).not.toBe("[dealer-xsell:]");
+  });
+  it("still produces a sensible task when the list recorded no brands", () => {
+    const t = crossSellTaskFor(customer, { ...record, brands: [] })!;
+    expect(t.title).toContain("Acme Wheels");
+    expect(t.description).toContain("No brands recorded");
   });
 });

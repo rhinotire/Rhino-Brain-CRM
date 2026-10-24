@@ -9,8 +9,9 @@ import { domainKey, nameKey, phoneKey } from "./referral-matching";
 
 /**
  * The testable rules behind scripts/import-dealers.ts. Pure functions: no DB,
- * no network, no file I/O, no clock. The CLI owns every side effect; anything
- * that decides WHAT gets written lives here so it can be unit-tested.
+ * no network, no file I/O, no clock of its own (crossSellTaskFor takes an injectable
+ * `now`). The CLI owns every side effect; anything that decides WHAT gets
+ * written lives here so it can be unit-tested.
  */
 
 // ---- constants --------------------------------------------------------------
@@ -448,4 +449,93 @@ function stableStringify(v: unknown): string {
 /** True when a merge would change nothing except echoing assignedRepId. */
 export function isNoopMerge(merged: Record<string, unknown>): boolean {
   return Object.keys(merged).every((k) => k === "assignedRepId");
+}
+
+// ---- cross-sell tasks for dealers that are already customers -------------------------------------
+
+/** The slice of a Customer row the cross-sell rule needs (no Prisma types in this package). */
+export type CrossSellCustomer = {
+  id: string;
+  companyName: string;
+  assignedRepId: string | null;
+  locationId: string | null;
+};
+
+/** Shape of a Task row to create (status is omitted: the schema defaults it to OPEN). */
+export type TaskInput = {
+  title: string;
+  description: string;
+  dueDate: Date;
+  priority: "MEDIUM";
+  type: "FOLLOW_UP";
+  customerId: string;
+  assigneeId: string;
+  locationId: string | null;
+  creatorId: string;
+};
+
+export type CrossSellFlags = {
+  /** findBlacklistMatch() hit: a blacklisted company never gets a task, even if it is a customer. */
+  blacklisted?: boolean;
+  /** Task.creatorId is required. The importer passes the resolved actor; defaults to the assigned rep. */
+  creatorId?: string;
+  /** Injected clock for the due date (tests). Defaults to the current time. */
+  now?: Date;
+};
+
+/** Days between the importer run and the cross-sell task falling due. */
+export const CROSS_SELL_DUE_DAYS = 7;
+
+/** Prefix of the marker embedded in Task.description; the importer's re-run dedupe keys on it. */
+export const CROSS_SELL_MARKER_PREFIX = "dealer-xsell:";
+
+/**
+ * Stable identity of a dealer record inside a task description. dedupeKey is the
+ * dealer's identity everywhere else in the importer; a non-dedupable record
+ * (dedupeKey "") falls back to its name so two such dealers never share a marker.
+ */
+export function crossSellMarker(d: Pick<DealerRecord, "dedupeKey" | "name">): string {
+  return `[${CROSS_SELL_MARKER_PREFIX}${d.dedupeKey || `name:${d.name.trim().toLowerCase()}`}]`;
+}
+
+/**
+ * A dealer on the list who is already a customer is an upsell, not a prospect:
+ * the task goes to the rep who already owns the account. Returns null when no
+ * task should exist: the company is blacklisted, or the customer has no
+ * assigned rep (the caller reports that case, it must not vanish silently).
+ */
+export function crossSellTaskFor(
+  customer: CrossSellCustomer,
+  d: DealerRecord,
+  flags: CrossSellFlags = {},
+): TaskInput | null {
+  if (flags.blacklisted) return null;
+  const rep = customer.assignedRepId;
+  if (!rep) return null;
+
+  const now = flags.now ?? new Date();
+  const dueDate = new Date(now.getTime() + CROSS_SELL_DUE_DAYS * 24 * 60 * 60 * 1000);
+  const brands = d.brands.length > 0 ? d.brands.join(", ") : null;
+  const where = [d.city, d.state].map((s) => s.trim()).filter(Boolean).join(", ");
+
+  return {
+    title: brands
+      ? `Cross-sell wheels: ${customer.companyName} carries ${brands}`
+      : `Cross-sell wheels: ${customer.companyName} is on the wheel dealer list`,
+    description: [
+      crossSellMarker(d),
+      `${customer.companyName} is already a customer and also appears on the wheel dealer list` +
+        (where ? ` (${where})` : "") +
+        ".",
+      brands ? `Brands they carry: ${brands}.` : "No brands recorded on the list.",
+      "Reach out and offer our wheel and ATV lines.",
+    ].join("\n"),
+    dueDate,
+    priority: "MEDIUM",
+    type: "FOLLOW_UP",
+    customerId: customer.id,
+    assigneeId: rep,
+    locationId: customer.locationId,
+    creatorId: flags.creatorId ?? rep,
+  };
 }
