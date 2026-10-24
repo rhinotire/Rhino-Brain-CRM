@@ -69,11 +69,34 @@ export function countryFromState(state: string): "US" | "CA" | "OTHER" {
 
 const FILL_FIELDS = ["name", "street", "city", "state", "zip", "phone", "email", "website"] as const;
 
+const STREET_TOKENS: Record<string, string> = {
+  STREET: "ST", AVENUE: "AVE", ROAD: "RD", BOULEVARD: "BLVD",
+  DRIVE: "DR", LANE: "LN", HIGHWAY: "HWY", PARKWAY: "PKWY",
+  SUITE: "STE", PLACE: "PL", COURT: "CT", NORTH: "N",
+  SOUTH: "S", EAST: "E", WEST: "W",
+};
+
+/** Comparison-only street form; never stored. Whole-word token mapping. */
+function normStreet(street: string): string {
+  return street
+    .toUpperCase()
+    .replace(/[.,#]/g, "")
+    .replace(/s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((t) => STREET_TOKENS[t] ?? t)
+    .join(" ");
+}
+
+function locationKey(l: DealerLocation): string {
+  const zip5 = l.zip.replace(/D/g, "").slice(0, 5);
+  return [normStreet(l.street), l.city.trim().toUpperCase(), l.state.trim().toUpperCase(), zip5].join("|");
+}
+
+/** Adds loc unless a cosmetically-equal address is already present (first-seen original wins). */
 function addLocation(locations: DealerLocation[], loc: DealerLocation): void {
-  const dup = locations.some(
-    (l) => l.street === loc.street && l.city === loc.city && l.state === loc.state && l.zip === loc.zip,
-  );
-  if (!dup) locations.push(loc);
+  const key = locationKey(loc);
+  if (!locations.some((l) => locationKey(l) === key)) locations.push(loc);
 }
 
 export function mergeDealerRows(rows: RawDealerRow[]): DealerRecord[] {

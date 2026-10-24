@@ -73,4 +73,24 @@ describe("mergeDealerRows", () => {
     const merged = mergeDealerRows([{ ...same, brand: "KG1 FORGED" }, { ...same, brand: "JTX FORGED" }]);
     expect(merged[0].locations).toHaveLength(1);
   });
+
+  it("treats cosmetic address variants as one location but keeps real branches apart", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Rim Co", city: "Tempe", state: "AZ", zip: "85281", street: "100 N. Main Street", phone: "480-555-0100", country: "USA", email: "", website: "" },
+      { brand: "FUEL OFF-ROAD", name: "Rim Co", city: "TEMPE", state: "az", zip: "85281-1234", street: "100 N Main St", phone: "(480) 555-0100", country: "USAA", email: "", website: "" },
+      { brand: "JTX FORGED", name: "Rim Co", city: "Tempe", state: "AZ", zip: "85281", street: "100 S Main St", phone: "480-555-0100", country: "", email: "", website: "" },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].locations).toHaveLength(2); // N and S are different shops
+    expect(out[0].locations[0].street).toBe("100 N. Main Street"); // original kept, not normalised
+  });
+
+  it("maps street suffixes as whole words only", () => {
+    const out = mergeDealerRows([
+      { brand: "KG1 FORGED", name: "Rim Co", city: "Tempe", state: "AZ", zip: "", street: "5 Streeter Avenue, Suite #2", phone: "480-555-0101", country: "", email: "", website: "" },
+      { brand: "JTX FORGED", name: "Rim Co", city: "Tempe", state: "AZ", zip: "", street: "5 STREETER AVE STE 2", phone: "480-555-0101", country: "", email: "", website: "" },
+      { brand: "JTX FORGED", name: "Rim Co", city: "Tempe", state: "AZ", zip: "", street: "5 STER AVE STE 2", phone: "480-555-0101", country: "", email: "", website: "" },
+    ]);
+    expect(out[0].locations).toHaveLength(2);
+  });
 });
