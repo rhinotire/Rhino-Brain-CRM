@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveWebsite, namesMatch, citiesMatch } from "./website-resolve";
+import { resolveWebsite, namesMatch, nameMatchStrength, nameTokens, citiesMatch } from "./website-resolve";
 import type { PlaceCandidate } from "./places-collector";
 
 const cand = (over: Partial<PlaceCandidate>): PlaceCandidate => ({
@@ -26,11 +26,10 @@ describe("resolveWebsite", () => {
     expect(r).toEqual({ website: "https://lonestarwheel.com/", confidence: "HIGH" });
   });
 
-  it("returns LOW confidence when only the city matches", async () => {
+  it("returns null, not another business's URL, when only the city matches", async () => {
     const search = clientReturning(cand({ companyName: "Totally Different Motors", website: "https://other.example/" }));
     const r = await resolveWebsite(dealer, { search, apiKey: "k" });
-    expect(r.confidence).toBe("LOW");
-    expect(r.website).toBe("https://other.example/");
+    expect(r).toEqual({ website: null, confidence: "LOW" });
   });
 
   it("returns LOW confidence when only the name matches", async () => {
@@ -79,13 +78,72 @@ describe("resolveWebsite", () => {
   it("is not HIGH when the state contradicts, even if name and city match", async () => {
     const search = clientReturning(cand({ state: "OK" }));
     const r = await resolveWebsite(dealer, { search, apiKey: "k" });
+    expect(r).toEqual({ website: "https://lonestarwheel.com/", confidence: "LOW" });
+  });
+
+  it("is not HIGH when the dealer's state is blank, even if name and city match", async () => {
+    const search = clientReturning(cand({}));
+    const r = await resolveWebsite({ ...dealer, state: "  " }, { search, apiKey: "k" });
+    expect(r).toEqual({ website: "https://lonestarwheel.com/", confidence: "LOW" });
+  });
+
+  it("is not HIGH when Places returns no state for the match", async () => {
+    const search = clientReturning(cand({ state: null }));
+    const r = await resolveWebsite(dealer, { search, apiKey: "k" });
     expect(r.confidence).toBe("LOW");
   });
 
-  it("is not HIGH when the website is a social or directory page", async () => {
-    const search = clientReturning(cand({ website: "https://www.facebook.com/lonestarwheel" }));
+  it("stays HIGH when both states are present and equal ignoring case and padding", async () => {
+    const search = clientReturning(cand({ state: "tx" }));
+    const r = await resolveWebsite({ ...dealer, state: " TX " }, { search, apiKey: "k" });
+    expect(r.confidence).toBe("HIGH");
+  });
+
+  it.each([
+    "https://www.facebook.com/lonestarwheel",
+    "https://m.facebook.com/lonestarwheel",
+    "https://fb.com/lonestarwheel",
+    "https://fb.me/lonestarwheel",
+    "https://g.page/lonestarwheel",
+    "https://goo.gl/maps/abc",
+    "https://www.youtube.com/@lonestarwheel",
+    "https://nextdoor.com/pages/lonestarwheel",
+    "https://www.yelp.com/biz/lone-star-wheel",
+    "https://www.instagram.com/lonestarwheel",
+  ])("returns null rather than a social or directory page: %s", async (url) => {
+    const search = clientReturning(cand({ website: url }));
     const r = await resolveWebsite(dealer, { search, apiKey: "k" });
-    expect(r.confidence).toBe("LOW");
+    expect(r).toEqual({ website: null, confidence: "LOW" });
+  });
+
+  it("does not treat a lookalike host as a directory", async () => {
+    const search = clientReturning(cand({ website: "https://notfacebook.com/" }));
+    const r = await resolveWebsite(dealer, { search, apiKey: "k" });
+    expect(r).toEqual({ website: "https://notfacebook.com/", confidence: "HIGH" });
+  });
+
+  it("is only LOW when the match rests on a single distinctive word", async () => {
+    const search = clientReturning(cand({ companyName: "Apex Towing", website: "https://apextowing.example/" }));
+    const r = await resolveWebsite({ name: "Apex", city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(r).toEqual({ website: "https://apextowing.example/", confidence: "LOW" });
+  });
+
+  it("is HIGH when the containment shares two distinctive words", async () => {
+    const search = clientReturning(cand({ companyName: "Lone Star Wheel & Tire Dallas" }));
+    const r = await resolveWebsite({ ...dealer, name: "Lone Star Wheel" }, { search, apiKey: "k" });
+    expect(r.confidence).toBe("HIGH");
+  });
+
+  it("never matches a generic-only dealer name, even to an identically named business", async () => {
+    const search = clientReturning(cand({ companyName: "Tire Shop", website: "https://tireshop.example/" }));
+    const r = await resolveWebsite({ name: "Tire Shop", city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(r).toEqual({ website: null, confidence: "LOW" });
+  });
+
+  it("makes no API call for a generic-only dealer name", async () => {
+    const search = clientReturning(cand({}));
+    await resolveWebsite({ name: "Auto Repair", city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(search).not.toHaveBeenCalled();
   });
 
   it("drops a website that is not a valid http(s) URL instead of passing it on", async () => {
@@ -123,10 +181,26 @@ describe("namesMatch", () => {
     expect(namesMatch("Acme   Wheels  Inc.", "acme wheels")).toBe(true);
   });
 
-  it("ignores accents and curly apostrophes without eating letters or digits", () => {
-    expect(namesMatch("Café Wheels 4U", "Cafe Wheels 4U")).toBe(true);
-    expect(namesMatch("Joe’s Tire", "Joes Tire")).toBe(true);
+  it("normalises accents and apostrophes at token level (fails if either replace is removed)", () => {
+    // Token arrays, not joined strings: joined, "joe s tire" would equal "joes tire" anyway.
+    expect(nameTokens("Peña Tire")).toEqual(["pena", "tire"]);
+    expect(nameTokens("Joe’s Tire")).toEqual(["joes", "tire"]);
+    expect(nameTokens("Joe's Tire")).toEqual(["joes", "tire"]);
+    expect(nameTokens("Café Wheels 4U")).toEqual(["cafe", "wheels", "4u"]);
+    // And through the matcher, where a split token breaks a containment match.
+    expect(namesMatch("Peña Tire", "Pena Tire Express Dallas")).toBe(true);
+    expect(namesMatch("Joe’s Tire", "Joes Tire Express")).toBe(true);
+  });
+
+  it("does not eat digits", () => {
     expect(namesMatch("Route 66 Wheels", "Route 67 Wheels")).toBe(false);
+  });
+
+  it("grades containment by how many distinctive words are shared", () => {
+    expect(nameMatchStrength("Lone Star Wheel", "Lone Star Wheel & Tire")).toBe("STRONG");
+    expect(nameMatchStrength("Apex", "Apex Towing")).toBe("WEAK");
+    expect(nameMatchStrength("Apex Tire", "Apex Tire Towing")).toBe("WEAK");
+    expect(nameMatchStrength("Apex Tire", "Apex Tire")).toBe("STRONG");
   });
 
   it("matches when one name is the other plus extra words", () => {
@@ -138,8 +212,10 @@ describe("namesMatch", () => {
     expect(namesMatch("Rim Pros", "Prime Rims")).toBe(false);
   });
 
-  it("does not let a generic-only name match by containment", () => {
+  it("does not let a generic-only name match, by containment or by identity", () => {
     expect(namesMatch("Auto Repair", "Bob's Auto Repair")).toBe(false);
+    expect(namesMatch("Auto Repair", "Auto Repair")).toBe(false);
+    expect(namesMatch("Tire Shop", "tire shop")).toBe(false);
   });
 
   it("does not match empty names", () => {

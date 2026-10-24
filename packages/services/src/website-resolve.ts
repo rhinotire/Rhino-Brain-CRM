@@ -7,13 +7,14 @@ import { searchPlacesPage, type PlaceCandidate } from "./places-collector";
  *
  * A wrong website is worse than none: it feeds enrichment, which feeds the
  * score, which decides whether a real dealer reaches a rep. So:
- *   - HIGH only when the top result's name AND city both match the dealer
- *     (and its state does not contradict it) and the URL is a real business
- *     site rather than a social/directory page;
- *   - LOW when the match is partial (name only, or city only) -- the URL Places
- *     returned is passed through so the caller can decide;
- *   - { website: null, LOW } when there are no hits, nothing in common with
- *     the dealer, or the matched place lists no website.
+ *   - HIGH only when the top result's name (strongly) AND city both match the
+ *     dealer and both states are present and equal;
+ *   - LOW with the Places URL when the name matches but certainty is partial
+ *     (other city, name resting on one distinctive word, state unconfirmed) --
+ *     it can be the same dealer or a branch, so the caller decides;
+ *   - { website: null, LOW } when there are no hits, the name does not match
+ *     (a city-only match is a different business), the matched place lists no
+ *     website, or its URL is a social/directory page.
  * No URL is ever constructed or inferred -- only what Places returned.
  */
 
@@ -44,6 +45,7 @@ const CITY_ABBREVIATIONS: Record<string, string> = { st: "saint", ft: "fort", mt
 const NON_SITE_HOSTS = [
   "facebook.com", "instagram.com", "yelp.com", "yellowpages.com", "mapquest.com", "twitter.com", "x.com",
   "linkedin.com", "tiktok.com", "linktr.ee", "bbb.org", "manta.com", "google.com",
+  "fb.com", "fb.me", "g.page", "goo.gl", "youtube.com", "nextdoor.com",
 ];
 
 const words = (s: string): string[] =>
@@ -57,23 +59,37 @@ const words = (s: string): string[] =>
     .split(" ")
     .filter(Boolean);
 
-const nameTokens = (s: string): string[] => words(s).filter((t) => !NAME_STOPWORDS.has(t));
+export const nameTokens = (s: string): string[] => words(s).filter((t) => !NAME_STOPWORDS.has(t));
+
+export type NameMatch = "STRONG" | "WEAK" | "NONE";
 
 /**
- * True when two business names are the same business: identical once
- * normalised, or one is the other plus extra words (all of the shorter name's
- * words appear in the longer) provided the shorter name carries at least one
- * distinctive word. "Auto Repair" must not match "Bob's Auto Repair".
+ * How well two business names identify the same business. Every match needs at
+ * least one distinctive (non-generic) word, so "Tire Shop" or "Auto Repair"
+ * never match anything, not even an identical name: those collide between
+ * unrelated businesses.
+ *   STRONG: identical once normalised, or one name is the other plus extra
+ *           words and the shared words include two or more distinctive ones.
+ *   WEAK:   containment resting on a single distinctive word ("Apex" vs
+ *           "Apex Towing") -- plausible, but nothing here can rule out a
+ *           different trade, so it must not be reported as HIGH.
+ *   NONE:   anything else.
  */
-export function namesMatch(a: string, b: string): boolean {
+export function nameMatchStrength(a: string, b: string): NameMatch {
   const ta = nameTokens(a);
   const tb = nameTokens(b);
-  if (ta.length === 0 || tb.length === 0) return false;
-  if (ta.join("") === tb.join("")) return true;
+  if (ta.length === 0 || tb.length === 0) return "NONE";
   const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  const distinctive = short.filter((t) => !GENERIC_WORDS.has(t)).length;
+  if (distinctive === 0) return "NONE";
+  if (ta.join("") === tb.join("")) return "STRONG";
   const longSet = new Set(long);
-  return short.every((t) => longSet.has(t)) && short.some((t) => !GENERIC_WORDS.has(t));
+  if (!short.every((t) => longSet.has(t))) return "NONE";
+  return distinctive >= 2 ? "STRONG" : "WEAK";
 }
+
+/** True when two names match at any strength (see nameMatchStrength). */
+export const namesMatch = (a: string, b: string): boolean => nameMatchStrength(a, b) !== "NONE";
 
 const cityKey = (s: string | null | undefined): string =>
   words(s ?? "").map((t) => CITY_ABBREVIATIONS[t] ?? t).join(" ");
@@ -105,8 +121,9 @@ export async function resolveWebsite(
   d: { name: string; city: string; state: string },
   deps: ResolveDeps = {},
 ): Promise<WebsiteResolution> {
-  // Nothing identifiable to search for -- do not spend an API call on a guess.
-  if (nameTokens(d.name).length === 0) return NO_WEBSITE;
+  // A name with no distinctive word ("Tire Shop", blank) can never produce a
+  // trustworthy match -- do not spend an API call on it.
+  if (nameMatchStrength(d.name, d.name) === "NONE") return NO_WEBSITE;
 
   const apiKey = deps.apiKey ?? process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_PLACES_API_KEY is not set");
@@ -117,15 +134,23 @@ export async function resolveWebsite(
   const top = candidates[0]; // top result only
   if (!top) return NO_WEBSITE;
 
-  const nameOk = namesMatch(d.name, top.companyName);
-  const cityOk = citiesMatch(d.city, top.city);
-  if (!nameOk && !cityOk) return NO_WEBSITE; // nothing in common: not even a partial match
+  // No name match means a different business (a city-only match is by
+  // definition one), so there is no URL worth returning.
+  const nameStrength = nameMatchStrength(d.name, top.companyName);
+  if (nameStrength === "NONE") return NO_WEBSITE;
 
   const website = cleanUrl(top.website);
   if (!website) return NO_WEBSITE;
+  // A social/directory page is neither scrapable nor the dealer's own site.
+  if (isNonSiteHost(website)) return NO_WEBSITE;
 
-  const stateContradicts =
-    !!top.state && !!d.state.trim() && top.state.trim().toUpperCase() !== d.state.trim().toUpperCase();
-  const high = nameOk && cityOk && !stateContradicts && !isNonSiteHost(website);
+  // HIGH needs a strong name, the same city, and both states present and equal
+  // (a blank state could otherwise match a same-named city across a state line).
+  const dealerState = d.state.trim().toUpperCase();
+  const topState = (top.state ?? "").trim().toUpperCase();
+  const statesAgree = dealerState !== "" && dealerState === topState;
+  const high = nameStrength === "STRONG" && citiesMatch(d.city, top.city) && statesAgree;
+  // Name matched but not with full certainty (other city, weak name, unconfirmed
+  // state): could be the same dealer or a branch, so pass the URL at LOW.
   return { website, confidence: high ? "HIGH" : "LOW" };
 }
