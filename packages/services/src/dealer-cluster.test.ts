@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { attachCoordinates, clusterByCity, milesFromHub } from "./dealer-cluster";
+import { attachCoordinates, clusterByCity, unroutableDealers, milesFromHub } from "./dealer-cluster";
 import { countryFromState } from "./geo-state";
+import type { GeoDealerRecord } from "./dealer-cluster";
 import type { DealerRecord, DealerLocation } from "./dealer-list-parse";
 
 // Test fixture only. Country is derived from state exactly as the parser does.
@@ -144,6 +145,78 @@ describe("clusterByCity", () => {
       rec({ city: "Miami", state: "FL" }),
     ]);
     expect(out.map((c) => c.city)).toEqual(["Miami", "Tampa", "Austin"]);
+  });
+});
+
+describe("unroutableDealers", () => {
+  it("lists a blank-state record with a reason, and it is in no cluster", () => {
+    const shifted = rec({ name: "Shifted", city: "1311 Price Plaza Dr", state: "" });
+    const ok = rec({ name: "Ok", city: "Orlando", state: "FL" });
+    const clusters = clusterByCity([shifted, ok]);
+    const bad = unroutableDealers([shifted, ok]);
+    expect(bad).toHaveLength(1);
+    expect(bad[0].record).toBe(shifted);
+    expect(bad[0].reason).toBe("missing state");
+    expect(clusters.flatMap((c) => c.members)).not.toContain(shifted);
+    // Reported as-is, never repaired.
+    expect(shifted.state).toBe("");
+    expect(shifted.locations[0].state).toBe("");
+  });
+
+  it("names which field failed: city, state, or both", () => {
+    const out = unroutableDealers([
+      rec({ name: "NoCity", city: "", state: "FL" }),
+      rec({ name: "NoState", city: "Tampa", state: "" }),
+      rec({ name: "Neither", city: "  ", state: " " }),
+    ]);
+    expect(out.map((o) => [o.record.name, o.reason])).toEqual([
+      ["NoCity", "missing city"],
+      ["NoState", "missing state"],
+      ["Neither", "missing city and state"],
+    ]);
+  });
+
+  it("does not flag a dealer with at least one routable location", () => {
+    const mixed = rec({
+      locations: [loc("1 A St", "", "FL", "32801"), loc("2 B St", "Dallas", "TX", "75201")],
+    });
+    expect(unroutableDealers([mixed])).toEqual([]);
+    expect(clusterByCity([mixed]).map((c) => c.city)).toEqual(["Dallas"]);
+  });
+
+  it("partitions the input: every record is in a cluster or unroutable, never both, never neither", () => {
+    const input = [
+      rec({ name: "a", city: "Orlando", state: "FL" }),
+      rec({ name: "b", city: "Orlando", state: "FL" }),
+      rec({ name: "c", city: "Tampa", state: "FL" }),
+      rec({ name: "d", city: "1311 Price Plaza Dr", state: "" }),
+      rec({ name: "e", city: "", state: "TX" }),
+      rec({ name: "f", city: "", state: "" }),
+      rec({
+        name: "chain",
+        locations: [loc("1 A St", "Orlando", "FL", "32801"), loc("2 B St", "Dallas", "TX", "75201")],
+      }),
+    ];
+    const clustered = new Set(clusterByCity(input).flatMap((c) => c.members));
+    const unroutable = new Set(unroutableDealers(input).map((u) => u.record));
+    for (const r of input) {
+      expect(clustered.has(r) !== unroutable.has(r)).toBe(true);
+    }
+    expect(clustered.size + unroutable.size).toBe(input.length);
+  });
+});
+
+describe("generic typing", () => {
+  it("keeps lat/lng on cluster members without a cast", () => {
+    const [geo] = attachCoordinates([rec({ city: "Orlando", state: "FL", dedupeKey: "k" })], [
+      { dedupeKey: "k", lat: 28.5, lng: -81.4 },
+    ]);
+    const clusters = clusterByCity<GeoDealerRecord>([geo]);
+    const m = clusters[0].members[0];
+    // Compiles only if members are typed T, not DealerRecord.
+    const lat: number | undefined = m.lat;
+    expect(lat).toBe(28.5);
+    expect(unroutableDealers<GeoDealerRecord>([])).toEqual([]);
   });
 });
 

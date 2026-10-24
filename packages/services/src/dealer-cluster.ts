@@ -13,11 +13,11 @@ export type GeoDealerRecord = DealerRecord & { lat?: number; lng?: number };
 
 export type CoordinateRow = { dedupeKey: string; lat: number; lng: number };
 
-export type CityCluster = {
+export type CityCluster<T extends DealerRecord = DealerRecord> = {
   city: string; // display form: first-seen spelling
   state: string; // upper-cased
   count: number; // distinct dealers in this city (== members.length)
-  members: DealerRecord[];
+  members: T[];
 };
 
 // Same constants the prospecting cron uses.
@@ -100,6 +100,16 @@ const cityKey = (city: string): string =>
 
 const zip5 = (zip: string): string => zip.replace(/\D/g, "").slice(0, 5);
 
+/** Why a single location cannot be routed, or null when it can. */
+function locationProblem(l: DealerRecord["locations"][number]): string | null {
+  const noCity = !l.city.trim();
+  const noState = !l.state.trim();
+  if (noCity && noState) return "missing city and state";
+  if (noCity) return "missing city";
+  if (noState) return "missing state";
+  return null;
+}
+
 /**
  * The distinct cities a dealer physically occupies. Raw `locations` entries
  * overcount: ~292 records carry several entries that are one address written
@@ -107,16 +117,16 @@ const zip5 = (zip: string): string => zip.replace(/\D/g, "").slice(0, 5);
  * first collapsed to distinct addresses (same state + ZIP5 + normalised
  * street; city is part of the key only when ZIP is missing), keeping the first
  * spelling, and then reduced to distinct city|state pairs. Entries with no
- * city or no state cannot be routed and are skipped.
+ * city or no state cannot be routed and are skipped (see unroutableDealers).
  */
 function distinctCities(r: DealerRecord): { city: string; state: string; key: string }[] {
   const seenAddress = new Set<string>();
   const seenCity = new Set<string>();
   const out: { city: string; state: string; key: string }[] = [];
   for (const l of r.locations) {
+    if (locationProblem(l)) continue;
     const city = l.city.trim().replace(/\s+/g, " ");
     const state = l.state.trim().toUpperCase();
-    if (!city || !state) continue;
     const z = zip5(l.zip);
     const addressKey = [state, z || cityKey(city), streetKey(l.street)].join("|");
     // A blank street is "unknown", not "same address": don't let it swallow
@@ -136,9 +146,14 @@ function distinctCities(r: DealerRecord): { city: string; state: string; key: st
  * state then city for stable output). Each dealer is counted once per distinct
  * city it occupies, so a dealer with several spellings of one address is one
  * pin, while a genuine multi-city dealer appears in each of its cities.
+ * Generic so callers passing GeoDealerRecord[] keep lat/lng on `members`.
+ * Dealers with no routable location are not in any cluster; they are returned
+ * by unroutableDealers, so the two together account for every input record.
  */
-export function clusterByCity(records: DealerRecord[]): CityCluster[] {
-  const clusters = new Map<string, CityCluster>();
+export function clusterByCity<T extends DealerRecord>(
+  records: T[],
+): CityCluster<T>[] {
+  const clusters = new Map<string, CityCluster<T>>();
   for (const r of records) {
     for (const c of distinctCities(r)) {
       let cluster = clusters.get(c.key);
@@ -153,4 +168,23 @@ export function clusterByCity(records: DealerRecord[]): CityCluster[] {
   return [...clusters.values()].sort(
     (a, b) => b.count - a.count || a.state.localeCompare(b.state) || a.city.localeCompare(b.city),
   );
+}
+
+/**
+ * Dealers that clusterByCity cannot place: none of their locations has both a
+ * city and a state (typically column-shifted rows such as city "1311 Price
+ * Plaza Dr", state ""). Rows are reported as-is, NEVER repaired: fixing the
+ * state is the importer's job, and repairing here would hide the shift.
+ * `reason` names the failing field(s); a dealer with several unroutable
+ * locations lists each distinct problem. Together with clusterByCity this
+ * partitions the input: every record is in a cluster or in this list.
+ */
+export function unroutableDealers<T extends DealerRecord>(records: T[]): { record: T; reason: string }[] {
+  const out: { record: T; reason: string }[] = [];
+  for (const r of records) {
+    if (r.locations.some((l) => !locationProblem(l))) continue;
+    const reasons = [...new Set(r.locations.map((l) => locationProblem(l) as string))];
+    out.push({ record: r, reason: reasons.length ? reasons.join("; ") : "no locations" });
+  }
+  return out;
 }
