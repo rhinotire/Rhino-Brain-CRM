@@ -459,6 +459,8 @@ export type CrossSellCustomer = {
   companyName: string;
   assignedRepId: string | null;
   locationId: string | null;
+  /** CustomerStatus as a string (the services package does not import Prisma enums). */
+  status?: string;
 };
 
 /** Shape of a Task row to create (status is omitted: the schema defaults it to OPEN). */
@@ -490,12 +492,64 @@ export const CROSS_SELL_DUE_DAYS = 7;
 export const CROSS_SELL_MARKER_PREFIX = "dealer-xsell:";
 
 /**
- * Stable identity of a dealer record inside a task description. dedupeKey is the
- * dealer's identity everywhere else in the importer; a non-dedupable record
- * (dedupeKey "") falls back to its name so two such dealers never share a marker.
+ * Dedupe identity of a cross-sell task: the CUSTOMER, not the dealer record. One
+ * rep, one account, one nudge. Keying on the dealer would create several tasks
+ * for one account when branch records resolve to it, and would duplicate the
+ * task whenever a later workbook export changes a dealer's dedupeKey (e.g. it
+ * gains a website). Always the first line of Task.description.
  */
-export function crossSellMarker(d: Pick<DealerRecord, "dedupeKey" | "name">): string {
-  return `[${CROSS_SELL_MARKER_PREFIX}${d.dedupeKey || `name:${d.name.trim().toLowerCase()}`}]`;
+export function crossSellMarker(customerId: string): string {
+  return `[${CROSS_SELL_MARKER_PREFIX}${customerId}]`;
+}
+
+/** Reads the customer id back out of a task description's first line; null when it is not a cross-sell marker. */
+export function crossSellCustomerIdOf(description: string | null | undefined): string | null {
+  const first = (description ?? "").split("\n", 1)[0].trim();
+  const open = `[${CROSS_SELL_MARKER_PREFIX}`;
+  if (!first.startsWith(open) || !first.endsWith("]")) return null;
+  const id = first.slice(open.length, -1);
+  return id.length > 0 ? id : null;
+}
+
+/**
+ * Two lookups (by phone, by domain) can resolve to different customers. Prefer the
+ * one that has an assigned rep, so a rep-less row never masks a rep-owned one;
+ * on a tie the first argument (phone) wins.
+ */
+export function pickCrossSellCustomer<T extends { assignedRepId: string | null }>(
+  byPhone: T | undefined,
+  byDomain: T | undefined,
+): T | undefined {
+  if (byPhone && byDomain && byPhone !== byDomain && !byPhone.assignedRepId && byDomain.assignedRepId) return byDomain;
+  return byPhone ?? byDomain;
+}
+
+/** Customer statuses that must never receive a sales cross-sell task. */
+export const CROSS_SELL_BLOCKED_STATUSES: readonly string[] = ["DO_NOT_CONTACT", "LOST", "INACTIVE"];
+
+export type CrossSellBlock =
+  | "BAD_STATUS" // DO_NOT_CONTACT / LOST / INACTIVE
+  | "NO_REP" // customer.assignedRepId is empty
+  | "NO_CUSTOMER_LOCATION" // customer.locationId is null
+  | "REP_INACTIVE" // the assignee is deactivated, or no such user row
+  | "REP_LOCATION_MISMATCH"; // the assignee belongs to another location than the customer
+
+export type CrossSellRep = { active: boolean; locationId: string | null };
+
+/**
+ * Why a customer must NOT get a task, or null when it may. Location rules: /tasks
+ * filters by rep scope AND location scope, so a task whose locationId is one
+ * company's and whose assignee is the other's is visible to nobody (and breaks
+ * the Rhino/Everflow isolation). The task is never "fixed" by falling back to
+ * the assignee's location: the mismatch is data to report, not to paper over.
+ */
+export function crossSellBlockReason(customer: CrossSellCustomer, rep: CrossSellRep | undefined): CrossSellBlock | null {
+  if (customer.status && CROSS_SELL_BLOCKED_STATUSES.includes(customer.status)) return "BAD_STATUS";
+  if (!customer.assignedRepId) return "NO_REP";
+  if (!customer.locationId) return "NO_CUSTOMER_LOCATION";
+  if (!rep || !rep.active) return "REP_INACTIVE";
+  if (rep.locationId !== customer.locationId) return "REP_LOCATION_MISMATCH";
+  return null;
 }
 
 /**
@@ -523,12 +577,14 @@ export function crossSellTaskFor(
       ? `Cross-sell wheels: ${customer.companyName} carries ${brands}`
       : `Cross-sell wheels: ${customer.companyName} is on the wheel dealer list`,
     description: [
-      crossSellMarker(d),
+      crossSellMarker(customer.id),
       `${customer.companyName} is already a customer and also appears on the wheel dealer list` +
         (where ? ` (${where})` : "") +
         ".",
       brands ? `Brands they carry: ${brands}.` : "No brands recorded on the list.",
       "Reach out and offer our wheel and ATV lines.",
+      // Provenance only. The dedupe key is the customer marker on line 1, never this.
+      `Dealer list record: ${d.name} [dedupeKey ${d.dedupeKey || "none"}]`,
     ].join("\n"),
     dueDate,
     priority: "MEDIUM",
@@ -538,4 +594,22 @@ export function crossSellTaskFor(
     locationId: customer.locationId,
     creatorId: flags.creatorId ?? rep,
   };
+}
+
+export type CrossSellCandidate = { companyName?: string | null; website?: string | null; phone?: string | null };
+
+/**
+ * Blacklist test for a cross-sell task. Checks the dealer's identity AND the
+ * resolved customer's: a blacklist row with no domain or phone matches only on an
+ * equal company name, and the customer's registered name can differ from the name
+ * the dealer list uses. `isBlacklisted` is injected (the importer passes
+ * matchesExclusion over the BLACKLIST rows) so this module imports no DB code.
+ */
+export function crossSellBlacklisted(
+  d: Pick<DealerRecord, "name" | "website" | "phone">,
+  customer: { companyName: string; website: string | null; phone: string | null } | undefined,
+  isBlacklisted: (c: CrossSellCandidate) => unknown,
+): boolean {
+  if (isBlacklisted({ companyName: d.name, website: d.website, phone: d.phone })) return true;
+  return !!customer && !!isBlacklisted({ companyName: customer.companyName, website: customer.website, phone: customer.phone });
 }

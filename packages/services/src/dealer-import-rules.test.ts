@@ -18,12 +18,17 @@ import {
   buildMeta,
   crossSellTaskFor,
   crossSellMarker,
+  crossSellCustomerIdOf,
+  crossSellBlockReason,
+  crossSellBlacklisted,
+  pickCrossSellCustomer,
   GOLF_CART_BRAND,
   HIGH_DENSITY_MIN,
   IMPORT_SOURCE,
   type LeadPlan,
 } from "./dealer-import-rules";
 import { countryFromState } from "./geo-state";
+import { matchesExclusion, type ExclusionRow } from "./exclusion-service";
 import { DEALER_SHEETS, type DealerRecord } from "./dealer-list-parse";
 import { dedupeKeyFor } from "./prospect-dedupe";
 
@@ -449,24 +454,122 @@ describe("crossSellTaskFor", () => {
   it("defaults the creator to the assigned rep when none is given", () => {
     expect(crossSellTaskFor(customer, record)!.creatorId).toBe("rep-1");
   });
-  it("embeds the dealer's dedupe marker in the description so a re-run can recognise it", () => {
+  it("keys the marker on the CUSTOMER id and puts it alone on the first line", () => {
     const t = crossSellTaskFor(customer, record)!;
-    expect(t.description).toContain(crossSellMarker(record));
-    expect(crossSellMarker(record)).toContain(record.dedupeKey);
+    expect(t.description.split("\n", 1)[0]).toBe(crossSellMarker("cust-1"));
+    expect(crossSellMarker("cust-1")).toBe("[dealer-xsell:cust-1]");
   });
-  it("puts the marker alone on the first line: the importer's dedupe reads exactly that line", () => {
+  it("gives two different dealer records for one customer the SAME marker (one nudge per account)", () => {
+    const a = crossSellTaskFor(customer, rec({ name: "Branch A", phone: "407-555-0111" }))!;
+    const b = crossSellTaskFor(customer, rec({ name: "Branch B", phone: "407-555-0122", dedupeKey: "" }))!;
+    expect(a.description.split("\n", 1)[0]).toBe(b.description.split("\n", 1)[0]);
+  });
+  it("gives two different customers different markers", () => {
+    expect(crossSellMarker("cust-1")).not.toBe(crossSellMarker("cust-2"));
+  });
+  it("keeps the dealer's dedupeKey in the description body for provenance, not on line 1", () => {
     const t = crossSellTaskFor(customer, record)!;
-    expect(t.description.split("\n", 1)[0]).toBe(crossSellMarker(record));
-  });
-  it("gives non-dedupable dealers distinct markers (never the empty key)", () => {
-    const a = crossSellMarker(rec({ dedupeKey: "", name: "Alpha Wheels" }));
-    const b = crossSellMarker(rec({ dedupeKey: "", name: "Bravo Wheels" }));
-    expect(a).not.toBe(b);
-    expect(a).not.toBe("[dealer-xsell:]");
+    expect(t.description).toContain(record.dedupeKey);
+    expect(t.description.split("\n", 1)[0]).not.toContain(record.dedupeKey);
   });
   it("still produces a sensible task when the list recorded no brands", () => {
     const t = crossSellTaskFor(customer, { ...record, brands: [] })!;
     expect(t.title).toContain("Acme Wheels");
     expect(t.description).toContain("No brands recorded");
+  });
+});
+
+describe("crossSellCustomerIdOf", () => {
+  it("reads the customer id back from a task the importer wrote (round trip)", () => {
+    const t = crossSellTaskFor({ id: "cust-9", companyName: "Z", assignedRepId: "rep-1", locationId: "l" }, rec())!;
+    expect(crossSellCustomerIdOf(t.description)).toBe("cust-9");
+  });
+  it("returns null for descriptions that are not cross-sell markers", () => {
+    expect(crossSellCustomerIdOf(null)).toBeNull();
+    expect(crossSellCustomerIdOf("")).toBeNull();
+    expect(crossSellCustomerIdOf("call them back")).toBeNull();
+    expect(crossSellCustomerIdOf("[dealer-xsell:]")).toBeNull();
+    expect(crossSellCustomerIdOf("call them\n[dealer-xsell:cust-1]")).toBeNull();
+  });
+});
+
+describe("pickCrossSellCustomer", () => {
+  const noRep = { id: "a", assignedRepId: null };
+  const owned = { id: "b", assignedRepId: "rep-1" };
+  const owned2 = { id: "c", assignedRepId: "rep-2" };
+  it("prefers the rep-owned customer when the phone hit has no rep", () => {
+    expect(pickCrossSellCustomer(noRep, owned)).toBe(owned);
+  });
+  it("keeps the phone hit when both are owned (phone wins ties)", () => {
+    expect(pickCrossSellCustomer(owned, owned2)).toBe(owned);
+  });
+  it("keeps the phone hit when it is owned and the domain hit is not", () => {
+    expect(pickCrossSellCustomer(owned, noRep)).toBe(owned);
+  });
+  it("falls back to whichever side exists", () => {
+    expect(pickCrossSellCustomer(noRep, undefined)).toBe(noRep);
+    expect(pickCrossSellCustomer(undefined, owned)).toBe(owned);
+    expect(pickCrossSellCustomer(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe("crossSellBlockReason", () => {
+  const ok = { id: "c1", companyName: "Acme", assignedRepId: "rep-1", locationId: "loc-rhino", status: "ACTIVE" };
+  const rep = { active: true, locationId: "loc-rhino" };
+  it("allows an active customer whose active rep sits in the customer's location", () => {
+    expect(crossSellBlockReason(ok, rep)).toBeNull();
+  });
+  it("allows a customer with no status field (older callers)", () => {
+    const { status: _s, ...noStatus } = ok;
+    expect(crossSellBlockReason(noStatus, rep)).toBeNull();
+  });
+  it.each(["DO_NOT_CONTACT", "LOST", "INACTIVE"])("blocks a %s customer", (status) => {
+    expect(crossSellBlockReason({ ...ok, status }, rep)).toBe("BAD_STATUS");
+  });
+  it.each(["ACTIVE", "LEAD", "PROSPECT"])("does not block a %s customer", (status) => {
+    expect(crossSellBlockReason({ ...ok, status }, rep)).toBeNull();
+  });
+  it("blocks a customer with no rep", () => {
+    expect(crossSellBlockReason({ ...ok, assignedRepId: null }, rep)).toBe("NO_REP");
+  });
+  it("blocks a customer with no location (never falls back to the rep's)", () => {
+    expect(crossSellBlockReason({ ...ok, locationId: null }, rep)).toBe("NO_CUSTOMER_LOCATION");
+  });
+  it("blocks an inactive rep, and a rep with no user row", () => {
+    expect(crossSellBlockReason(ok, { active: false, locationId: "loc-rhino" })).toBe("REP_INACTIVE");
+    expect(crossSellBlockReason(ok, undefined)).toBe("REP_INACTIVE");
+  });
+  it("blocks a rep whose location differs from the customer's (task would be invisible on /tasks)", () => {
+    expect(crossSellBlockReason(ok, { active: true, locationId: "loc-everflow" })).toBe("REP_LOCATION_MISMATCH");
+    expect(crossSellBlockReason(ok, { active: true, locationId: null })).toBe("REP_LOCATION_MISMATCH");
+  });
+  it("reports a bad status before any rep problem", () => {
+    expect(crossSellBlockReason({ ...ok, status: "DO_NOT_CONTACT", assignedRepId: null }, undefined)).toBe("BAD_STATUS");
+  });
+});
+
+describe("crossSellBlacklisted", () => {
+  // A name-only blacklist row: it matches a candidate only on an equal company name.
+  const rows: ExclusionRow[] = [{ kind: "BLACKLIST", companyName: "Best Tire Depot", domain: null, phone: null }];
+  const matcher = (c: { companyName?: string | null; website?: string | null; phone?: string | null }) => matchesExclusion(c, rows);
+  const dealer = rec({ name: "1 Beat Tires Depot & Autocare Inc", phone: "817-555-0100", website: "" });
+  const bestTire = { companyName: "BEST TIRE DEPOT", website: null, phone: "817-555-0100" };
+
+  it("does NOT catch a name-only blacklisted customer from the dealer identity alone (the defect)", () => {
+    expect(!!matcher({ companyName: dealer.name, website: dealer.website, phone: dealer.phone })).toBe(false);
+  });
+  it("catches it once the resolved customer's own identity is checked", () => {
+    expect(crossSellBlacklisted(dealer, bestTire, matcher)).toBe(true);
+  });
+  it("still catches a blacklist hit on the dealer's identity when there is no customer", () => {
+    expect(crossSellBlacklisted(rec({ name: "Best Tire Depot" }), undefined, matcher)).toBe(true);
+  });
+  it("passes a dealer and customer that match nothing", () => {
+    expect(crossSellBlacklisted(dealer, { companyName: "Other Co", website: null, phone: null }, matcher)).toBe(false);
+  });
+  it("feeds the pure guard: a blacklisted customer yields no task", () => {
+    const cust = { id: "c", companyName: "BEST TIRE DEPOT", assignedRepId: "rep-1", locationId: "l" };
+    const blacklisted = crossSellBlacklisted(dealer, bestTire, matcher);
+    expect(crossSellTaskFor(cust, dealer, { blacklisted })).toBeNull();
   });
 });

@@ -28,8 +28,8 @@
  *
  * Dealers that are already customers get no Lead; instead the owning rep gets a
  * cross-sell Task (crossSellTaskFor). Written BEFORE the "nothing to write" early
- * return, so it still runs against an already-imported list. Re-runs are deduped by
- * the marker on the first line of Task.description. Records matching only an
+ * return, so it still runs against an already-imported list. Re-runs are deduped per CUSTOMER by
+ * the marker (customer id) on the first line of Task.description. Records matching only an
  * ExclusionList EXISTING_CUSTOMER row (no Customer row, so no owner) are listed as
  * UNRESOLVED in the summary, never dropped silently.
  */
@@ -59,9 +59,13 @@ import {
   leadTypeFor,
   cleanPhone,
   crossSellTaskFor,
-  crossSellMarker,
+  crossSellCustomerIdOf,
+  crossSellBlockReason,
+  crossSellBlacklisted,
+  pickCrossSellCustomer,
   CROSS_SELL_MARKER_PREFIX,
   type TaskInput,
+  type CrossSellBlock,
   type LeadPlan,
   type SkipReason,
   type ExistingLeadRow,
@@ -175,7 +179,7 @@ async function main() {
   const leadIdx = buildLeadIndex(leadRows);
   const leadById = new Map(leadRows.map((l) => [l.id, l]));
   const customers = await db.customer.findMany({
-    select: { id: true, companyName: true, phone: true, website: true, assignedRepId: true, locationId: true },
+    select: { id: true, companyName: true, phone: true, website: true, assignedRepId: true, locationId: true, status: true },
   });
   const custPhones = new Set(customers.map((c) => phoneKey(c.phone)).filter(Boolean));
   const custDomains = new Set(customers.map((c) => domainKey(c.website)).filter(Boolean));
@@ -318,50 +322,82 @@ async function main() {
   // ---- cross-sell tasks: dealers that are already customers ------------------------------
   // Independent of the lead classification above: a dealer that is a customer may have been
   // skipped as EXCLUDED / ALREADY_LEAD / EXISTING_CUSTOMER, and every one of them is an upsell.
-  // Creates no Lead. Re-runs must not duplicate: existing tasks are matched by the marker
-  // crossSellMarker(d) embedded in Task.description, read once here (a read, so --dry runs it too).
+  // Creates no Lead. Dedupe is per CUSTOMER: line 1 of Task.description is crossSellMarker(customerId);
+  // existing tasks are read once here (a read, so --dry runs it too) and a customer that already has
+  // one, or already has one planned in this run, gets no second task.
   const existingXsell = await db.task.findMany({
     where: { description: { contains: CROSS_SELL_MARKER_PREFIX } },
-    select: { customerId: true, description: true },
+    select: { description: true },
   });
-  const xsellDone = new Set(existingXsell.map((t) => `${t.customerId}|${t.description?.split("\n", 1)[0] ?? ""}`));
+  const xsellDone = new Set<string>(); // customers with a task from an earlier run
+  const xsellPlanned = new Set<string>(); // customers planned in THIS run
+  for (const t of existingXsell) {
+    const cid = crossSellCustomerIdOf(t.description);
+    if (cid) xsellDone.add(cid);
+  }
+  // Assignee validation: one query over every rep id that owns a customer.
+  const repIds = [...new Set(customers.map((c) => c.assignedRepId).filter((x): x is string => !!x))];
+  const repRows = repIds.length
+    ? await db.user.findMany({ where: { id: { in: repIds } }, select: { id: true, active: true, locationId: true } })
+    : [];
+  const repById = new Map(repRows.map((u) => [u.id, { active: u.active, locationId: u.locationId }]));
   const existingCustRows = exclusionRows.filter((r) => r.kind === "EXISTING_CUSTOMER");
-  type XsellPlan = { d: DealerRecord; task: TaskInput };
+  type XsellPlan = { d: DealerRecord; customer: CustomerRow; task: TaskInput };
   const xsellNew: XsellPlan[] = [];
-  const xsellDeduped: string[] = [];
+  const xsellDeduped: string[] = []; // the customer already has a cross-sell task from an earlier run
+  const xsellSameCustomer: string[] = []; // a second record for a customer already planned in THIS run
   const xsellUnresolved: string[] = []; // matched an ExclusionList EXISTING_CUSTOMER row only: no owner to assign
-  const xsellNoRep: string[] = []; // a Customer resolved but has no assigned rep
   const xsellBlacklisted: string[] = [];
+  const xsellBlocks: Record<CrossSellBlock, string[]> = {
+    BAD_STATUS: [],
+    NO_REP: [],
+    NO_CUSTOMER_LOCATION: [],
+    REP_INACTIVE: [],
+    REP_LOCATION_MISMATCH: [],
+  };
   let xsellRecords = 0;
   for (const p of examined) {
     const d = p.d;
     const cand = { companyName: d.name, website: d.website, phone: d.phone };
     const pk = phoneKey(d.phone);
     const dk = domainKey(d.website);
-    const customer = (pk ? custByPhone.get(pk) : undefined) ?? (dk ? custByDomain.get(dk) : undefined);
+    const customer = pickCrossSellCustomer(pk ? custByPhone.get(pk) : undefined, dk ? custByDomain.get(dk) : undefined);
     const isCustomerRecord = !!customer || !!matchesExclusion(cand, existingCustRows);
     if (!isCustomerRecord) continue;
     xsellRecords++;
     const label = `${d.name} (${d.city}, ${d.state})`;
-    if (!!matchesExclusion(cand, blacklistRows)) {
-      xsellBlacklisted.push(label);
+    // Blacklist is checked against the dealer's identity AND the resolved customer's: a name-only
+    // blacklist row matches only on an equal name, and the customer's name may differ from the dealer's.
+    const blacklisted = crossSellBlacklisted(d, customer, (c) => matchesExclusion(c, blacklistRows));
+    if (blacklisted) {
+      xsellBlacklisted.push(customer ? `${label} -> ${customer.companyName}` : label);
       continue;
     }
     if (!customer) {
       xsellUnresolved.push(label);
       continue;
     }
-    const task = crossSellTaskFor(customer, d, { creatorId: admin.id });
+    const withCustomer = `${label} -> ${customer.companyName}`;
+    const block = crossSellBlockReason(customer, customer.assignedRepId ? repById.get(customer.assignedRepId) : undefined);
+    if (block) {
+      xsellBlocks[block].push(withCustomer);
+      continue;
+    }
+    if (xsellDone.has(customer.id)) {
+      xsellDeduped.push(withCustomer);
+      continue;
+    }
+    if (xsellPlanned.has(customer.id)) {
+      xsellSameCustomer.push(withCustomer);
+      continue;
+    }
+    const task = crossSellTaskFor(customer, d, { creatorId: admin.id, blacklisted });
     if (!task) {
-      xsellNoRep.push(`${label} -> ${customer.companyName}`);
-      continue;
+      // Unreachable while crossSellBlockReason passed (rep present, not blacklisted): never drop silently.
+      throw new Error(`cross-sell invariant broken for ${withCustomer}`);
     }
-    if (xsellDone.has(`${customer.id}|${crossSellMarker(d)}`)) {
-      xsellDeduped.push(label);
-      continue;
-    }
-    xsellNew.push({ d, task });
-    xsellDone.add(`${customer.id}|${crossSellMarker(d)}`);
+    xsellNew.push({ d, customer, task });
+    xsellPlanned.add(customer.id);
   }
 
   const grid: Record<string, Record<Territory, number>> = {};
@@ -431,15 +467,28 @@ async function main() {
   P(`${pad("already-customer records", 34)}${num(xsellRecords, 6)}`);
   P(`${pad(DRY ? "tasks WOULD be created" : "tasks to create", 34)}${num(xsellNew.length, 6)}`);
   P(`${pad("already exist (deduped)", 34)}${num(xsellDeduped.length, 6)}`);
+  P(`${pad("SAME CUSTOMER (2nd+ record)", 34)}${num(xsellSameCustomer.length, 6)}`);
   P(`${pad("UNRESOLVED customer (no task)", 34)}${num(xsellUnresolved.length, 6)}`);
-  P(`${pad("customer has no rep (no task)", 34)}${num(xsellNoRep.length, 6)}`);
+  P(`${pad("customer has no rep (no task)", 34)}${num(xsellBlocks.NO_REP.length, 6)}`);
+  P(`${pad("customer DNC/LOST/INACTIVE", 34)}${num(xsellBlocks.BAD_STATUS.length, 6)}`);
+  P(`${pad("customer has no location", 34)}${num(xsellBlocks.NO_CUSTOMER_LOCATION.length, 6)}`);
+  P(`${pad("rep inactive or missing", 34)}${num(xsellBlocks.REP_INACTIVE.length, 6)}`);
+  P(`${pad("rep location != customer location", 34)}${num(xsellBlocks.REP_LOCATION_MISMATCH.length, 6)}`);
   P(`${pad("blacklisted skips (no task)", 34)}${num(xsellBlacklisted.length, 6)}`);
-  const xsellAccounted = xsellNew.length + xsellDeduped.length + xsellUnresolved.length + xsellNoRep.length + xsellBlacklisted.length;
+  const xsellBlockedN = Object.values(xsellBlocks).reduce((a, l) => a + l.length, 0);
+  const xsellAccounted =
+    xsellNew.length + xsellDeduped.length + xsellSameCustomer.length + xsellUnresolved.length + xsellBlockedN + xsellBlacklisted.length;
   P(`accounted: ${xsellAccounted} of ${xsellRecords} ${xsellAccounted === xsellRecords ? "(sums exactly)" : "MISMATCH!"}`);
+  if (xsellAccounted !== xsellRecords) process.exitCode = 1;
   for (const [label, list] of [
     ["UNRESOLVED (matched only an ExclusionList EXISTING_CUSTOMER row; assign by hand)", xsellUnresolved],
-    ["NO REP (customer has no assignedRepId; assign the account first)", xsellNoRep],
-    ["BLACKLISTED", xsellBlacklisted],
+    ["NO REP (customer has no assignedRepId; assign the account first)", xsellBlocks.NO_REP],
+    ["CUSTOMER STATUS DO_NOT_CONTACT / LOST / INACTIVE (never given a sales task)", xsellBlocks.BAD_STATUS],
+    ["CUSTOMER HAS NO LOCATION (set Customer.locationId, then re-run)", xsellBlocks.NO_CUSTOMER_LOCATION],
+    ["REP INACTIVE OR MISSING (reassign the account, then re-run)", xsellBlocks.REP_INACTIVE],
+    ["REP LOCATION != CUSTOMER LOCATION (task would be invisible on /tasks; fix the data, then re-run)", xsellBlocks.REP_LOCATION_MISMATCH],
+    ["SAME CUSTOMER (another record already produced this customer's task)", xsellSameCustomer],
+    ["BLACKLISTED (dealer or resolved customer)", xsellBlacklisted],
   ] as const) {
     if (list.length === 0) continue;
     P(`  ${label}:`);
@@ -465,9 +514,12 @@ async function main() {
     for (const x of xsellNew) {
       try {
         // Same live blacklist re-check the lead path uses, on exactly the rows about to be written.
-        const bl = await findBlacklistMatch({ companyName: x.d.name, website: x.d.website, phone: x.d.phone });
+        // Dealer identity AND the resolved customer's, as in the planning loop.
+        const bl =
+          (await findBlacklistMatch({ companyName: x.d.name, website: x.d.website, phone: x.d.phone })) ??
+          (await findBlacklistMatch({ companyName: x.customer.companyName, website: x.customer.website, phone: x.customer.phone }));
         if (bl) {
-          xsellFailures.push(`${x.d.name}: BLOCKED by live blacklist check, no task written`);
+          xsellFailures.push(`${x.d.name} -> ${x.customer.companyName}: BLOCKED by live blacklist check, no task written`);
           continue;
         }
         await db.task.create({ data: x.task });
@@ -476,7 +528,7 @@ async function main() {
         xsellFailures.push(`${x.d.name}: ${e instanceof Error ? e.message.split("\n").pop() : e}`);
       }
     }
-    console.log(`\nCross-sell tasks: created ${xsellCreated} of ${xsellNew.length} planned (${xsellDeduped.length} already existed, ${xsellUnresolved.length} unresolved, ${xsellNoRep.length} no rep, ${xsellBlacklisted.length} blacklisted)`);
+    console.log(`\nCross-sell tasks: created ${xsellCreated} of ${xsellNew.length} planned (${xsellDeduped.length} already existed, ${xsellSameCustomer.length} same customer, ${xsellUnresolved.length} unresolved, ${xsellBlockedN} blocked by customer/rep guards, ${xsellBlacklisted.length} blacklisted)`);
     for (const f of xsellFailures) console.log(`  CROSS-SELL NOT WRITTEN ${f}`);
     if (xsellFailures.length > 0 || xsellCreated !== xsellNew.length) process.exitCode = 1;
   }
