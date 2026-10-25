@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireSession, hasPerm } from "@/lib/auth";
 import { isTwilioConfigured } from "@/lib/twilio";
+import { buildProspectReleaseQuery, type ProspectReleaseRow } from "@rhino/services";
 import { Card, StatCard, Badge, EmptyState } from "@/components/ui/primitives";
 import { ProspectWorkList, type ProspectRow } from "@/components/prospect-work-list";
 import { QuickLogButton } from "@/components/quick-log";
@@ -65,21 +66,11 @@ export default async function MyWorkPage() {
   // Today's AI-collected prospects near the rep's warehouse: unclaimed ones in
   // their company plus any they already claimed but haven't worked (no stage
   // change yet). Claiming moves a lead into "New Leads to Work" below.
-  const todaysProspects = await db.lead.findMany({
-    where: {
-      source: "PROSPECTING",
-      stage: "NEW_LEAD",
-      convertedCustomerId: null,
-      AND: [
-        { OR: [{ pool: null }, { pool: { not: "D_EXCLUDED" } }] },
-        { OR: [{ assignedRepId: null }, { assignedRepId: me }] },
-      ],
-      ...(session.locationId ? { locationId: session.locationId } : {}),
-    },
-    orderBy: [{ createdAt: "desc" }, { score: "desc" }],
-    take: 5,
-    select: { id: true, companyName: true, city: true, state: true, phone: true, score: true, productLine: true, assignedRepId: true, meta: true },
-  });
+  // Released best tier first (Lead.meta.tier), 5 slots shared with the daily cron.
+  // Raw SQL because Prisma cannot orderBy a JSON path; the predicate lives in
+  // @rhino/services so it is unit-tested (orphan leads with no location never surface).
+  const { sql: prospectSql, params: prospectParams } = buildProspectReleaseQuery({ userId: me, locationId: session.locationId ?? null });
+  const todaysProspects = await db.$queryRawUnsafe<ProspectReleaseRow[]>(prospectSql, ...prospectParams);
   const prospectRows: ProspectRow[] = todaysProspects.map(l => {
     const meta = (l.meta ?? {}) as { website?: string; contacts?: ProspectRow["contacts"] };
     return {

@@ -39,6 +39,7 @@ export type {
 } from "./types";
 export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPECT_COUNTRIES, PROSPECT_AREAS, type ProspectCategory, type ProspectArea, type PipelineResult } from "./prospect-pipeline";
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
+export { buildProspectReleaseQuery, PROSPECT_RELEASE_LIMIT, type ProspectReleaseInput, type ProspectReleaseRow } from "./prospect-release";
 export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";
 export { searchShipmentsPage, aggregateConsignees, type CustomsSearchField, type CustomsShipmentRow, type ConsigneeAggregate } from "./customs-collector";
 export {
