@@ -10,6 +10,8 @@ type Props = {
   lead: {
     id: string; companyName: string; city: string | null; state: string | null;
     pool: string | null; confidence: string | null; productLine: string | null; score: number | null;
+    /** Why this lead cannot be given to a rep (no company location), or null when it can. */
+    assignBlockedReason: string | null;
     email: string | null; phone: string | null;
     scoreReasons: Check[] | null;
     enrichment: { businessSummary?: string; brandsSold?: string[]; buyerSignals?: string[]; emails?: string[] } | null;
@@ -61,7 +63,7 @@ export function ProspectCard({ lead, reps }: Props) {
 
   const act = (verdict: "FOLLOW" | "REJECT") =>
     start(async () => {
-      const r = await calibrateLead(lead.id, verdict, { repId: repId || undefined, reason, alsoExclude });
+      const r = await calibrateLead(lead.id, verdict, { repId: lead.assignBlockedReason ? undefined : repId || undefined, reason, alsoExclude });
       if (!r.ok) setError(r.error ?? "failed");
       else setDone(true);
     });
@@ -195,10 +197,16 @@ export function ProspectCard({ lead, reps }: Props) {
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <button disabled={pending} onClick={() => act("FOLLOW")} className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50">Follow up</button>
-          <select value={repId} onChange={(e) => setRepId(e.target.value)} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
-            <option value="">Assign rep (optional)</option>
-            {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+          {lead.assignBlockedReason ? (
+            <span title={lead.assignBlockedReason} className="rounded border border-dashed border-slate-300 bg-slate-50 px-2 py-1.5 text-xs text-slate-500">
+              Rep assignment unavailable: {lead.assignBlockedReason}
+            </span>
+          ) : (
+            <select value={repId} onChange={(e) => setRepId(e.target.value)} className="rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="">Assign rep (optional)</option>
+              {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          )}
           <button
             disabled={findingContacts}
             onClick={lookupContacts}

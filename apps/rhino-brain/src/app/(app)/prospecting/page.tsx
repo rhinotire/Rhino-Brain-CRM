@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireManager, locationScope } from "@/lib/auth";
 import { listRepsForAssign } from "@/actions/prospecting";
+import { CALIBRATION_QUEUE_GATE, repAssignBlockReason } from "@rhino/services";
 import { ProspectCard } from "@/components/prospect-card";
 import { ProspectCollectForm } from "@/components/prospect-collect-form";
 
@@ -24,13 +25,17 @@ export default async function ProspectingPage() {
       ? { OR: [{ locationId: scope.locationId }, { locationId: null }] }
       : scope;
 
+  // Only AI-graded leads are calibration candidates: the 5,002 imported dealer rows have no grade
+  // until enrich-dealers runs, and an ungraded lead is not something a human can calibrate.
+  const graded = CALIBRATION_QUEUE_GATE;
+
   const [pendingCount, followedCount, rejectedCount, poolCounts, pending, reps, runs] = await Promise.all([
-    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null, ...leadScope } }),
+    db.lead.count({ where: { source: "PROSPECTING", reviewedAt: null, ...graded, ...leadScope } }),
     db.lead.count({ where: { source: "PROSPECTING", reviewedAt: { not: null }, pool: { not: "D_EXCLUDED" }, ...leadScope } }),
     db.lead.count({ where: { source: "PROSPECTING", pool: "D_EXCLUDED", ...leadScope } }),
-    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING", ...leadScope }, _count: true }),
+    db.lead.groupBy({ by: ["pool"], where: { source: "PROSPECTING", ...graded, ...leadScope }, _count: true }),
     db.lead.findMany({
-      where: { source: "PROSPECTING", reviewedAt: null, ...leadScope },
+      where: { source: "PROSPECTING", reviewedAt: null, ...graded, ...leadScope },
       orderBy: [{ score: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
       take: PAGE_SIZE,
     }),
@@ -71,6 +76,8 @@ export default async function ProspectingPage() {
             reps={reps}
             lead={{
               id: lead.id, companyName: lead.companyName, city: lead.city, state: lead.state,
+              // A lead with no company location can never be assigned to a rep (spec 8.1), even by ADMIN.
+              assignBlockedReason: repAssignBlockReason(lead),
               pool: lead.pool, confidence: lead.confidence, productLine: lead.productLine, score: lead.score,
               email: lead.email, phone: lead.phone,
               scoreReasons: (lead.scoreReasons as never) ?? null,
