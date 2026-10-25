@@ -130,7 +130,10 @@ export async function resolveWebsite(
   const search = deps.search ?? searchPlacesPage;
 
   // API failures propagate: a 429 or bad key is not the same as "no website".
-  const { candidates } = await search({ query: `"${d.name}" ${d.city} ${d.state}`, apiKey });
+  // The name goes inside a quoted phrase, so a double quote in it (the workbook has plenty of punctuation)
+  // would close the phrase early and quietly degrade the search after the call is paid for. Strip them.
+  const phrase = d.name.replace(/"/g, "").replace(/\s+/g, " ").trim();
+  const { candidates } = await search({ query: `"${phrase}" ${d.city} ${d.state}`, apiKey });
   const top = candidates[0]; // top result only
   if (!top) return NO_WEBSITE;
 

@@ -75,6 +75,24 @@ describe("resolveWebsite", () => {
     expect(arg.apiKey).toBe("secret");
   });
 
+  it("strips double quotes from the name so they cannot break the quoted phrase (M-9)", async () => {
+    // An embedded quote would close the phrase early and silently turn it into a loose search, after the call is paid for.
+    const search = clientReturning();
+    await resolveWebsite({ name: 'Joe "The Wheel Guy" Tires', city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(search.mock.calls[0]![0].query).toBe('"Joe The Wheel Guy Tires" Dallas TX');
+  });
+
+  it("collapses the gap a stripped quote leaves, and keeps the phrase balanced for a name that is only quote-wrapped", async () => {
+    const search = clientReturning();
+    await resolveWebsite({ name: '"Lone Star Wheel & Tire"', city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    await resolveWebsite({ name: 'Rim 20" Wheel & Tire', city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(search.mock.calls[0]![0].query).toBe('"Lone Star Wheel & Tire" Dallas TX');
+    expect(search.mock.calls[1]![0].query).toBe('"Rim 20 Wheel & Tire" Dallas TX');
+    // An emptied quote pair leaves a double space behind; it must not reach the query.
+    await resolveWebsite({ name: 'Lone Star "" Wheel & Tire', city: "Dallas", state: "TX" }, { search, apiKey: "k" });
+    expect(search.mock.calls[2]![0].query).toBe('"Lone Star Wheel & Tire" Dallas TX');
+  });
+
   it("is not HIGH when the state contradicts, even if name and city match", async () => {
     const search = clientReturning(cand({ state: "OK" }));
     const r = await resolveWebsite(dealer, { search, apiKey: "k" });
