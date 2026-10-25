@@ -5,11 +5,23 @@
  * is spent.
  *
  * STRICTLY READ-ONLY against whatever DATABASE_URL points at (production).
- * Only findMany / count are used — no create/update/upsert/delete,
- * no $executeRaw, no transactions. Safe to run repeatedly.
+ * Only findMany / count / groupBy are used — no create/update/upsert/delete,
+ * no $executeRaw, no transactions, and no SourceRun row for the report's own
+ * run. Safe to run repeatedly.
  *
  *   cd packages/database
  *   npx tsx scripts/reconcile-dealers.ts --file <workbook.xlsx> [--out report.csv] [--crosscheck N]
+ *   npx tsx scripts/reconcile-dealers.ts --batch <importBatchId[,id2...]>
+ *
+ * Two modes (passing both is an error):
+ *   --file   Phase 0 pre-import reconciliation, described below.
+ *   --batch  Phase 4 post-import conversion report: per tier, leads created /
+ *            contacted / quoted / converted / converted $ for the given
+ *            ImportBatch(es), so "was this scrape worth it?" has an answer
+ *            before the next brand is scraped. Comma-separate several ids
+ *            (same parsing as enrich-dealers.ts) when an import was split, e.g.
+ *            a smoke-test batch plus the main one. The counting rules live in
+ *            packages/services/src/dealer-batch-report.ts.
  *
  * Buckets, in precedence order (every record lands in exactly one):
  *   BLACKLISTED      ExclusionList kind=BLACKLIST match   (never reaches a human)
@@ -32,6 +44,7 @@ import { join, resolve } from "node:path";
 import { parseDealerWorkbook, type DealerRecord } from "../../services/src/dealer-list-parse";
 import { tierFor } from "../../services/src/dealer-tier";
 import { matchesExclusion, isExcluded, findBlacklistMatch } from "../../services/src/exclusion-service";
+import { rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
 import { assignStateLocation } from "../../services/src/prospect-score";
 import { countryFromState } from "../../services/src/geo-state";
 import { domainKey, nameKey, phoneKey } from "../../services/src/referral-matching";
@@ -76,10 +89,136 @@ const pad = (s: string | number, n: number) => String(s).padEnd(n);
 const num = (s: string | number, n: number) => String(s).padStart(n);
 const zeroRow = () => Object.fromEntries(TERRITORIES.map((t) => [t, 0])) as Record<Territory, number>;
 
+const usd = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = (r: number | null) => (r === null ? "n/a" : (r * 100).toFixed(1) + "%");
+
+/**
+ * --batch mode. Read-only. Every number is counted against the leads actually
+ * read for the given batch id(s), and the report cross-checks that count against
+ * independent queries so a silently-empty or silently-partial result cannot pass
+ * for a real one.
+ */
+async function batchReport(): Promise<void> {
+  // Same parsing as enrich-dealers.ts: split on commas, trim, drop empties.
+  const batchIds = (arg("batch") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (batchIds.length === 0) {
+    console.error("--batch <importBatchId[,id2...]> requires at least one id");
+    process.exit(2);
+  }
+
+  const batches = await db.importBatch.findMany({
+    where: { id: { in: batchIds } },
+    select: { id: true, fileName: true, rowCount: true, successful: true, createdAt: true },
+  });
+  const missing = batchIds.filter((id) => !batches.some((b) => b.id === id));
+  if (missing.length > 0) {
+    console.error(`Unknown ImportBatch id(s): ${missing.join(", ")}. Nothing was reported (a typo must not look like an empty batch).`);
+    process.exit(2);
+  }
+
+  const inBatch = { importBatchId: { in: batchIds } };
+  const leads = await db.lead.findMany({
+    where: inBatch,
+    select: { id: true, meta: true, stage: true, convertedCustomerId: true, convertedAt: true, assignedRepId: true, locationId: true },
+  });
+  // Independent counts, to reconcile the rollup against.
+  const perBatch = await db.lead.groupBy({ by: ["importBatchId"], where: inBatch, _count: { _all: true } });
+  const countedPerBatch = new Map(perBatch.map((g) => [g.importBatchId, g._count._all]));
+  const convertedCount = await db.lead.count({ where: { ...inBatch, convertedCustomerId: { not: null } } });
+
+  const activityRows = await db.activity.findMany({ where: { lead: inBatch }, select: { leadId: true, type: true } });
+  const activities = activityRows.flatMap((a) => (a.leadId ? [{ leadId: a.leadId, type: a.type as string }] : []));
+
+  // Quote and Order hang off Customer, so they are only looked up for converted customers.
+  const customerIds = [...new Set(leads.flatMap((l) => (l.convertedCustomerId ? [l.convertedCustomerId] : [])))];
+  const quotes = customerIds.length
+    ? (await db.quote.findMany({ where: { customerId: { in: customerIds } }, select: { customerId: true, createdAt: true, status: true } }))
+        .map((q) => ({ customerId: q.customerId, createdAt: q.createdAt, status: q.status as string }))
+    : [];
+  const orders = customerIds.length
+    ? (await db.order.findMany({ where: { customerId: { in: customerIds } }, select: { customerId: true, orderDate: true, total: true } }))
+        .map((o) => ({ customerId: o.customerId, orderDate: o.orderDate, total: o.total.toNumber() }))
+    : [];
+
+  const r = rollupBatch({
+    leads: leads.map((l) => ({ ...l, stage: l.stage as string })),
+    activities, quotes, orders,
+  });
+  const T = r.total;
+
+  const out: string[] = [];
+  const P = (s = "") => out.push(s);
+  P("");
+  P("=== DEALER-LIST BATCH REPORT (read-only) ===");
+  for (const b of batches) {
+    P(`batch ${b.id}  ${b.fileName}  imported ${b.createdAt.toISOString().slice(0, 10)}  ` +
+      `${num(countedPerBatch.get(b.id) ?? 0, 6)} leads (ImportBatch row: rowCount ${b.rowCount}, successful ${b.successful})`);
+  }
+  P(`*** LEADS IN SCOPE: ${T.leads.toLocaleString("en-US")} across ${batches.length} batch${batches.length === 1 ? "" : "es"}. This is the denominator for every number below. ***`);
+  P("");
+
+  // Say plainly which kind of zero this is.
+  if (T.leads === 0) {
+    P("STATUS: NO DATA. The batch id(s) exist but hold 0 leads, so there is nothing to measure.");
+  } else if (T.contacted === 0 && T.quoted === 0 && T.converted === 0) {
+    P(`STATUS: NOT YET WORKED. 0 of ${T.leads} leads have been contacted, quoted or converted. These zeros are real: they were counted`);
+    P(`        against ${T.leads} leads that exist in the database, not a missing result. ${T.claimed} lead(s) claimed by a rep; ${T.parked} parked with no location`);
+    P("        (no rep can ever see those). Conversion rates cannot be judged until leads have been worked.");
+  } else {
+    P(`STATUS: IN PROGRESS. ${T.contacted} of ${T.leads} leads contacted (${pct(T.contacted / T.leads)}), ${T.quoted} quoted, ${T.converted} converted.`);
+    P(`        ${T.claimed} claimed by a rep; ${T.parked} parked with no location. Compare tiers on "Conv/contacted", not on raw counts: tiers are released at different times.`);
+  }
+  P("");
+
+  P("=== BY TIER ===");
+  P("Tier 1 is the BEST tier; larger numbers are weaker. Rows run best to weakest.");
+  const row = (label: string, c: Counts) =>
+    pad(label, 54) + num(c.leads, 7) + num(c.parked, 8) + num(c.contacted, 11) + num(c.quoted, 8) + num(c.converted, 11) + num(usd(c.convertedValue), 16) + num(pct(c.convertedPerContacted), 16);
+  P(pad("Tier", 54) + num("Leads", 7) + num("Parked", 8) + num("Contacted", 11) + num("Quoted", 8) + num("Converted", 11) + num("Converted $", 16) + num("Conv/contacted", 16));
+  for (const t of r.tiers) P(row(t.tier === null ? `--  ${t.label}` : `T${t.tier}  ${t.label}`, t));
+  P(row("ALL TIERS", T));
+  P('"Conv/contacted" = converted / contacted. n/a means nobody was contacted yet; it is not 0%.');
+  P("");
+
+  P("=== HOW EACH COLUMN IS COUNTED ===");
+  P("Leads       Lead rows with importBatchId in the batch id(s) above.");
+  P("Parked      subset of Leads with no locationId (Canada / non-home state): no rep can see them, so they cannot be worked or converted.");
+  P("Contacted   an Activity logged on the lead of type CALL/EMAIL/TEXT/WHATSAPP/QUOTE/ORDER/PAYMENT/VISIT/COMPLAINT (NO_ANSWER, VOICEMAIL, notes do not count),");
+  P("            or Lead.stage moved on from NEW_LEAD (not LOST), or the lead is quoted/converted.");
+  P("Quoted      a QUOTE activity on the lead, or stage QUOTED/NEGOTIATING, or a non-draft Quote on its converted customer made after conversion.");
+  P("Converted   Lead.convertedCustomerId is set (a stage of FIRST_ORDER/ACTIVE_CUSTOMER alone does not count).");
+  P("Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.");
+  P("");
+
+  P("=== RECONCILIATION ===");
+  const sumCounted = [...countedPerBatch.values()].reduce((a, b) => a + b, 0);
+  const checks: [string, boolean][] = [
+    [`lead rows read (${leads.length}) = Lead count grouped by batch (${sumCounted})`, leads.length === sumCounted],
+    [`rollup leads (${T.leads}) = lead rows read (${leads.length})`, T.leads === leads.length],
+    [`tier rows sum to ${r.tiers.reduce((s, t) => s + t.leads, 0)} = rollup leads (${T.leads})`, r.tiers.reduce((s, t) => s + t.leads, 0) === T.leads],
+    [`rollup converted (${T.converted}) = independent count of convertedCustomerId not null (${convertedCount})`, T.converted === convertedCount],
+  ];
+  for (const [label, ok] of checks) P(`${ok ? "OK      " : "MISMATCH"}  ${label}`);
+  P(`Data-quality: ${r.stageWonNotConverted} lead(s) at FIRST_ORDER/ACTIVE_CUSTOMER with no customer link (not counted as converted); ${r.convertedWithoutDate} converted with no convertedAt (no value dated).`);
+  console.log(out.join("\n"));
+
+  if (T.leads === 0 || checks.some(([, ok]) => !ok)) {
+    if (T.leads !== 0) console.error("RECONCILIATION MISMATCH: the rollup does not agree with the independent Lead counts");
+    process.exitCode = 1;
+  }
+}
+
 async function main() {
+  const batchMode = process.argv.includes("--batch");
+  if (batchMode && process.argv.includes("--file")) {
+    console.error("--batch and --file are different modes; pass one");
+    process.exit(2);
+  }
+  if (batchMode) return batchReport();
   const file = arg("file");
   if (!file) {
     console.error("usage: tsx scripts/reconcile-dealers.ts --file <workbook.xlsx> [--out report.csv] [--crosscheck N]");
+    console.error("       tsx scripts/reconcile-dealers.ts --batch <importBatchId[,id2...]>");
     process.exit(2);
   }
   // Default output goes to the OS temp dir, never into the repo. The output
