@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import * as XLSX from "xlsx";
 import { dedupeKeyFor } from "./prospect-dedupe";
 import type { CoordCandidate } from "./dealer-import-rules";
+import { parseCoordinateCell } from "./dealer-cluster";
 
 /**
  * Reads the Fuel Off-Road locator scrape (sheet "Dealers": #, Dealer Name,
@@ -11,8 +12,8 @@ import type { CoordCandidate } from "./dealer-import-rules";
  *
  * A key can hold several rows (one phone shared by several branches), so each
  * key maps to a LIST; dealer-import-rules.pickCoordinate chooses the row that
- * belongs to the dealer's top-level city. Rows with no usable lat/lng, or
- * exactly 0,0, are dropped.
+ * belongs to the dealer's top-level city. Rows with no usable lat/lng (a blank
+ * cell on either axis included), or 0 on either axis, are dropped.
  */
 export async function readCoordinateCandidates(path: string): Promise<Map<string, CoordCandidate[]>> {
   const wb = XLSX.read(await readFile(path), { type: "buffer" });
@@ -38,9 +39,10 @@ export async function readCoordinateCandidates(path: string): Promise<Map<string
   const text = (v: unknown): string => (v == null ? "" : String(v).trim());
   const out = new Map<string, CoordCandidate[]>();
   for (const r of grid.slice(headerIdx + 1)) {
-    const lat = Number(text(r[cLat]));
-    const lng = Number(text(r[cLng]));
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
+    // A blank cell is NOT 0 (Number("") is): parseCoordinateCell returns null for it, on either axis.
+    const lat = parseCoordinateCell(r[cLat]);
+    const lng = parseCoordinateCell(r[cLng]);
+    if (lat === null || lng === null || lat === 0 || lng === 0) continue; // 0 on an axis is a "no value" default
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) continue;
     const key = dedupeKeyFor({ phone: text(r[cPhone]), companyName: text(r[cName]), city: text(r[cCity]) });
     if (!key) continue;

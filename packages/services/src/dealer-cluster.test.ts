@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { attachCoordinates, clusterByCity, unroutableDealers, milesFromHub } from "./dealer-cluster";
+import { attachCoordinates, clusterByCity, unroutableDealers, milesFromHub, parseCoordinateCell } from "./dealer-cluster";
 import { countryFromState } from "./geo-state";
 import type { GeoDealerRecord } from "./dealer-cluster";
 import type { DealerRecord, DealerLocation } from "./dealer-list-parse";
@@ -62,6 +62,16 @@ describe("attachCoordinates", () => {
       { dedupeKey: "d", lat: 30, lng: -181 },
     ];
     const out = attachCoordinates(["a", "b", "c", "d"].map((k) => rec({ dedupeKey: k })), bad);
+    for (const o of out) expect("lat" in o).toBe(false);
+  });
+
+  it("ignores a coordinate with ONE axis at exactly 0: that is a blank cell read as a number, not a place", () => {
+    // Number("") is 0. A blank latitude beside a real longitude would otherwise put the dealer in the Gulf of Guinea.
+    const bad = [
+      { dedupeKey: "a", lat: 0, lng: -81.4 },
+      { dedupeKey: "b", lat: 28.5, lng: 0 },
+    ];
+    const out = attachCoordinates(["a", "b"].map((k) => rec({ dedupeKey: k })), bad);
     for (const o of out) expect("lat" in o).toBe(false);
   });
 
@@ -246,5 +256,21 @@ describe("milesFromHub", () => {
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(28.5383)) * Math.cos(rad(32.8097)) * Math.sin(dLng / 2) ** 2;
     const expected = 2 * R * Math.asin(Math.sqrt(a));
     expect(milesFromHub(32.8097, -96.875, "RHINO")).toBeCloseTo(expected, 6);
+  });
+});
+
+describe("parseCoordinateCell", () => {
+  it("reads a real coordinate, as a number or as the text a spreadsheet gives", () => {
+    expect(parseCoordinateCell("28.5383")).toBe(28.5383);
+    expect(parseCoordinateCell(" -81.3792 ")).toBe(-81.3792);
+    expect(parseCoordinateCell(30.25)).toBe(30.25);
+  });
+
+  it("rejects a blank cell instead of letting Number('') turn it into 0", () => {
+    for (const blank of ["", "   ", "\t", "\n", null, undefined]) expect(parseCoordinateCell(blank)).toBeNull();
+  });
+
+  it("rejects text that is not a number", () => {
+    for (const junk of ["N/A", "28.5N", "--", "NaN", "Infinity", {}, []]) expect(parseCoordinateCell(junk)).toBeNull();
   });
 });

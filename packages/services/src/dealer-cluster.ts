@@ -39,11 +39,26 @@ export function milesFromHub(lat: number, lng: number, hub: "RHINO" | "EVERFLOW"
   return 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+/**
+ * One spreadsheet cell as a coordinate, or null. A blank or whitespace-only cell is null, never 0:
+ * Number("") is 0 and Number.isFinite(0) is true, so a blank latitude beside a real longitude would
+ * otherwise become a point in the Gulf of Guinea, with a wrong milesFromHub that flips the tier 3/4 split.
+ */
+export function parseCoordinateCell(raw: unknown): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
 function usableCoordinate(lat: number, lng: number): boolean {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
-  // Null Island: a scraper's "no value" default, never a real dealer.
-  if (lat === 0 && lng === 0) return false;
+  // Exactly 0 on EITHER axis is a "no value" default, never a real dealer: no US or Canadian dealer sits on
+  // the equator or the prime meridian. (0,0 alone was not enough: a blank cell on one axis is also 0.)
+  if (lat === 0 || lng === 0) return false;
   return true;
 }
 
