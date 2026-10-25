@@ -424,6 +424,8 @@ export type MergeableLead = {
   city?: string | null;
   state?: string | null;
   locationId?: string | null;
+  /** ProspectPool; only read to avoid re-writing an exclusion that is already there. */
+  pool?: string | null;
   meta?: unknown;
 };
 
@@ -461,6 +463,12 @@ export function mergeIntoExisting(
   // A website a rep or enrichment already stored is never replaced by the list's.
   if (oldMeta.website !== undefined) newMeta.website = oldMeta.website;
   if (stableStringify(newMeta) !== stableStringify(oldMeta)) out.meta = newMeta;
+
+  // The dealer has become a customer since this lead was created (the importer only reaches an update
+  // for a Customer-table match through this path). Tier 1 already ranks it last, but a rep must never be
+  // handed an existing customer to cold-call (spec section 7), so exclude it outright: the My Work query
+  // drops pool D_EXCLUDED. Skipped when it is already excluded, so a re-run stays a no-op.
+  if (plan.tier === 1 && existing.pool !== "D_EXCLUDED") out.pool = "D_EXCLUDED";
   return out;
 }
 

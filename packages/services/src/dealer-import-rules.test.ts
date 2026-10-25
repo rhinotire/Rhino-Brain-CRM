@@ -423,6 +423,38 @@ describe("mergeIntoExisting", () => {
   });
 });
 
+describe("mergeIntoExisting: a lead whose dealer has since become a customer (M-10)", () => {
+  // A lead run 1 created as a prospect, matched against the Customer table in run 2 (tier 1).
+  // Tier 1 already ranks it last, but a rep must not be handed a customer to cold-call (spec section 7),
+  // so it is also excluded outright, which prospect-release.ts drops (pool <> D_EXCLUDED).
+  const d = rec();
+  const prospect = { assignedRepId: null, ...buildNewLead(d, plan({ tier: 3 })) };
+
+  it("marks the lead D_EXCLUDED when the dealer is now an existing customer (tier 1)", () => {
+    const merged = mergeIntoExisting(prospect, d, plan({ tier: 1 }));
+    expect(merged.pool).toBe("D_EXCLUDED");
+    expect(isNoopMerge(merged)).toBe(false);
+  });
+
+  it("overrides a grade it earned as a prospect: a customer is not a B_PROJECT lead", () => {
+    expect(mergeIntoExisting({ ...prospect, pool: "B_PROJECT" }, d, plan({ tier: 1 })).pool).toBe("D_EXCLUDED");
+  });
+
+  it("writes nothing more when it is already excluded (idempotent on the next re-run)", () => {
+    const already = { ...prospect, pool: "D_EXCLUDED", meta: buildNewLead(d, plan({ tier: 1 })).meta };
+    expect(isNoopMerge(mergeIntoExisting(already, d, plan({ tier: 1 })))).toBe(true);
+  });
+
+  it("leaves the pool of an ordinary prospect alone", () => {
+    expect("pool" in mergeIntoExisting(prospect, d, plan({ tier: 3 }))).toBe(false);
+    expect("pool" in mergeIntoExisting({ ...prospect, pool: "A_BUYER" }, d, plan({ tier: 2 }))).toBe(false);
+  });
+
+  it("does not touch the pool when there is no plan (the claim-only call)", () => {
+    expect("pool" in mergeIntoExisting({ assignedRepId: null, pool: "A_BUYER" }, d)).toBe(false);
+  });
+});
+
 describe("crossSellTaskFor", () => {
   const customer = { id: "cust-1", companyName: "Acme Wheels", assignedRepId: "rep-1", locationId: "loc-rhino" };
   const record = rec();
