@@ -7,12 +7,13 @@ import { Input, Select, Button } from "@/components/ui/primitives";
 type Opt = [string, string];
 
 /** Customer list filters — dropdowns apply instantly; the search box applies on Enter / Search. */
-export function CustomersFilter({ statuses, types, interests, reps }: {
-  statuses: Opt[]; types: Opt[]; interests: Opt[]; reps: { id: string; name: string }[];
+export function CustomersFilter({ statuses, types, states, interests, reps }: {
+  statuses: Opt[]; types: Opt[]; states: Opt[]; interests: Opt[]; reps: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get("q") ?? "");
+  const [city, setCity] = useState(sp.get("city") ?? "");
 
   const apply = (patch: Record<string, string>) => {
     const params = new URLSearchParams(sp.toString());
@@ -22,7 +23,7 @@ export function CustomersFilter({ statuses, types, interests, reps }: {
 
   return (
     <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-4 xl:grid-cols-8"
-      onSubmit={e => { e.preventDefault(); apply({ q }); }}>
+      onSubmit={e => { e.preventDefault(); apply({ q, city }); }}>
       <Input name="q" placeholder="Search name / phone / email / city / tag" value={q} onChange={e => setQ(e.target.value)} className="col-span-2" />
       <Select value={sp.get("status") ?? ""} onChange={e => apply({ status: e.target.value })}>
         <option value="">All statuses</option>
@@ -32,6 +33,11 @@ export function CustomersFilter({ statuses, types, interests, reps }: {
         <option value="">All types</option>
         {types.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </Select>
+      <Select value={sp.get("state") ?? ""} onChange={e => apply({ state: e.target.value })}>
+        <option value="">All states</option>
+        {states.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </Select>
+      <Input name="city" placeholder="City" value={city} onChange={e => setCity(e.target.value)} />
       <Select value={sp.get("interest") ?? ""} onChange={e => apply({ interest: e.target.value })}>
         <option value="">All products</option>
         {interests.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

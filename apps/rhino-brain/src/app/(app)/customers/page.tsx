@@ -11,14 +11,23 @@ import {
   customerTypeLabels, customerStatusLabels, productLabels, temperatureClasses, temperatureLabels,
   customerTemperature, fmtDate,
 } from "@/lib/domain";
-import type { Prisma, CustomerStatus, CustomerType, ProductCategory } from "@prisma/client";
+import { CustomerType } from "@prisma/client";
+import type { Prisma, CustomerStatus, ProductCategory } from "@prisma/client";
+import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES } from "@rhino/services";
 
 export const dynamic = "force-dynamic";
 
 type Search = {
   q?: string; status?: string; type?: string; rep?: string; interest?: string;
-  state?: string; lastContact?: string; followUp?: string;
+  state?: string; city?: string; lastContact?: string; followUp?: string;
 };
+
+// The Type dropdown is derived from the enum (not customerTypeLabels, which can lag
+// behind it), so a new CustomerType is filterable the moment it exists.
+const CUSTOMER_TYPES = Object.values(CustomerType);
+const typeLabel = (t: CustomerType): string =>
+  (customerTypeLabels as Partial<Record<CustomerType, string>>)[t] ??
+  t.split("_").map(w => (w === "ATV" ? w : w.charAt(0) + w.slice(1).toLowerCase())).join(" ");
 
 export default async function CustomersPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
@@ -32,7 +41,17 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   const seesAll = manager || isAccounting(session); // rep column + rep filter + view all
   const now = new Date();
 
-  const where: Prisma.CustomerWhereInput = { ...repScope(session), ...locationScope(session) };
+  // Company scope goes INTO the filter builder, which spreads it last: no type/city/state value can widen it.
+  const where: Prisma.CustomerWhereInput = {
+    ...repScope(session),
+    ...buildCustomerFilterWhere({
+      scope: locationScope(session),
+      allowedTypes: CUSTOMER_TYPES,
+      type: searchParams.type,
+      city: searchParams.city,
+      state: searchParams.state,
+    }),
+  };
   const q = searchParams.q?.trim();
   if (q) {
     where.OR = [
@@ -45,9 +64,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
     ];
   }
   if (searchParams.status) where.status = searchParams.status as CustomerStatus;
-  if (searchParams.type) where.type = searchParams.type as CustomerType;
   if (searchParams.interest) where.mainInterest = searchParams.interest as ProductCategory;
-  if (searchParams.state) where.state = { equals: searchParams.state, mode: "insensitive" };
   if (seesAll && searchParams.rep) where.assignedRepId = searchParams.rep;
   if (searchParams.lastContact) {
     const days = Number(searchParams.lastContact);
@@ -88,7 +105,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       {/* Filters */}
       <CustomersFilter
         statuses={Object.entries(customerStatusLabels)}
-        types={Object.entries(customerTypeLabels)}
+        types={CUSTOMER_TYPES.map((t): [string, string] => [t, typeLabel(t)])}
+        states={CUSTOMER_FILTER_STATES.map((s): [string, string] => [s, s])}
         interests={Object.entries(productLabels)}
         reps={seesAll ? reps : []}
       />
