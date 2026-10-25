@@ -442,6 +442,9 @@ export type MergeableLead = {
   locationId?: string | null;
   /** ProspectPool; only read to avoid re-writing an exclusion that is already there. */
   pool?: string | null;
+  /** Calibration verdict timestamp; null = still in the /prospecting queue. */
+  reviewedAt?: Date | null;
+  rejectReason?: string | null;
   meta?: unknown;
 };
 
@@ -461,6 +464,7 @@ export function mergeIntoExisting(
   existing: MergeableLead,
   d: DealerRecord,
   plan?: LeadPlan,
+  now: Date = new Date(),
 ): { assignedRepId: string | null } & Record<string, unknown> {
   const out: { assignedRepId: string | null } & Record<string, unknown> = {
     assignedRepId: existing.assignedRepId,
@@ -483,8 +487,17 @@ export function mergeIntoExisting(
   // The dealer has become a customer since this lead was created (the importer only reaches an update
   // for a Customer-table match through this path). Tier 1 already ranks it last, but a rep must never be
   // handed an existing customer to cold-call (spec section 7), so exclude it outright: the My Work query
-  // drops pool D_EXCLUDED. Skipped when it is already excluded, so a re-run stays a no-op.
-  if (plan.tier === 1 && existing.pool !== "D_EXCLUDED") out.pool = "D_EXCLUDED";
+  // drops pool D_EXCLUDED. It is also stamped reviewed: /prospecting's queue is "reviewedAt is null", so an
+  // excluded-but-unreviewed lead would sit there where a manager could FOLLOW it and assign a rep. A human
+  // verdict already on the lead is never overwritten, and each field is written only when it would change,
+  // so a re-run stays a no-op.
+  if (plan.tier === 1) {
+    if (existing.pool !== "D_EXCLUDED") out.pool = "D_EXCLUDED";
+    if (!existing.reviewedAt) {
+      out.reviewedAt = now;
+      if (!existing.rejectReason) out.rejectReason = "Dealer is now an existing customer (import re-run); cross-sell, not a prospect";
+    }
+  }
   return out;
 }
 

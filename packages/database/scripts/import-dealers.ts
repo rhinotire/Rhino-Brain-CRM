@@ -176,7 +176,7 @@ async function main() {
   const exclusionRows = await db.exclusionList.findMany({ select: { kind: true, companyName: true, domain: true, phone: true } });
   const blacklistRows = exclusionRows.filter((r) => r.kind === "BLACKLIST");
   const leadRows = await db.lead.findMany({
-    select: { id: true, companyName: true, phone: true, city: true, dedupeKey: true, meta: true, assignedRepId: true, email: true, state: true, locationId: true, pool: true },
+    select: { id: true, companyName: true, phone: true, city: true, dedupeKey: true, meta: true, assignedRepId: true, email: true, state: true, locationId: true, pool: true, reviewedAt: true, rejectReason: true },
   });
   const leadIdx = buildLeadIndex(leadRows);
   const leadById = new Map(leadRows.map((l) => [l.id, l]));

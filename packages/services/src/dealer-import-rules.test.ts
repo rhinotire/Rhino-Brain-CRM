@@ -428,14 +428,41 @@ describe("mergeIntoExisting", () => {
 describe("mergeIntoExisting: a lead whose dealer has since become a customer (M-10)", () => {
   // A lead run 1 created as a prospect, matched against the Customer table in run 2 (tier 1).
   // Tier 1 already ranks it last, but a rep must not be handed a customer to cold-call (spec section 7),
-  // so it is also excluded outright, which prospect-release.ts drops (pool <> D_EXCLUDED).
+  // so it is also excluded outright, which prospect-release.ts drops (pool <> D_EXCLUDED). It is ALSO
+  // stamped reviewed: /prospecting's queue is "reviewedAt is null", and a D_EXCLUDED lead that is still
+  // unreviewed would sit in it, where a manager could FOLLOW it and assign a rep to a customer.
   const d = rec();
+  const NOW = new Date("2026-11-02T15:00:00Z");
   const prospect = { assignedRepId: null, ...buildNewLead(d, plan({ tier: 3 })) };
 
   it("marks the lead D_EXCLUDED when the dealer is now an existing customer (tier 1)", () => {
-    const merged = mergeIntoExisting(prospect, d, plan({ tier: 1 }));
+    const merged = mergeIntoExisting(prospect, d, plan({ tier: 1 }), NOW);
     expect(merged.pool).toBe("D_EXCLUDED");
     expect(isNoopMerge(merged)).toBe(false);
+  });
+
+  it("also stamps it reviewed, with a reason, so it leaves the calibration queue instead of joining it", () => {
+    const merged = mergeIntoExisting(prospect, d, plan({ tier: 1 }), NOW);
+    expect(merged.reviewedAt).toEqual(NOW);
+    expect(String(merged.rejectReason)).toMatch(/existing customer/i);
+    // The queue is reviewedAt null (prospecting/page.tsx): apply the write to the row and ask the queue.
+    const after = { reviewedAt: null as Date | null, ...merged } as { reviewedAt: Date | null };
+    expect(after.reviewedAt).not.toBeNull();
+  });
+
+  it("stamps reviewed even when the lead was already D_EXCLUDED by the AI but never reviewed", () => {
+    const aiRejected = { ...prospect, pool: "D_EXCLUDED", reviewedAt: null, meta: buildNewLead(d, plan({ tier: 1 })).meta };
+    const merged = mergeIntoExisting(aiRejected, d, plan({ tier: 1 }), NOW);
+    expect(merged.reviewedAt).toEqual(NOW);
+    expect("pool" in merged).toBe(false);
+  });
+
+  it("never overwrites a human verdict that is already on the lead", () => {
+    const reviewed = { ...prospect, pool: "B_PROJECT", reviewedAt: new Date("2026-10-30T00:00:00Z"), rejectReason: "rep note" };
+    const merged = mergeIntoExisting(reviewed, d, plan({ tier: 1 }), NOW);
+    expect(merged.pool).toBe("D_EXCLUDED");
+    expect("reviewedAt" in merged).toBe(false);
+    expect("rejectReason" in merged).toBe(false);
   });
 
   it("overrides a grade it earned as a prospect: a customer is not a B_PROJECT lead", () => {
@@ -443,12 +470,14 @@ describe("mergeIntoExisting: a lead whose dealer has since become a customer (M-
   });
 
   it("writes nothing more when it is already excluded (idempotent on the next re-run)", () => {
-    const already = { ...prospect, pool: "D_EXCLUDED", meta: buildNewLead(d, plan({ tier: 1 })).meta };
-    expect(isNoopMerge(mergeIntoExisting(already, d, plan({ tier: 1 })))).toBe(true);
+    const first = mergeIntoExisting(prospect, d, plan({ tier: 1 }), NOW);
+    const already = { ...prospect, ...first, meta: buildNewLead(d, plan({ tier: 1 })).meta };
+    expect(isNoopMerge(mergeIntoExisting(already, d, plan({ tier: 1 }), new Date("2027-01-01T00:00:00Z")))).toBe(true);
   });
 
   it("leaves the pool of an ordinary prospect alone", () => {
     expect("pool" in mergeIntoExisting(prospect, d, plan({ tier: 3 }))).toBe(false);
+    expect("reviewedAt" in mergeIntoExisting(prospect, d, plan({ tier: 3 }))).toBe(false);
     expect("pool" in mergeIntoExisting({ ...prospect, pool: "A_BUYER" }, d, plan({ tier: 2 }))).toBe(false);
   });
 
