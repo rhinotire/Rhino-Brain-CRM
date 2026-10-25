@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CALIBRATION_QUEUE_GATE, repAssignBlockReason } from "./prospect-calibration";
+import { CALIBRATION_QUEUE_GATE, repAssignBlockReason, repAssignmentError } from "./prospect-calibration";
 
 type Row = { pool: string | null; score: number | null };
 
@@ -36,5 +36,20 @@ describe("repAssignBlockReason", () => {
 
   it("treats an empty-string location as no location (a falsy id must not slip through)", () => {
     expect(repAssignBlockReason({ locationId: "" })).not.toBeNull();
+  });
+});
+
+describe("repAssignmentError (the guard every action that puts a rep on a lead calls)", () => {
+  it("refuses to give a rep a lead with no company location, with the reason", () => {
+    expect(repAssignmentError({ locationId: null }, "rep_1")).toBe(repAssignBlockReason({ locationId: null }));
+    expect(repAssignmentError({ locationId: null }, "rep_1")).toMatch(/cannot be assigned/i);
+  });
+
+  it("allows a lead that belongs to a company", () => {
+    expect(repAssignmentError({ locationId: "loc_fl" }, "rep_1")).toBeNull();
+  });
+
+  it("does not block clearing an assignment: no rep is being assigned (empty id, null, undefined)", () => {
+    for (const none of ["", null, undefined]) expect(repAssignmentError({ locationId: null }, none)).toBeNull();
   });
 });

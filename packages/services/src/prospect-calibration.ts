@@ -36,3 +36,13 @@ export function repAssignBlockReason(lead: { locationId: string | null }): strin
   if (lead.locationId) return null;
   return "No company location: this lead is parked (Canada, non-home state or unresolved), so it cannot be assigned to a rep.";
 }
+
+/**
+ * The guard for every write that puts a rep on a lead (calibrateLead, assignLead, claimProspect):
+ * the error to return when `repId` would be assigned to `lead`, or null when the write may go ahead.
+ * Clearing an assignment (empty / null / undefined repId) is never blocked. Reuses repAssignBlockReason,
+ * so there is one definition of "this lead cannot be assigned" (spec decision 8.1).
+ */
+export function repAssignmentError(lead: { locationId: string | null }, repId: string | null | undefined): string | null {
+  return repId ? repAssignBlockReason(lead) : null;
+}

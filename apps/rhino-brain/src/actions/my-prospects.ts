@@ -5,6 +5,7 @@ import {
   generateOutreachDraft as draftService,
   findDecisionMakers,
   domainKey,
+  repAssignmentError,
   type OutreachDraft,
   type Enrichment,
   type ProspectContact,
@@ -34,6 +35,9 @@ export async function claimProspect(leadId: string): Promise<{ ok: boolean; erro
   const { session, lead } = await repProspect(leadId);
   if (!lead) return { ok: false, error: "Prospect not available" };
   if (lead.assignedRepId === session.userId) return { ok: true };
+  // Spec 8.1: a lead with no company location is never put on a rep, for any role (ADMIN and no-location users pass the company check above).
+  const blocked = repAssignmentError(lead, session.userId);
+  if (blocked) return { ok: false, error: blocked };
   const { count } = await db.lead.updateMany({
     where: { id: leadId, assignedRepId: null },
     data: { assignedRepId: session.userId },

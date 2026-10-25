@@ -61,4 +61,4 @@ export { docExpiryStatus, worstExpiryStatus, canDownloadEmployeeDoc, canDeleteEm
 export {
   visibleImportsWhere, unclaimedImportsWhere, hiddenImportsCountWhere, showImportedFrom, IMPORTED_BATCH_MARKER_FILTER, SHOW_IMPORTED_PARAM,
 } from "./lead-import-visibility";
-export { CALIBRATION_QUEUE_GATE, repAssignBlockReason } from "./prospect-calibration";
+export { CALIBRATION_QUEUE_GATE, repAssignBlockReason, repAssignmentError } from "./prospect-calibration";

@@ -7,7 +7,7 @@ import {
   generateOutreachDraft as generateDraftService,
   findDecisionMakers,
   domainKey,
-  repAssignBlockReason,
+  repAssignmentError,
   type ProspectCategory,
   type PipelineResult,
   type OutreachDraft,
@@ -39,7 +39,7 @@ export async function calibrateLead(
   if (verdict === "FOLLOW") {
     // Spec 8.1: a lead with no company location is never assigned to a rep, for any role. Enforced
     // here, not only in the card, so no UI or query change can re-open it.
-    const blocked = opts?.repId ? repAssignBlockReason(lead) : null;
+    const blocked = repAssignmentError(lead, opts?.repId);
     if (blocked) return { ok: false, error: blocked };
     const { count } = await db.lead.updateMany({
       where: { id: leadId, reviewedAt: null },

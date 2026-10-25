@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, isManager, defaultLocationId, canWrite } from "@/lib/auth";
 import { leadSchema } from "@/lib/validations";
+import { repAssignmentError } from "@rhino/services";
 import type { ActionResult } from "./auth";
 import type { PipelineStage, LostReason } from "@prisma/client";
 
@@ -59,6 +60,9 @@ export async function assignLead(leadId: string, repId: string): Promise<ActionR
   const lead = await db.lead.findUnique({ where: { id: leadId }, select: { locationId: true, companyName: true } });
   if (!lead) return { ok: false, error: "Lead not found." };
   if (!canWrite(session, { locationId: lead.locationId })) return { ok: false, error: "Lead not in your company." };
+  // Spec 8.1: orphans (no locationId) get no rep assignment, for any role including ADMIN. Clearing is allowed.
+  const blocked = repAssignmentError(lead, repId);
+  if (blocked) return { ok: false, error: blocked };
   await db.lead.update({ where: { id: leadId }, data: { assignedRepId: repId || null } });
   if (repId) {
     await db.notification.create({
