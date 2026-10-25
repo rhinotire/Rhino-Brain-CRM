@@ -44,7 +44,7 @@ import { join, resolve } from "node:path";
 import { parseDealerWorkbook, type DealerRecord } from "../../services/src/dealer-list-parse";
 import { tierFor } from "../../services/src/dealer-tier";
 import { matchesExclusion, isExcluded, findBlacklistMatch } from "../../services/src/exclusion-service";
-import { rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
+import { CONTACT_ACTIVITY_TYPES, rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
 import { assignStateLocation } from "../../services/src/prospect-score";
 import { countryFromState } from "../../services/src/geo-state";
 import { domainKey, nameKey, phoneKey } from "../../services/src/referral-matching";
@@ -119,7 +119,10 @@ async function batchReport(): Promise<void> {
   const inBatch = { importBatchId: { in: batchIds } };
   const leads = await db.lead.findMany({
     where: inBatch,
-    select: { id: true, meta: true, stage: true, convertedCustomerId: true, convertedAt: true, assignedRepId: true, locationId: true },
+    select: {
+      id: true, meta: true, stage: true, convertedCustomerId: true, convertedAt: true, assignedRepId: true, locationId: true,
+      convertedCustomer: { select: { createdAt: true } },
+    },
   });
   // Independent counts, to reconcile the rollup against.
   const perBatch = await db.lead.groupBy({ by: ["importBatchId"], where: inBatch, _count: { _all: true } });
@@ -128,6 +131,14 @@ async function batchReport(): Promise<void> {
 
   const activityRows = await db.activity.findMany({ where: { lead: inBatch }, select: { leadId: true, type: true } });
   const activities = activityRows.flatMap((a) => (a.leadId ? [{ leadId: a.leadId, type: a.type as string }] : []));
+  // Raw database counts for the same batch, taken with their own queries (not from `activities`),
+  // so a broken or mis-filtered activity read cannot pass for a true zero.
+  const contactTypes = [...CONTACT_ACTIVITY_TYPES];
+  const rawContactActivities = await db.activity.count({ where: { lead: inBatch, type: { in: contactTypes } } });
+  const rawContactLeads = (await db.activity.groupBy({ by: ["leadId"], where: { lead: inBatch, type: { in: contactTypes } } })).length;
+  const rawQuoteActivities = await db.activity.count({ where: { lead: inBatch, type: "QUOTE" } });
+  const rawQuoteLeads = (await db.activity.groupBy({ by: ["leadId"], where: { lead: inBatch, type: "QUOTE" } })).length;
+  const rawActivitiesAnyType = await db.activity.count({ where: { lead: inBatch } });
 
   // Quote and Order hang off Customer, so they are only looked up for converted customers.
   const customerIds = [...new Set(leads.flatMap((l) => (l.convertedCustomerId ? [l.convertedCustomerId] : [])))];
@@ -141,7 +152,7 @@ async function batchReport(): Promise<void> {
     : [];
 
   const r = rollupBatch({
-    leads: leads.map((l) => ({ ...l, stage: l.stage as string })),
+    leads: leads.map(({ convertedCustomer, ...l }) => ({ ...l, stage: l.stage as string, customerCreatedAt: convertedCustomer?.createdAt ?? null })),
     activities, quotes, orders,
   });
   const T = r.total;
@@ -162,7 +173,8 @@ async function batchReport(): Promise<void> {
     P("STATUS: NO DATA. The batch id(s) exist but hold 0 leads, so there is nothing to measure.");
   } else if (T.contacted === 0 && T.quoted === 0 && T.converted === 0) {
     P(`STATUS: NOT YET WORKED. 0 of ${T.leads} leads have been contacted, quoted or converted. These zeros are real: they were counted`);
-    P(`        against ${T.leads} leads that exist in the database, not a missing result. ${T.claimed} lead(s) claimed by a rep; ${T.parked} parked with no location`);
+    P(`        against ${T.leads} leads that exist in the database, and a separate database count finds ${rawActivitiesAnyType} activities of any type logged on them.`);
+    P(`        ${T.claimed} lead(s) claimed by a rep; ${T.parked} parked with no location`);
     P("        (no rep can ever see those). Conversion rates cannot be judged until leads have been worked.");
   } else {
     P(`STATUS: IN PROGRESS. ${T.contacted} of ${T.leads} leads contacted (${pct(T.contacted / T.leads)}), ${T.quoted} quoted, ${T.converted} converted.`);
@@ -171,13 +183,18 @@ async function batchReport(): Promise<void> {
   P("");
 
   P("=== BY TIER ===");
-  P("Tier 1 is the BEST tier; larger numbers are weaker. Rows run best to weakest.");
+  P("Lower number = released to reps earlier. T1 is existing customers (not prospects); T2 is the best prospect tier; T8 is parked.");
   const row = (label: string, c: Counts) =>
     pad(label, 54) + num(c.leads, 7) + num(c.parked, 8) + num(c.contacted, 11) + num(c.quoted, 8) + num(c.converted, 11) + num(usd(c.convertedValue), 16) + num(pct(c.convertedPerContacted), 16);
   P(pad("Tier", 54) + num("Leads", 7) + num("Parked", 8) + num("Contacted", 11) + num("Quoted", 8) + num("Converted", 11) + num("Converted $", 16) + num("Conv/contacted", 16));
   for (const t of r.tiers) P(row(t.tier === null ? `--  ${t.label}` : `T${t.tier}  ${t.label}`, t));
   P(row("ALL TIERS", T));
   P('"Conv/contacted" = converted / contacted. n/a means nobody was contacted yet; it is not 0%.');
+  P("Converted counts LEADS; Converted $ is deduped per CUSTOMER, so two leads merged into one customer show Converted 2 against one customer's dollars.");
+  P(
+    `Converted $ holds back order dollars from customers that predate the conversion (merged into an existing customer, or creation time unknown): ` +
+      `${T.convertedUnverified} of ${T.converted} converted lead(s), ${usd(T.convertedValueUnverified)} not counted as won.`,
+  );
   P("");
 
   P("=== HOW EACH COLUMN IS COUNTED ===");
@@ -187,7 +204,7 @@ async function batchReport(): Promise<void> {
   P("            or Lead.stage moved on from NEW_LEAD (not LOST), or the lead is quoted/converted.");
   P("Quoted      a QUOTE activity on the lead, or stage QUOTED/NEGOTIATING, or a non-draft Quote on its converted customer made after conversion.");
   P("Converted   Lead.convertedCustomerId is set (a stage of FIRST_ORDER/ACTIVE_CUSTOMER alone does not count).");
-  P("Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.");
+  P("Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt, only for customers created by the conversion (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.");
   P("");
 
   P("=== RECONCILIATION ===");
@@ -197,13 +214,25 @@ async function batchReport(): Promise<void> {
     [`rollup leads (${T.leads}) = lead rows read (${leads.length})`, T.leads === leads.length],
     [`tier rows sum to ${r.tiers.reduce((s, t) => s + t.leads, 0)} = rollup leads (${T.leads})`, r.tiers.reduce((s, t) => s + t.leads, 0) === T.leads],
     [`rollup converted (${T.converted}) = independent count of convertedCustomerId not null (${convertedCount})`, T.converted === convertedCount],
+    // The importer's own record of how many leads it created, a source independent of every query above.
+    ...batches.map((b): [string, boolean] => {
+      const n = countedPerBatch.get(b.id) ?? 0;
+      return [`ImportBatch ${b.id} successful (${b.successful}) = leads now in that batch (${n})`, b.successful === n];
+    }),
+    // Contacted/quoted may exceed these (stage evidence also counts) but must never fall short of them.
+    [`contacted (${T.contacted}) >= leads with a contact-type activity per separate database count (${rawContactLeads})`, T.contacted >= rawContactLeads],
+    [`quoted (${T.quoted}) >= leads with a QUOTE activity per separate database count (${rawQuoteLeads})`, T.quoted >= rawQuoteLeads],
   ];
   for (const [label, ok] of checks) P(`${ok ? "OK      " : "MISMATCH"}  ${label}`);
+  P(
+    `Activity cross-check (separate database counts for these leads): ${rawActivitiesAnyType} activities of any type; ` +
+      `${rawContactActivities} contact-type activities on ${rawContactLeads} lead(s); ${rawQuoteActivities} QUOTE activities on ${rawQuoteLeads} lead(s).`,
+  );
   P(`Data-quality: ${r.stageWonNotConverted} lead(s) at FIRST_ORDER/ACTIVE_CUSTOMER with no customer link (not counted as converted); ${r.convertedWithoutDate} converted with no convertedAt (no value dated).`);
   console.log(out.join("\n"));
 
   if (T.leads === 0 || checks.some(([, ok]) => !ok)) {
-    if (T.leads !== 0) console.error("RECONCILIATION MISMATCH: the rollup does not agree with the independent Lead counts");
+    if (T.leads !== 0) console.error("RECONCILIATION MISMATCH: the rollup does not agree with an independent count (see MISMATCH line above)");
     process.exitCode = 1;
   }
 }

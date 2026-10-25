@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-  CONTACT_ACTIVITY_TYPES, rollupBatch, tierLabel,
+  CONTACT_ACTIVITY_TYPES, PREEXISTING_CUSTOMER_TOLERANCE_MS, rollupBatch, tierLabel,
   type BatchActivity, type BatchLead, type BatchOrder, type BatchQuote,
 } from "./dealer-batch-report";
+import { tierFor } from "./dealer-tier";
+import { countryFromState } from "./geo-state";
+import type { DealerRecord } from "./dealer-list-parse";
 
+// By default a converted lead's customer was created at the instant of conversion, which is
+// what convertLead does; tests about a pre-existing customer override customerCreatedAt.
 const lead = (id: string, tier: unknown, over: Partial<BatchLead> = {}): BatchLead => ({
   id, meta: { importSource: "dealer-locators", tier }, stage: "NEW_LEAD",
-  convertedCustomerId: null, convertedAt: null, assignedRepId: null, locationId: "loc-fl", ...over,
+  convertedCustomerId: null, convertedAt: null, customerCreatedAt: over.convertedAt ?? null,
+  assignedRepId: null, locationId: "loc-fl", ...over,
 });
 const act = (leadId: string, type: string): BatchActivity => ({ leadId, type });
 const D = (s: string) => new Date(s);
@@ -45,16 +51,39 @@ describe("rollupBatch: tiers", () => {
   it("the per-tier rows always sum to the total", () => {
     const leads = [lead("a", 2), lead("b", 2), lead("c", 3), lead("d", 5), lead("e", null)];
     const r = run(leads, { activities: [act("a", "CALL"), act("c", "EMAIL")] });
-    for (const k of ["leads", "contacted", "quoted", "converted", "claimed", "parked"] as const) {
+    for (const k of ["leads", "contacted", "quoted", "converted", "claimed", "parked", "convertedUnverified"] as const) {
       expect(r.tiers.reduce((s, t) => s + t[k], 0)).toBe(r.total[k]);
     }
   });
 
-  it("labels the tiers so tier 1 reads as the best and larger numbers as weaker", () => {
-    expect(tierLabel(2)).toMatch(/home state.*2\+ brands/i);
+  it("labels tier 1 as existing customers (not a prospect), tier 2 as the 2+ brand home-state prospects, tier 8 as parked", () => {
     expect(tierLabel(1)).toMatch(/existing customer/i);
+    expect(tierLabel(2)).toMatch(/home state.*2\+ brands/i);
     expect(tierLabel(8)).toMatch(/parked/i);
     expect(tierLabel(42)).toBe("tier 42 (unlabelled)");
+  });
+
+  // Ties the printed labels to the live tierFor(), not to a comment: renumbering a tier in
+  // dealer-tier.ts without updating the labels fails here.
+  it("each label matches what tierFor() actually assigns to that kind of dealer", () => {
+    const rec = (state: string, brands: string[]): DealerRecord => ({
+      name: "Test Dealer", street: "", city: "", state, zip: "", phone: "", email: "", website: "",
+      brands, locations: [{ street: "", city: "", state, zip: "" }], country: countryFromState(state), dedupeKey: "",
+    });
+    const existing = tierFor(rec("FL", ["A"]), { isExistingCustomer: true });
+    const homeMulti = tierFor(rec("FL", ["A", "B"]));
+    const homeSingleNear = tierFor(rec("TX", ["A"]), { milesFromHub: 90 });
+    const homeSingleFar = tierFor(rec("TX", ["A"]), { milesFromHub: 400 });
+    const nonHomeMulti = tierFor(rec("CA", ["A", "B", "C"]));
+    const nonHomeFew = tierFor(rec("CA", ["A"]));
+    const canada = tierFor(rec("ON", ["A"]));
+    expect(tierLabel(existing)).toMatch(/existing customer/i);
+    expect(tierLabel(homeMulti)).toMatch(/home state, 2\+ brands/i);
+    expect(tierLabel(homeSingleNear)).toMatch(/home state, 1 brand.*within/i);
+    expect(tierLabel(homeSingleFar)).toMatch(/home state, 1 brand.*farther/i);
+    expect(tierLabel(nonHomeMulti)).toMatch(/non-home state, 3\+ brands/i);
+    expect(tierLabel(nonHomeFew)).toMatch(/non-home state, 1-2 brands/i);
+    expect(tierLabel(canada)).toMatch(/canada.*parked/i);
   });
 });
 
@@ -191,6 +220,59 @@ describe("rollupBatch: converted and value", () => {
     const r = run([lead("a", 2, { convertedCustomerId: "c1" })], { orders });
     expect(r.total).toMatchObject({ converted: 1, convertedValue: 0 });
     expect(r.convertedWithoutDate).toBe(1);
+  });
+});
+
+describe("rollupBatch: a customer that predates the conversion", () => {
+  const at = "2026-11-01T12:00:00Z";
+  const orders: BatchOrder[] = [{ customerId: "c1", orderDate: D("2026-12-01"), total: 800 }];
+  const old = (over: Partial<BatchLead> = {}) =>
+    lead("a", 2, { convertedCustomerId: "c1", convertedAt: D(at), customerCreatedAt: D("2024-03-01"), ...over });
+
+  it("keeps a long-standing customer's repeat business out of Converted $ and reports it separately", () => {
+    const r = run([old()], { orders });
+    expect(r.total).toMatchObject({ converted: 1, convertedValue: 0, convertedUnverified: 1, convertedValueUnverified: 800 });
+    expect(tierRow(r, 2)).toMatchObject({ convertedValue: 0, convertedUnverified: 1, convertedValueUnverified: 800 });
+  });
+
+  it("does not flag a customer the conversion itself created, a few seconds before convertedAt", () => {
+    const r = run([old({ customerCreatedAt: new Date(D(at).getTime() - 5_000) })], { orders });
+    expect(r.total).toMatchObject({ convertedValue: 800, convertedUnverified: 0, convertedValueUnverified: 0 });
+  });
+
+  it("flags a customer created just beyond the tolerance and not one just inside it", () => {
+    const edge = (ms: number) =>
+      run([old({ customerCreatedAt: new Date(D(at).getTime() - ms) })], { orders }).total.convertedUnverified;
+    expect(edge(PREEXISTING_CUSTOMER_TOLERANCE_MS)).toBe(0);
+    expect(edge(PREEXISTING_CUSTOMER_TOLERANCE_MS + 1)).toBe(1);
+  });
+
+  it("cannot verify a customer whose creation time is unknown, so it does not claim the dollars", () => {
+    const r = run([old({ customerCreatedAt: null })], { orders });
+    expect(r.total).toMatchObject({ convertedValue: 0, convertedUnverified: 1, convertedValueUnverified: 800 });
+  });
+
+  it("does not credit that customer's later quotes to the dealer list either", () => {
+    const quotes: BatchQuote[] = [{ customerId: "c1", createdAt: D("2026-12-02"), status: "SENT" }];
+    expect(run([old()], { quotes }).total.quoted).toBe(0);
+  });
+
+  it("splits the dollars between tiers and the two buckets without losing a cent", () => {
+    const leads = [
+      lead("a", 2, { convertedCustomerId: "c1", convertedAt: D(at) }),
+      old({ id: "b", convertedCustomerId: "c2" }),
+      lead("c", 3, { convertedCustomerId: "c3", convertedAt: D(at), customerCreatedAt: D("2020-01-01") }),
+    ];
+    const multi: BatchOrder[] = [
+      { customerId: "c1", orderDate: D("2026-12-01"), total: 0.1 },
+      { customerId: "c2", orderDate: D("2026-12-01"), total: 0.2 },
+      { customerId: "c3", orderDate: D("2026-12-01"), total: 0.4 },
+    ];
+    const r = run(leads, { orders: multi });
+    expect(r.total).toMatchObject({ converted: 3, convertedUnverified: 2, convertedValue: 0.1, convertedValueUnverified: 0.6 });
+    for (const k of ["convertedUnverified", "convertedValue", "convertedValueUnverified"] as const) {
+      expect(Math.round(r.tiers.reduce((s, t) => s + t[k], 0) * 100)).toBe(Math.round(r.total[k] * 100));
+    }
   });
 });
 

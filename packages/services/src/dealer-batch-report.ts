@@ -27,9 +27,12 @@
  *              FIRST_ORDER / ACTIVE_CUSTOMER with no convertedCustomerId is NOT counted;
  *              it is reported separately as stageWonNotConverted.
  *   value      sum of Order.total for the converted customer with orderDate at/after
- *              Lead.convertedAt. Orders from before the conversion (a merged customer's
- *              history) are not this lead's win. A customer merged from several leads
- *              is valued once.
+ *              Lead.convertedAt. Orders from before the conversion are not this lead's win.
+ *              A customer merged from several leads is valued once (so `converted` counts
+ *              leads while the dollars are per customer). A customer created more than
+ *              PREEXISTING_CUSTOMER_TOLERANCE_MS before convertedAt (a duplicate merged into
+ *              a long-standing customer) has its dollars reported separately as
+ *              convertedValueUnverified, never blended into convertedValue.
  *
  * There is no Task source: Task links to Customer, not Lead, so it cannot say anything
  * about an unconverted lead.
@@ -45,7 +48,11 @@ const WORKED_STAGES: readonly string[] = ["CONTACTED", "INTERESTED", "QUOTED", "
 const QUOTED_STAGES: readonly string[] = ["QUOTED", "NEGOTIATING"];
 const WON_STAGES: readonly string[] = ["FIRST_ORDER", "ACTIVE_CUSTOMER"];
 
-/** Release-order tiers, mirrored from dealer-tier.ts. A LOWER number is BETTER (released first). */
+/**
+ * Release-order tiers, mirrored from dealer-tier.ts (a test calls tierFor() to keep them in step).
+ * A lower number is released to reps earlier. Tier 1 is existing customers (cross-sell, not a
+ * prospect), so tier 2 is the best PROSPECT tier; 8 is parked and 9 is blacklisted.
+ */
 const TIER_LABELS: Record<number, string> = {
   1: "existing customer (cross-sell)",
   2: "home state, 2+ brands",
@@ -64,12 +71,21 @@ export function tierLabel(tier: number | null): string {
   return TIER_LABELS[tier] ?? `tier ${tier} (unlabelled)`;
 }
 
+/**
+ * convertLead creates the customer a moment before it stamps convertedAt, so a customer
+ * the conversion itself made is created within milliseconds BEFORE convertedAt. Only a
+ * customer created longer ago than this is treated as one that predates the conversion.
+ */
+export const PREEXISTING_CUSTOMER_TOLERANCE_MS = 10 * 60 * 1000;
+
 export type BatchLead = {
   id: string;
   meta: unknown;
   stage: string;
   convertedCustomerId: string | null;
   convertedAt: Date | null;
+  /** Customer.createdAt of convertedCustomerId. null = unknown (treated as unverified). */
+  customerCreatedAt: Date | null;
   assignedRepId: string | null;
   /** null = parked (Canada / non-home-state): no rep can ever see the lead. */
   locationId: string | null;
@@ -87,8 +103,23 @@ export type Counts = {
   contacted: number;
   quoted: number;
   converted: number;
-  /** dollars, rounded to the cent */
+  /**
+   * dollars, rounded to the cent. Only customers the conversion itself created.
+   * Deduped per customer, whereas `converted` counts leads: two leads merged into
+   * one customer are converted=2 against one customer's dollars.
+   */
   convertedValue: number;
+  /**
+   * Converted leads whose customer record predates the conversion by more than the
+   * tolerance (a duplicate merged into a long-standing customer by
+   * actions/customer-merge.ts, which re-points convertedCustomerId and leaves
+   * convertedAt alone) or whose creation time is unknown. Their orders are ordinary
+   * repeat business, not proof the dealer list won them, so the dollars are kept OUT of
+   * convertedValue and reported here instead. `converted` still counts the lead.
+   */
+  convertedUnverified: number;
+  /** order dollars of those customers (deduped per customer), rounded to the cent */
+  convertedValueUnverified: number;
   /** converted / contacted, or null when nothing was contacted (a rate of 0/0 is not 0%) */
   convertedPerContacted: number | null;
 };
@@ -110,7 +141,8 @@ function tierOf(meta: unknown): number | null {
 }
 
 const emptyCounts = (): Counts => ({
-  leads: 0, claimed: 0, parked: 0, contacted: 0, quoted: 0, converted: 0, convertedValue: 0, convertedPerContacted: null,
+  leads: 0, claimed: 0, parked: 0, contacted: 0, quoted: 0, converted: 0, convertedValue: 0,
+  convertedUnverified: 0, convertedValueUnverified: 0, convertedPerContacted: null,
 });
 
 export function rollupBatch(input: {
@@ -142,7 +174,9 @@ export function rollupBatch(input: {
   const byTier = new Map<number | null, Counts>();
   const total = emptyCounts();
   const centsByTier = new Map<number | null, number>();
+  const unverifiedCentsByTier = new Map<number | null, number>();
   let totalCents = 0;
+  let totalUnverifiedCents = 0;
   let stageWonNotConverted = 0;
   let convertedWithoutDate = 0;
   const valuedCustomers = new Set<string>();
@@ -160,8 +194,13 @@ export function rollupBatch(input: {
     if (converted && at === null) convertedWithoutDate++;
     if (!converted && WON_STAGES.includes(l.stage)) stageWonNotConverted++;
 
-    const quotedByRow =
+    // A customer that predates the conversion (merged keeper) has its own quotes and orders
+    // that are not this list's doing; same guard for quotes as for dollars.
+    const unverified =
       converted && at !== null &&
+      (l.customerCreatedAt === null || l.customerCreatedAt.getTime() < at.getTime() - PREEXISTING_CUSTOMER_TOLERANCE_MS);
+    const quotedByRow =
+      converted && at !== null && !unverified &&
       (quotesByCustomer.get(l.convertedCustomerId as string) ?? []).some((q) => q.status !== "DRAFT" && q.createdAt >= at);
     const quoted = quotedByActivity.has(l.id) || QUOTED_STAGES.includes(l.stage) || quotedByRow;
     const contacted = contactedByActivity.has(l.id) || WORKED_STAGES.includes(l.stage) || quoted || converted;
@@ -173,6 +212,7 @@ export function rollupBatch(input: {
       if (contacted) t.contacted++;
       if (quoted) t.quoted++;
       if (converted) t.converted++;
+      if (unverified) t.convertedUnverified++;
     }
 
     if (converted && at !== null && !valuedCustomers.has(l.convertedCustomerId as string)) {
@@ -181,20 +221,26 @@ export function rollupBatch(input: {
       for (const o of ordersByCustomer.get(l.convertedCustomerId as string) ?? []) {
         if (o.orderDate >= at) cents += Math.round(o.total * 100);
       }
-      centsByTier.set(tier, (centsByTier.get(tier) ?? 0) + cents);
-      totalCents += cents;
+      if (unverified) {
+        unverifiedCentsByTier.set(tier, (unverifiedCentsByTier.get(tier) ?? 0) + cents);
+        totalUnverifiedCents += cents;
+      } else {
+        centsByTier.set(tier, (centsByTier.get(tier) ?? 0) + cents);
+        totalCents += cents;
+      }
     }
   }
 
-  const finish = (c: Counts, cents: number): Counts => ({
+  const finish = (c: Counts, cents: number, unverifiedCents: number): Counts => ({
     ...c,
     convertedValue: cents / 100,
+    convertedValueUnverified: unverifiedCents / 100,
     convertedPerContacted: c.contacted > 0 ? c.converted / c.contacted : null,
   });
 
   const tiers: TierRollup[] = [...byTier.entries()]
     .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a - b))
-    .map(([tier, c]) => ({ tier, label: tierLabel(tier), ...finish(c, centsByTier.get(tier) ?? 0) }));
+    .map(([tier, c]) => ({ tier, label: tierLabel(tier), ...finish(c, centsByTier.get(tier) ?? 0, unverifiedCentsByTier.get(tier) ?? 0) }));
 
-  return { tiers, total: finish(total, totalCents), stageWonNotConverted, convertedWithoutDate };
+  return { tiers, total: finish(total, totalCents, totalUnverifiedCents), stageWonNotConverted, convertedWithoutDate };
 }
