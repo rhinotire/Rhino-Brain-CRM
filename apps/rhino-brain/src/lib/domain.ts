@@ -16,6 +16,9 @@ export const roleLabels: Record<Role, string> = {
 
 export const customerTypeLabels: Record<CustomerType, string> = {
   TIRE_SHOP: "Tire Shop",
+  WHEEL_SHOP: "Wheel Shop",
+  TRUCK_TIRE_SHOP: "Truck Tire Shop",
+  ATV_GOLF: "ATV & Golf",
   CAR_DEALER: "Car Dealer",
   TRAILER_MANUFACTURER: "Trailer Manufacturer",
   FLEET: "Fleet",
