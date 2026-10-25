@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildProspectReleaseQuery, PROSPECT_RELEASE_LIMIT } from "./prospect-release";
+import {
+  buildProspectReleaseQuery, releaseRank, PROSPECT_RELEASE_LIMIT, TIER_RANK, UNTIERED_UNSCORED_RANK, RELEASE_RANK_SQL,
+} from "./prospect-release";
 
 const REP = { userId: "rep_1", locationId: "loc_fl" as string | null };
 
@@ -22,13 +24,14 @@ describe("buildProspectReleaseQuery", () => {
     expect(unscoped.params).not.toContain(null);
   });
 
-  it("orders tier 2 dealer-list leads above tier 4 ones (tier ascending, untiered last, then newest)", () => {
+  it("orders tier 2 dealer-list leads above tier 4 ones (best rank first, then newest)", () => {
+    expect(releaseRank({ tier: 2 })).toBeGreaterThan(releaseRank({ tier: 4 }));
     const { sql } = buildProspectReleaseQuery(REP);
     const orderBy = sql.slice(sql.indexOf("ORDER BY"));
-    // tier is compared as a number (so a future tier 10 cannot sort before tier 2) ...
-    expect(orderBy).toMatch(/^ORDER BY \(CASE WHEN "meta"->>'tier' ~ '\^\[0-9\]\+\$' THEN \("meta"->>'tier'\)::int END\) ASC NULLS LAST, "createdAt" DESC/);
-    // ... and tier is the FIRST sort key, createdAt only the tie-breaker.
-    expect(orderBy.indexOf("tier")).toBeLessThan(orderBy.indexOf("createdAt"));
+    // rank is the FIRST sort key (descending), createdAt only a tie-breaker.
+    expect(orderBy).toBe(`ORDER BY ${RELEASE_RANK_SQL} DESC, "createdAt" DESC, "id" ASC
+LIMIT 5`);
+    expect(orderBy).not.toMatch(/NULLS/);
   });
 
   it("still returns at most 5 rows when both cron and dealer leads exist", () => {
@@ -70,6 +73,54 @@ describe("buildProspectReleaseQuery", () => {
       expect([...refs].sort((a, b) => a - b)).toEqual(params.map((_, i) => i + 1));
     }
   });
+
+  it("never releases a parked lead: Canada/international dealer rows have no location, for any role", () => {
+    // The importer parks them as locationId = null. A rep scoped to ANY location, including
+    // the one an international lead might once have been routed to, still gets IS NOT NULL.
+    for (const locationId of ["loc_qingdao", "loc_fl", null]) {
+      const { sql } = buildProspectReleaseQuery({ userId: "u", locationId });
+      expect(sql).toContain(`"locationId" IS NOT NULL`);
+    }
+  });
+
+  it("does not exclude the Qingdao location: its cron leads are real, worked drip", () => {
+    const { sql, params } = buildProspectReleaseQuery({ userId: "april", locationId: "loc_qingdao" });
+    expect(sql).toMatch(/"locationId" = \$\d+/);
+    expect(sql).not.toMatch(/"locationId" (<>|!=|NOT IN)/);
+    expect(params).toContain("loc_qingdao");
+  });
+});
+
+describe("release rank: dealer tiers and cron scores compete on one scale", () => {
+  it("a tier-1 dealer outranks a score-70 cron lead", () => {
+    expect(releaseRank({ tier: 1 })).toBeGreaterThan(releaseRank({ score: 70 }));
+  });
+  it("a score-80 cron lead outranks a tier-2 dealer", () => {
+    expect(releaseRank({ score: 80 })).toBeGreaterThan(releaseRank({ tier: 2 }));
+  });
+  it("a tier-4 dealer outranks a score-30 cron lead", () => {
+    expect(releaseRank({ tier: 4 })).toBeGreaterThan(releaseRank({ score: 30 }));
+  });
+  it("an untiered, unscored lead lands between tier 3 and tier 4", () => {
+    expect(releaseRank({})).toBeLessThan(releaseRank({ tier: 3 }));
+    expect(releaseRank({})).toBeGreaterThan(releaseRank({ tier: 4 }));
+    expect(releaseRank({ tier: null, score: null })).toBe(UNTIERED_UNSCORED_RANK);
+  });
+  it("a junk, out-of-range or non-numeric tier is treated as untiered, never NULL", () => {
+    for (const tier of [0, 5, 9, 10, 2.5, -1, "", "abc", "2x", " 2", null, undefined, {}, [2], NaN]) {
+      expect(releaseRank({ tier, score: 61 })).toBe(61);
+      expect(releaseRank({ tier })).toBe(UNTIERED_UNSCORED_RANK);
+    }
+    // numeric and string forms of a valid tier both count
+    expect(releaseRank({ tier: "3" })).toBe(TIER_RANK[3]);
+    expect(releaseRank({ tier: 3 })).toBe(TIER_RANK[3]);
+  });
+  it("the SQL rank CASE is generated from the same map, with a score/untiered fallback and no NULL arm", () => {
+    expect(RELEASE_RANK_SQL).toBe(
+      `(CASE WHEN "meta"->>'tier' = '1' THEN 85 WHEN "meta"->>'tier' = '2' THEN 70 WHEN "meta"->>'tier' = '3' THEN 55 WHEN "meta"->>'tier' = '4' THEN 40 ELSE COALESCE("score", 50) END)`,
+    );
+    expect(TIER_RANK).toEqual({ 1: 85, 2: 70, 3: 55, 4: 40 });
+  });
 });
 
 describe("buildProspectReleaseQuery exact output", () => {
@@ -85,7 +136,7 @@ describe("buildProspectReleaseQuery exact output", () => {
         `  AND ("assignedRepId" IS NULL OR "assignedRepId" = $4)`,
         `  AND "locationId" IS NOT NULL`,
         `  AND "locationId" = $5`,
-        `ORDER BY (CASE WHEN "meta"->>'tier' ~ '^[0-9]+$' THEN ("meta"->>'tier')::int END) ASC NULLS LAST, "createdAt" DESC, "id" ASC`,
+        `ORDER BY (CASE WHEN "meta"->>'tier' = '1' THEN 85 WHEN "meta"->>'tier' = '2' THEN 70 WHEN "meta"->>'tier' = '3' THEN 55 WHEN "meta"->>'tier' = '4' THEN 40 ELSE COALESCE("score", 50) END) DESC, "createdAt" DESC, "id" ASC`,
         `LIMIT 5`,
       ].join("\n"),
       params: ["PROSPECTING", "NEW_LEAD", "D_EXCLUDED", "rep_1", "loc_fl"],
