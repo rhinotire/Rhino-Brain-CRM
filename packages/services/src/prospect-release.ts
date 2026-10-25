@@ -47,10 +47,14 @@ type DealerTierNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
  * query means the exclusion gate leaked and a rep is about to cold-call a
  * customer (spec section 7 risk). If that ever happens it must surface at the
  * BOTTOM of the queue, not the top. Do not "fix" this by moving tier 1 up.
+ *
+ * -1 is deliberate: a lead's own score is an Int from 0 up, so the floor has to sit
+ * BELOW 0 for "ranks lowest" to be literally true (at 5, a score-0..4 lead sorted
+ * beneath a customer who had leaked past the gate).
  */
 export const TIER_RANK: Readonly<Record<DealerTierNumber, number>> = {
   2: 85, 3: 70, 4: 55, 5: 40, 6: 35, 7: 25, 8: 10,
-  1: 5, 9: 5,
+  1: -1, 9: -1,
 };
 
 /** Rank of a lead with neither a (valid) tier nor a score. Between tier 4 (55) and tier 5 (40). */

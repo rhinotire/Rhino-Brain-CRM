@@ -123,6 +123,12 @@ describe("release rank: dealer tiers and cron scores compete on one scale", () =
     }
     expect(TIER_RANK[1]).toBe(TIER_RANK[9]);
   });
+  it("tier 1 and tier 9 rank below EVERY possible score, down to a cron lead scored 0 (an Int score is 0-4 at the low end)", () => {
+    // The floor used to be 5, so a score-0..4 lead sorted below a customer who had leaked past the exclusion gate.
+    for (const score of [0, 1, 2, 3, 4, 5]) {
+      for (const tier of [1, 9]) expect(releaseRank({ tier })).toBeLessThan(releaseRank({ score }));
+    }
+  });
   it("an untiered, unscored lead lands between tier 4 and tier 5", () => {
     expect(releaseRank({})).toBeLessThan(releaseRank({ tier: 4 }));
     expect(releaseRank({})).toBeGreaterThan(releaseRank({ tier: 5 }));
@@ -141,9 +147,9 @@ describe("release rank: dealer tiers and cron scores compete on one scale", () =
   });
   it("the SQL rank CASE is generated from the same map, with a score/untiered fallback and no NULL arm", () => {
     expect(RELEASE_RANK_SQL).toBe(
-      `(CASE WHEN "meta"->>'tier' = '1' THEN 5 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN 5 ELSE COALESCE("score", 50) END)`,
+      `(CASE WHEN "meta"->>'tier' = '1' THEN -1 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN -1 ELSE COALESCE("score", 50) END)`,
     );
-    expect(TIER_RANK).toEqual({ 1: 5, 2: 85, 3: 70, 4: 55, 5: 40, 6: 35, 7: 25, 8: 10, 9: 5 });
+    expect(TIER_RANK).toEqual({ 1: -1, 2: 85, 3: 70, 4: 55, 5: 40, 6: 35, 7: 25, 8: 10, 9: -1 });
   });
 });
 
@@ -160,7 +166,7 @@ describe("buildProspectReleaseQuery exact output", () => {
         `  AND ("assignedRepId" IS NULL OR "assignedRepId" = $4)`,
         `  AND "locationId" IS NOT NULL`,
         `  AND "locationId" = $5`,
-        `ORDER BY (CASE WHEN "meta"->>'tier' = '1' THEN 5 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN 5 ELSE COALESCE("score", 50) END) DESC, "createdAt" DESC, "id" ASC`,
+        `ORDER BY (CASE WHEN "meta"->>'tier' = '1' THEN -1 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN -1 ELSE COALESCE("score", 50) END) DESC, "createdAt" DESC, "id" ASC`,
         `LIMIT 5`,
       ].join("\n"),
       params: ["PROSPECTING", "NEW_LEAD", "D_EXCLUDED", "rep_1", "loc_fl"],
