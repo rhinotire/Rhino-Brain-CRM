@@ -3,6 +3,9 @@ import { requireSession, isManager, repScope, locationScope, adminLocFilter } fr
 import { Badge } from "@/components/ui/primitives";
 import { NewLeadButton, LeadCardActions } from "@/components/lead-components";
 import { QuickLogButton } from "@/components/quick-log";
+import { ShowImportedToggle } from "@/components/show-imported-toggle";
+import { listImportedBatchIds } from "@/lib/imported-batches";
+import { showImportedFrom, visibleImportsWhere, unclaimedImportsWhere } from "@rhino/services";
 import {
   stageLabels, stageOrder, customerTypeLabels, customerSourceLabels, productLabels,
   lostReasonLabels, leadNeedsFirstContact, fmtDate, daysSince,
@@ -10,7 +13,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function PipelinePage({ searchParams }: { searchParams: { rep?: string } }) {
+export default async function PipelinePage({ searchParams }: { searchParams: { rep?: string; imports?: string } }) {
   const session = await requireSession();
   const adminLocations = session.role === "ADMIN"
     ? await db.location.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, shortTag: true } })
@@ -20,6 +23,14 @@ export default async function PipelinePage({ searchParams }: { searchParams: { r
 
   const where = { ...repScope(session, "assignedRepId"), ...locationScope(session) } as Record<string, unknown>;
   if (manager && searchParams.rep) where.assignedRepId = searchParams.rep;
+
+  // The board shows the newest 500 rows, so an unworked bulk import would push every other lead
+  // off it. Imported-and-unclaimed rows are hidden unless the manager opts in (final review F1).
+  const showImported = showImportedFrom(searchParams.imports);
+  const importedBatchIds = await listImportedBatchIds();
+  const hiddenWhere = unclaimedImportsWhere(importedBatchIds);
+  const hiddenCount = !showImported && hiddenWhere ? await db.lead.count({ where: { ...where, ...hiddenWhere } as never }) : 0;
+  Object.assign(where, visibleImportsWhere({ importedBatchIds, showImported }));
 
   const [leads, reps] = await Promise.all([
     db.lead.findMany({
@@ -47,6 +58,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: { r
                 <option value="">All reps</option>
                 {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
+              <ShowImportedToggle checked={showImported} hiddenCount={hiddenCount} />
               <button type="submit" className="ml-2 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm hover:bg-slate-50">Filter</button>
             </form>
           )}

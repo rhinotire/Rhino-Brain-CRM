@@ -58,3 +58,6 @@ export { handleFreightReply } from "./freight-reply-handler";
 export { isFreightMailConfigured, sendFreightEmail } from "./freight-mailer";
 export { pollFreightInbox } from "./freight-inbox";
 export { docExpiryStatus, worstExpiryStatus, canDownloadEmployeeDoc, canDeleteEmployeeDoc, coreDocsOnFile, type DocExpiryStatus } from "./hr";
+export {
+  visibleImportsWhere, unclaimedImportsWhere, showImportedFrom, IMPORTED_BATCH_MARKER_FILTER, SHOW_IMPORTED_PARAM,
+} from "./lead-import-visibility";

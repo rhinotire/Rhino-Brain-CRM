@@ -2,6 +2,9 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, repScope, locationScope, adminLocFilter } from "@/lib/auth";
 import { Table, THead, EmptyRow, Badge, Select, Input, Button } from "@/components/ui/primitives";
 import { NewLeadButton } from "@/components/lead-components";
+import { ShowImportedToggle } from "@/components/show-imported-toggle";
+import { listImportedBatchIds } from "@/lib/imported-batches";
+import { showImportedFrom, visibleImportsWhere, unclaimedImportsWhere } from "@rhino/services";
 import {
   stageLabels, customerTypeLabels, customerSourceLabels, productLabels,
   leadNeedsFirstContact, fmtDate,
@@ -10,7 +13,7 @@ import type { Prisma, PipelineStage } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; stage?: string; rep?: string; source?: string };
+type Search = { q?: string; stage?: string; rep?: string; source?: string; imports?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Search }) {
   const session = await requireSession();
@@ -33,6 +36,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   if (searchParams.stage) where.stage = searchParams.stage as PipelineStage;
   if (manager && searchParams.rep) where.assignedRepId = searchParams.rep;
   if (searchParams.source) where.source = searchParams.source as Prisma.LeadWhereInput["source"];
+
+  // Newest-300 list: an unworked bulk import would fill it and push every other lead off the
+  // page. Imported-and-unclaimed rows are hidden unless the manager opts in (final review F1).
+  // The source dropdown cannot do this: dealer rows share PROSPECTING with the daily cron.
+  const showImported = showImportedFrom(searchParams.imports);
+  const importedBatchIds = await listImportedBatchIds();
+  const hiddenWhere = unclaimedImportsWhere(importedBatchIds);
+  const hiddenCount = !showImported && hiddenWhere ? await db.lead.count({ where: { ...where, ...hiddenWhere } }) : 0;
+  Object.assign(where, visibleImportsWhere({ importedBatchIds, showImported }));
 
   const [leads, reps] = await Promise.all([
     db.lead.findMany({ where, orderBy: { createdAt: "desc" }, include: { assignedRep: { select: { name: true } } }, take: 300 }),
@@ -71,6 +83,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
             </Select>
           </div>
         )}
+        <ShowImportedToggle checked={showImported} hiddenCount={hiddenCount} />
         <Button type="submit" variant="secondary">Filter</Button>
       </form>
 
