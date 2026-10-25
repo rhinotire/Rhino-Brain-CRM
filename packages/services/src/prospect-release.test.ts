@@ -92,34 +92,58 @@ LIMIT 5`);
 });
 
 describe("release rank: dealer tiers and cron scores compete on one scale", () => {
-  it("a tier-1 dealer outranks a score-70 cron lead", () => {
-    expect(releaseRank({ tier: 1 })).toBeGreaterThan(releaseRank({ score: 70 }));
+  const RANKED_TIERS = [2, 3, 4, 5, 6, 7, 8] as const;
+
+  it("a tier-2 dealer (best releasable) outranks a score-70 cron lead", () => {
+    expect(releaseRank({ tier: 2 })).toBeGreaterThan(releaseRank({ score: 70 }));
   });
-  it("a score-80 cron lead outranks a tier-2 dealer", () => {
-    expect(releaseRank({ score: 80 })).toBeGreaterThan(releaseRank({ tier: 2 }));
+  it("a score-90 cron lead outranks a tier-2 dealer, and a score-80 one outranks a tier-3 dealer", () => {
+    expect(releaseRank({ score: 90 })).toBeGreaterThan(releaseRank({ tier: 2 }));
+    expect(releaseRank({ score: 80 })).toBeGreaterThan(releaseRank({ tier: 3 }));
   });
   it("a tier-4 dealer outranks a score-30 cron lead", () => {
     expect(releaseRank({ tier: 4 })).toBeGreaterThan(releaseRank({ score: 30 }));
   });
-  it("an untiered, unscored lead lands between tier 3 and tier 4", () => {
-    expect(releaseRank({})).toBeLessThan(releaseRank({ tier: 3 }));
-    expect(releaseRank({})).toBeGreaterThan(releaseRank({ tier: 4 }));
+  it("a tier-5 lead ranks below a tier-4 one (non-home never beats home)", () => {
+    expect(releaseRank({ tier: 5 })).toBeLessThan(releaseRank({ tier: 4 }));
+  });
+  it("a worse tier never outranks a better one, across the whole 2-8 scheme", () => {
+    for (let i = 0; i < RANKED_TIERS.length - 1; i++) {
+      expect(releaseRank({ tier: RANKED_TIERS[i] })).toBeGreaterThan(releaseRank({ tier: RANKED_TIERS[i + 1] }));
+    }
+  });
+  it("tier 1 (existing customer) and tier 9 (blacklisted) rank at the very bottom, fail-safe", () => {
+    const floor = Math.min(...RANKED_TIERS.map(t => releaseRank({ tier: t })));
+    for (const tier of [1, 9]) {
+      expect(releaseRank({ tier })).toBeLessThan(floor);
+      expect(releaseRank({ tier })).toBeLessThan(releaseRank({ tier: 8 }));
+      expect(releaseRank({ tier })).toBeLessThan(UNTIERED_UNSCORED_RANK);
+      // as numbers and as strings
+      expect(releaseRank({ tier: String(tier) })).toBe(releaseRank({ tier }));
+    }
+    expect(TIER_RANK[1]).toBe(TIER_RANK[9]);
+  });
+  it("an untiered, unscored lead lands between tier 4 and tier 5", () => {
+    expect(releaseRank({})).toBeLessThan(releaseRank({ tier: 4 }));
+    expect(releaseRank({})).toBeGreaterThan(releaseRank({ tier: 5 }));
     expect(releaseRank({ tier: null, score: null })).toBe(UNTIERED_UNSCORED_RANK);
   });
   it("a junk, out-of-range or non-numeric tier is treated as untiered, never NULL", () => {
-    for (const tier of [0, 5, 9, 10, 2.5, -1, "", "abc", "2x", " 2", null, undefined, {}, [2], NaN]) {
+    for (const tier of [0, 10, 11, 99, 2.5, -1, "", "abc", "2x", " 2", "10", null, undefined, {}, [2], NaN]) {
       expect(releaseRank({ tier, score: 61 })).toBe(61);
       expect(releaseRank({ tier })).toBe(UNTIERED_UNSCORED_RANK);
     }
     // numeric and string forms of a valid tier both count
     expect(releaseRank({ tier: "3" })).toBe(TIER_RANK[3]);
     expect(releaseRank({ tier: 3 })).toBe(TIER_RANK[3]);
+    // a valid tier beats the lead's own score
+    expect(releaseRank({ tier: 8, score: 95 })).toBe(TIER_RANK[8]);
   });
   it("the SQL rank CASE is generated from the same map, with a score/untiered fallback and no NULL arm", () => {
     expect(RELEASE_RANK_SQL).toBe(
-      `(CASE WHEN "meta"->>'tier' = '1' THEN 85 WHEN "meta"->>'tier' = '2' THEN 70 WHEN "meta"->>'tier' = '3' THEN 55 WHEN "meta"->>'tier' = '4' THEN 40 ELSE COALESCE("score", 50) END)`,
+      `(CASE WHEN "meta"->>'tier' = '1' THEN 5 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN 5 ELSE COALESCE("score", 50) END)`,
     );
-    expect(TIER_RANK).toEqual({ 1: 85, 2: 70, 3: 55, 4: 40 });
+    expect(TIER_RANK).toEqual({ 1: 5, 2: 85, 3: 70, 4: 55, 5: 40, 6: 35, 7: 25, 8: 10, 9: 5 });
   });
 });
 
@@ -136,7 +160,7 @@ describe("buildProspectReleaseQuery exact output", () => {
         `  AND ("assignedRepId" IS NULL OR "assignedRepId" = $4)`,
         `  AND "locationId" IS NOT NULL`,
         `  AND "locationId" = $5`,
-        `ORDER BY (CASE WHEN "meta"->>'tier' = '1' THEN 85 WHEN "meta"->>'tier' = '2' THEN 70 WHEN "meta"->>'tier' = '3' THEN 55 WHEN "meta"->>'tier' = '4' THEN 40 ELSE COALESCE("score", 50) END) DESC, "createdAt" DESC, "id" ASC`,
+        `ORDER BY (CASE WHEN "meta"->>'tier' = '1' THEN 5 WHEN "meta"->>'tier' = '2' THEN 85 WHEN "meta"->>'tier' = '3' THEN 70 WHEN "meta"->>'tier' = '4' THEN 55 WHEN "meta"->>'tier' = '5' THEN 40 WHEN "meta"->>'tier' = '6' THEN 35 WHEN "meta"->>'tier' = '7' THEN 25 WHEN "meta"->>'tier' = '8' THEN 10 WHEN "meta"->>'tier' = '9' THEN 5 ELSE COALESCE("score", 50) END) DESC, "createdAt" DESC, "id" ASC`,
         `LIMIT 5`,
       ].join("\n"),
       params: ["PROSPECTING", "NEW_LEAD", "D_EXCLUDED", "rep_1", "loc_fl"],

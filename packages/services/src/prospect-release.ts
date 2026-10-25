@@ -24,26 +24,46 @@
 /** Slots per rep per day. Shared by the cron's leads and the dealer list. */
 export const PROSPECT_RELEASE_LIMIT = 5;
 
-/**
- * Dealer-list leads carry meta.tier (1-4) and no score; cron leads carry a score
- * (0-100) and no tier. To make them compete for the same slots (spec section 8
- * decision 3: the cron's drip is never buried) both are put on ONE rank scale:
- * a tier maps onto the score scale, an untiered lead uses its own score.
- * Higher rank releases first. Owner-reviewable.
- */
-export const TIER_RANK: Readonly<Record<1 | 2 | 3 | 4, number>> = { 1: 85, 2: 70, 3: 55, 4: 40 };
+/** meta.tier scheme of dealer-tier.ts (1-9). Redeclared here so this file imports nothing. */
+type DealerTierNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-/** Rank of a lead with neither a (valid) tier nor a score. Sits between tier 3 and tier 4. */
+/**
+ * Dealer-list leads carry meta.tier (1-9, see dealer-tier.ts) and no score; cron
+ * leads carry a score (0-100) and no tier. To make them compete for the same
+ * slots (spec section 8 decision 3: the cron's drip is never buried) both are
+ * put on ONE rank scale: a tier maps onto the score scale, an untiered lead uses
+ * its own score. Higher rank releases first. Owner-reviewable.
+ *
+ *   2 home state, 2+ brands (best releasable)   3 home, 1 brand, near a hub
+ *   4 home, 1 brand, elsewhere                  5 non-home, 3+ brands
+ *   6 high-density metro, non-home              7 non-home, 1-2 brands (nurture)
+ *   8 Canada / international (parked)
+ *
+ * Monotonic: a worse tier can never outrank a better one.
+ *
+ * Tiers 1 and 9 rank LOWEST, deliberately, and must stay that way. Tier 1 is an
+ * existing customer (cross-sell, never a cold prospect) and tier 9 is
+ * blacklisted / opted out: both are excluded upstream, so one reaching this
+ * query means the exclusion gate leaked and a rep is about to cold-call a
+ * customer (spec section 7 risk). If that ever happens it must surface at the
+ * BOTTOM of the queue, not the top. Do not "fix" this by moving tier 1 up.
+ */
+export const TIER_RANK: Readonly<Record<DealerTierNumber, number>> = {
+  2: 85, 3: 70, 4: 55, 5: 40, 6: 35, 7: 25, 8: 10,
+  1: 5, 9: 5,
+};
+
+/** Rank of a lead with neither a (valid) tier nor a score. Between tier 4 (55) and tier 5 (40). */
 export const UNTIERED_UNSCORED_RANK = 50;
 
 /**
  * The rank a lead releases at. Reference semantics of the SQL rank CASE below
- * (which is generated from the same constants): a tier outside 1-4, or a
+ * (which is generated from the same constants): a tier outside 1-9, or a
  * non-numeric one, is "no tier".
  */
 export function releaseRank(lead: { tier?: unknown; score?: number | null }): number {
   const t = typeof lead.tier === "number" ? String(lead.tier) : typeof lead.tier === "string" ? lead.tier : "";
-  if (/^[1-4]$/.test(t)) return TIER_RANK[Number(t) as 1 | 2 | 3 | 4];
+  if (/^[1-9]$/.test(t)) return TIER_RANK[Number(t) as DealerTierNumber];
   return lead.score ?? UNTIERED_UNSCORED_RANK;
 }
 
