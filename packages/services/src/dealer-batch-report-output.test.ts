@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  COLUMN_DEFINITION_LINES, TIER_DIRECTION_LINE, convertedDisclosureLines, pct, tierLabel, tierTableHeader, tierTableRow, usd,
+  COLUMN_DEFINITION_LINES, PREEXISTING_CUSTOMER_TOLERANCE_MS, TIER_DIRECTION_LINE, convertedDisclosureLines, pct, tierLabel, tierTableHeader, tierTableRow, usd,
   type Counts,
 } from "./dealer-batch-report";
 import { compareForRelease, tierFor } from "./dealer-tier";
@@ -115,6 +115,12 @@ describe("COLUMN_DEFINITION_LINES (M-6)", () => {
   it("says the stages are NOT nested, so a Converted figure above Quoted is not read as a bug", () => {
     expect(text).toMatch(/not nested/i);
     expect(text).toMatch(/Converted can exceed Quoted/);
+  });
+
+  it("states the unverified window in the tolerance constant's own minutes, so the printed text cannot drift from the behaviour", () => {
+    // Deliberately reads the constant: this checks the DEFINITION follows it. The behaviour itself is pinned
+    // in literal minutes in dealer-batch-report.test.ts, which does not read the constant.
+    expect(text).toContain(`created more than ${PREEXISTING_CUSTOMER_TOLERANCE_MS / 60_000} minutes before or after convertedAt`);
   });
 
   it("explains why: a converted lead is not counted as quoted unless there is evidence of a quote", () => {

@@ -318,7 +318,7 @@ export const COLUMN_DEFINITION_LINES: readonly string[] = [
   "            or Lead.stage moved on from NEW_LEAD (not LOST), or the lead is quoted/converted.",
   "Quoted      a QUOTE activity on the lead, or stage QUOTED/NEGOTIATING, or a non-draft Quote on its converted customer made after conversion.",
   "Converted   Lead.convertedCustomerId is set (a stage of FIRST_ORDER/ACTIVE_CUSTOMER alone does not count).",
-  "Unverified  subset of Converted whose customer the conversion did not itself create (created more than 10 minutes before or after convertedAt, or time unknown).",
+  `Unverified  subset of Converted whose customer the conversion did not itself create (created more than ${PREEXISTING_CUSTOMER_TOLERANCE_MS / 60_000} minutes before or after convertedAt, or time unknown).`,
   "Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt, only for customers created by the conversion (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.",
   "The stages are not nested. Each is counted on its own evidence, so Converted can exceed Quoted: a lead converted with no QUOTE activity, no QUOTED/NEGOTIATING stage and no",
   "non-draft Quote after conversion has no evidence of a quote, and is not counted as one. (Contacted is the one exception: a quoted or converted lead is also contacted.)",
