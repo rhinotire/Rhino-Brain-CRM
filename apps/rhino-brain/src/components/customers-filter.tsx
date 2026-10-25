@@ -22,7 +22,8 @@ export function CustomersFilter({ statuses, types, states, interests, reps }: {
   };
 
   return (
-    <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-4 xl:grid-cols-8"
+    // Ten cells for a manager (search spans two): five columns lay them out as two full rows at xl.
+    <form className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-4 xl:grid-cols-5"
       onSubmit={e => { e.preventDefault(); apply({ q, city }); }}>
       <Input name="q" placeholder="Search name / phone / email / city / tag" value={q} onChange={e => setQ(e.target.value)} className="col-span-2" />
       <Select value={sp.get("status") ?? ""} onChange={e => apply({ status: e.target.value })}>
@@ -33,7 +34,8 @@ export function CustomersFilter({ statuses, types, states, interests, reps }: {
         <option value="">All types</option>
         {types.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </Select>
-      <Select value={sp.get("state") ?? ""} onChange={e => apply({ state: e.target.value })}>
+      {/* The filter matches state case-insensitively but the options are upper case, so a bookmarked ?state=tx must select TX. */}
+      <Select value={(sp.get("state") ?? "").trim().toUpperCase()} onChange={e => apply({ state: e.target.value })}>
         <option value="">All states</option>
         {states.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </Select>

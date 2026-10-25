@@ -77,9 +77,15 @@ export function buildCustomerFilterWhere<T extends string>(input: CustomerFilter
   return { ...filters, ...input.scope };
 }
 
-/** The State dropdown's choices: 50 states + DC + Puerto Rico (the CRM has PR customers). */
+/**
+ * The State dropdown's choices: 50 states + DC + Puerto Rico (the CRM has PR customers) + the 13 Canadian
+ * provinces (it has Canadian customers too: see geo-state.ts). A state in the URL that is not in this list
+ * still filters but would display as "All states", so the list must cover the values the data holds.
+ * Guam, USVI and the other US territories are not offered; no customer has one.
+ */
 export const CUSTOMER_FILTER_STATES: readonly string[] = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
   "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
   "OK", "OR", "PA", "PR", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+  "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
 ];

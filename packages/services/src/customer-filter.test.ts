@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES } from "./customer-filter";
+import { countryFromState } from "./geo-state";
 
 const TYPES = ["TIRE_SHOP", "WHEEL_SHOP", "TRUCK_TIRE_SHOP", "ATV_GOLF", "CAR_DEALER", "OTHER"] as const;
 const BS = String.fromCharCode(92); // one backslash, spelled out so no escaping layer can swallow it
@@ -102,11 +103,21 @@ describe("buildCustomerFilterWhere", () => {
 });
 
 describe("CUSTOMER_FILTER_STATES", () => {
-  it("is the 50 states + DC + PR as upper-case 2-letter codes, with the two company home states present", () => {
+  it("is the 50 states + DC + PR + the 13 Canadian provinces as upper-case 2-letter codes, with the two company home states present", () => {
     expect(CUSTOMER_FILTER_STATES).toContain("FL");
     expect(CUSTOMER_FILTER_STATES).toContain("TX");
     expect(CUSTOMER_FILTER_STATES.every(s => /^[A-Z]{2}$/.test(s))).toBe(true);
     expect(new Set(CUSTOMER_FILTER_STATES).size).toBe(CUSTOMER_FILTER_STATES.length);
-    expect(CUSTOMER_FILTER_STATES.length).toBe(52);
+    expect(CUSTOMER_FILTER_STATES.length).toBe(65);
+  });
+
+  it("offers every Canadian province, because the CRM holds Canadian customers and ?state=ON must show as ON, not 'All states' (M-8)", () => {
+    for (const province of ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]) {
+      expect(CUSTOMER_FILTER_STATES).toContain(province);
+    }
+  });
+
+  it("only offers codes the app's own geography recognises as a US state or Canadian province", () => {
+    for (const code of CUSTOMER_FILTER_STATES) expect(countryFromState(code)).not.toBe("OTHER");
   });
 });
