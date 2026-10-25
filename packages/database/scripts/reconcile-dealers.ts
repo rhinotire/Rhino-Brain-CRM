@@ -35,18 +35,20 @@
  * wrap - instead of ~10k per-record round trips. --crosscheck N proves the
  * two paths agree on N sampled records by calling the real gates.
  *
- * Territory comes from the STATE field only; the Country column is corrupt.
+ * Territory comes from the STATE field only (the Country column is corrupt), repaired from the ZIP
+ * when the state is unrecognised, exactly as import-dealers.ts does (territoryKeyOf / resolveGeo).
  */
 import { PrismaClient } from "@prisma/client";
 import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseDealerWorkbook, type DealerRecord } from "../../services/src/dealer-list-parse";
-import { tierFor } from "../../services/src/dealer-tier";
+import { resolveGeo, territoryKeyOf, tierForRecord, type TerritoryKey } from "../../services/src/dealer-import-rules";
 import { matchesExclusion, isExcluded, findBlacklistMatch } from "../../services/src/exclusion-service";
-import { CONTACT_ACTIVITY_TYPES, importBatchLeadCountCheck, rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
-import { assignStateLocation } from "../../services/src/prospect-score";
-import { countryFromState } from "../../services/src/geo-state";
+import {
+  COLUMN_DEFINITION_LINES, CONTACT_ACTIVITY_TYPES, TIER_DIRECTION_LINE, convertedDisclosureLines, importBatchLeadCountCheck, pct, rollupBatch,
+  tierTableHeader, tierTableRow,
+} from "../../services/src/dealer-batch-report";
 import { domainKey, nameKey, phoneKey } from "../../services/src/referral-matching";
 
 const db = new PrismaClient();
@@ -67,16 +69,12 @@ function arg(name: string): string | undefined {
   return v;
 }
 
-function territoryOf(state: string): Territory {
-  const s = state.trim().toUpperCase();
-  const loc = assignStateLocation(s);
-  if (loc === "RHINO") return "Rhino states";
-  if (loc === "EVERFLOW") return "Everflow states";
-  const c = countryFromState(s);
-  if (c === "US") return "Other US";
-  if (c === "CA") return "Canada";
-  return "Unresolved";
-}
+// Classified through territoryKeyOf, the same function import-dealers.ts routes with, so the counts the
+// owner approves here are the counts that get built (ZIP-repaired states included).
+const TERRITORY_LABEL: Record<TerritoryKey, Territory> = {
+  RHINO: "Rhino states", EVERFLOW: "Everflow states", OTHER_US: "Other US", CANADA: "Canada", UNRESOLVED: "Unresolved",
+};
+const territoryOf = (d: DealerRecord): Territory => TERRITORY_LABEL[territoryKeyOf(d)];
 
 const csvCell = (v: unknown): string => {
   let s = String(v ?? "");
@@ -89,8 +87,6 @@ const pad = (s: string | number, n: number) => String(s).padEnd(n);
 const num = (s: string | number, n: number) => String(s).padStart(n);
 const zeroRow = () => Object.fromEntries(TERRITORIES.map((t) => [t, 0])) as Record<Territory, number>;
 
-const usd = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const pct = (r: number | null) => (r === null ? "n/a" : (r * 100).toFixed(1) + "%");
 
 /**
  * --batch mode. Read-only. Every number is counted against the leads actually
@@ -132,7 +128,9 @@ async function batchReport(): Promise<void> {
   const activityRows = await db.activity.findMany({ where: { lead: inBatch }, select: { leadId: true, type: true } });
   const activities = activityRows.flatMap((a) => (a.leadId ? [{ leadId: a.leadId, type: a.type as string }] : []));
   // Raw database counts for the same batch, taken with their own queries (not from `activities`),
-  // so a broken or mis-filtered activity read cannot pass for a true zero.
+  // so a broken or mis-filtered activity read cannot pass for a true zero. LIMIT OF THIS CHECK: it
+  // shares CONTACT_ACTIVITY_TYPES with the in-memory rollup, so it proves the read is complete, not that
+  // the type list is right; a wrong list is wrong in both and still prints OK.
   const contactTypes = [...CONTACT_ACTIVITY_TYPES];
   const rawContactActivities = await db.activity.count({ where: { lead: inBatch, type: { in: contactTypes } } });
   const rawContactLeads = (await db.activity.groupBy({ by: ["leadId"], where: { lead: inBatch, type: { in: contactTypes } } })).length;
@@ -183,28 +181,16 @@ async function batchReport(): Promise<void> {
   P("");
 
   P("=== BY TIER ===");
-  P("Lower number = released to reps earlier. T1 is existing customers (not prospects); T2 is the best prospect tier; T8 is parked.");
-  const row = (label: string, c: Counts) =>
-    pad(label, 54) + num(c.leads, 7) + num(c.parked, 8) + num(c.contacted, 11) + num(c.quoted, 8) + num(c.converted, 11) + num(usd(c.convertedValue), 16) + num(pct(c.convertedPerContacted), 16);
-  P(pad("Tier", 54) + num("Leads", 7) + num("Parked", 8) + num("Contacted", 11) + num("Quoted", 8) + num("Converted", 11) + num("Converted $", 16) + num("Conv/contacted", 16));
-  for (const t of r.tiers) P(row(t.tier === null ? `--  ${t.label}` : `T${t.tier}  ${t.label}`, t));
-  P(row("ALL TIERS", T));
+  P(TIER_DIRECTION_LINE);
+  P(tierTableHeader());
+  for (const t of r.tiers) P(tierTableRow(t.tier === null ? `--  ${t.label}` : `T${t.tier}  ${t.label}`, t));
+  P(tierTableRow("ALL TIERS", T));
   P('"Conv/contacted" = converted / contacted. n/a means nobody was contacted yet; it is not 0%.');
-  P("Converted counts LEADS; Converted $ is deduped per CUSTOMER, so two leads merged into one customer show Converted 2 against one customer's dollars.");
-  P(
-    `Converted $ holds back order dollars from customers that predate the conversion (merged into an existing customer, or creation time unknown): ` +
-      `${T.convertedUnverified} of ${T.converted} converted lead(s), ${usd(T.convertedValueUnverified)} not counted as won.`,
-  );
+  for (const line of convertedDisclosureLines(T)) P(line);
   P("");
 
   P("=== HOW EACH COLUMN IS COUNTED ===");
-  P("Leads       Lead rows with importBatchId in the batch id(s) above.");
-  P("Parked      subset of Leads with no locationId (Canada / non-home state): no rep can see them, so they cannot be worked or converted.");
-  P("Contacted   an Activity logged on the lead of type CALL/EMAIL/TEXT/WHATSAPP/QUOTE/ORDER/PAYMENT/VISIT/COMPLAINT (NO_ANSWER, VOICEMAIL, notes do not count),");
-  P("            or Lead.stage moved on from NEW_LEAD (not LOST), or the lead is quoted/converted.");
-  P("Quoted      a QUOTE activity on the lead, or stage QUOTED/NEGOTIATING, or a non-draft Quote on its converted customer made after conversion.");
-  P("Converted   Lead.convertedCustomerId is set (a stage of FIRST_ORDER/ACTIVE_CUSTOMER alone does not count).");
-  P("Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt, only for customers created by the conversion (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.");
+  for (const line of COLUMN_DEFINITION_LINES) P(line);
   P("");
 
   P("=== RECONCILIATION ===");
@@ -355,9 +341,10 @@ async function main() {
     else bucket = "NEW";
 
     // tier column: blacklisted -> 9, customers -> 1 (per tier spec); the NEW
-    // breakdown always uses plain tierFor(d).
-    const tier = bucket === "BLACKLISTED" ? 9 : bucket === "ALREADY_CUSTOMER" ? 1 : tierFor(d);
-    const row: Row = { d, bucket, tier, territory: territoryOf(d.state), flag: "" };
+    // breakdown uses the importer's tier on the REPAIRED state (tierForRecord with no distance or density
+    // context, so tiers 3/4 and 6/7 here are still gross; see the NEW BY TIER note).
+    const tier = bucket === "BLACKLISTED" ? 9 : bucket === "ALREADY_CUSTOMER" ? 1 : tierForRecord(d, resolveGeo(d));
+    const row: Row = { d, bucket, tier, territory: territoryOf(d), flag: "" };
     rows.push(row);
 
     if (bucket === "NEW") {

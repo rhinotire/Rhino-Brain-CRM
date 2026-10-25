@@ -168,6 +168,22 @@ export function homeCompanyOf(d: Pick<DealerRecord, "state" | "zip">): "RHINO" |
   return assignStateLocation(resolveGeo(d).state);
 }
 
+export type TerritoryKey = "RHINO" | "EVERFLOW" | "OTHER_US" | "CANADA" | "UNRESOLVED";
+
+/**
+ * The territory a record belongs to, on the REPAIRED state (resolveGeo). import-dealers.ts
+ * (what gets built) and reconcile-dealers.ts (the report the owner approves before it is built)
+ * both classify through this one function, so they cannot disagree: reading the raw state in the
+ * report filed the ZIP-repaired records (LAA + 70737 = Louisiana, a real Everflow dealer) under
+ * "Unresolved" while the importer routed them to Everflow.
+ */
+export function territoryKeyOf(d: Pick<DealerRecord, "state" | "zip">): TerritoryKey {
+  const home = homeCompanyOf(d);
+  if (home) return home;
+  const g = resolveGeo(d);
+  return g.country === "US" ? "OTHER_US" : g.country === "CA" ? "CANADA" : "UNRESOLVED";
+}
+
 // ---- phone ----------------------------------------------------------------------
 
 /**

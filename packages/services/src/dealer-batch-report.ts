@@ -31,14 +31,23 @@
  *              A customer merged from several leads is valued once (so `converted` counts
  *              leads while the dollars are per customer). A customer created more than
  *              PREEXISTING_CUSTOMER_TOLERANCE_MS before convertedAt (a duplicate merged into
- *              a long-standing customer) has its dollars reported separately as
- *              convertedValueUnverified, never blended into convertedValue.
+ *              a long-standing customer) or more than that AFTER it (a long-standing customer
+ *              imported later, the duplicate merged into it) has its dollars reported
+ *              separately as convertedValueUnverified, never blended into convertedValue.
  *
  * There is no Task source: Task links to Customer, not Lead, so it cannot say anything
  * about an unconverted lead.
  */
 
-/** Activity types the app counts as real contact (mirrors CONTACT_TYPES in actions/activities.ts). */
+/**
+ * Activity types the app counts as real contact (mirrors CONTACT_TYPES in actions/activities.ts).
+ *
+ * NOTE for whoever audits this report: reconcile-dealers.ts uses this SAME list both in the in-memory
+ * rollup and in its raw database cross-check counts (type in CONTACT_ACTIVITY_TYPES). The
+ * cross-check therefore proves the activity READ is complete, not that this list is RIGHT: a wrong type
+ * here is wrong in both and the reconciliation will still print OK. Keep it in step with
+ * actions/activities.ts by hand.
+ */
 export const CONTACT_ACTIVITY_TYPES = [
   "CALL", "EMAIL", "TEXT", "WHATSAPP", "QUOTE", "ORDER", "PAYMENT", "VISIT", "COMPLAINT",
 ] as const;
@@ -73,8 +82,11 @@ export function tierLabel(tier: number | null): string {
 
 /**
  * convertLead creates the customer a moment before it stamps convertedAt, so a customer
- * the conversion itself made is created within milliseconds BEFORE convertedAt. Only a
- * customer created longer ago than this is treated as one that predates the conversion.
+ * the conversion itself made is created within milliseconds BEFORE convertedAt (allowing for
+ * clock skew either way). A customer created further than this from convertedAt, before OR
+ * after, is not the conversion's own: before means it predates the conversion (a duplicate
+ * merged into a long-standing customer), after means it is a keeper created later that the
+ * lead was merged into. Both are repeat business, never proof the dealer list won them.
  */
 export const PREEXISTING_CUSTOMER_TOLERANCE_MS = 10 * 60 * 1000;
 
@@ -110,10 +122,11 @@ export type Counts = {
    */
   convertedValue: number;
   /**
-   * Converted leads whose customer record predates the conversion by more than the
-   * tolerance (a duplicate merged into a long-standing customer by
+   * Converted leads whose customer record was created more than the tolerance before
+   * the conversion (a duplicate merged into a long-standing customer by
    * actions/customer-merge.ts, which re-points convertedCustomerId and leaves
-   * convertedAt alone) or whose creation time is unknown. Their orders are ordinary
+   * convertedAt alone), or more than the tolerance after it (a keeper customer imported
+   * later), or whose creation time is unknown. Their orders are ordinary
    * repeat business, not proof the dealer list won them, so the dollars are kept OUT of
    * convertedValue and reported here instead. `converted` still counts the lead.
    */
@@ -194,11 +207,13 @@ export function rollupBatch(input: {
     if (converted && at === null) convertedWithoutDate++;
     if (!converted && WON_STAGES.includes(l.stage)) stageWonNotConverted++;
 
-    // A customer that predates the conversion (merged keeper) has its own quotes and orders
-    // that are not this list's doing; same guard for quotes as for dollars.
+    // A customer the conversion did not itself create (a merged keeper, made long before OR long
+    // after convertedAt) has its own quotes and orders that are not this list's doing; same guard
+    // for quotes as for dollars.
     const unverified =
       converted && at !== null &&
-      (l.customerCreatedAt === null || l.customerCreatedAt.getTime() < at.getTime() - PREEXISTING_CUSTOMER_TOLERANCE_MS);
+      (l.customerCreatedAt === null ||
+        Math.abs(l.customerCreatedAt.getTime() - at.getTime()) > PREEXISTING_CUSTOMER_TOLERANCE_MS);
     const quotedByRow =
       converted && at !== null && !unverified &&
       (quotesByCustomer.get(l.convertedCustomerId as string) ?? []).some((q) => q.status !== "DRAFT" && q.createdAt >= at);
@@ -258,3 +273,53 @@ export function importBatchLeadCountCheck(batch: { id: string; successful: numbe
     label: `ImportBatch ${batch.id} created (${batch.successful}) = leads now in that batch (${leadsInBatch})`,
   };
 }
+
+// ---- the printed report (kept here, not in the script, so the words are tested like the arithmetic) ----
+
+const pad = (s: string | number, n: number) => String(s).padEnd(n);
+const num = (s: string | number, n: number) => String(s).padStart(n);
+
+export const usd = (n: number): string => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const pct = (r: number | null): string => (r === null ? "n/a" : (r * 100).toFixed(1) + "%");
+
+/** The line under the BY TIER heading. The tier direction once shipped backwards: see the test. */
+export const TIER_DIRECTION_LINE =
+  "Lower number = released to reps earlier. T1 is existing customers (not prospects); T2 is the best prospect tier; T8 is parked.";
+
+export function tierTableHeader(): string {
+  return (
+    pad("Tier", 54) + num("Leads", 7) + num("Parked", 8) + num("Contacted", 11) + num("Quoted", 8) + num("Converted", 11) +
+    num("Unverified", 11) + num("Converted $", 16) + num("Conv/contacted", 16)
+  );
+}
+
+export function tierTableRow(label: string, c: Counts): string {
+  return (
+    pad(label, 54) + num(c.leads, 7) + num(c.parked, 8) + num(c.contacted, 11) + num(c.quoted, 8) + num(c.converted, 11) +
+    num(c.convertedUnverified, 11) + num(usd(c.convertedValue), 16) + num(pct(c.convertedPerContacted), 16)
+  );
+}
+
+/** The two disclosure lines under the table. Always printed, so a zero is never silent. */
+export function convertedDisclosureLines(t: Counts): [string, string] {
+  return [
+    "Converted counts LEADS; Converted $ is deduped per CUSTOMER, so two leads merged into one customer show Converted 2 against one customer's dollars.",
+    "Converted $ holds back order dollars from customers the conversion did not itself create (one that predates the conversion, one created after it, " +
+      "or creation time unknown; the Unverified column shows them per tier): " +
+      `${t.convertedUnverified} of ${t.converted} converted lead(s), ${usd(t.convertedValueUnverified)} not counted as won.`,
+  ];
+}
+
+/** The "HOW EACH COLUMN IS COUNTED" block. */
+export const COLUMN_DEFINITION_LINES: readonly string[] = [
+  "Leads       Lead rows with importBatchId in the batch id(s) above.",
+  "Parked      subset of Leads with no locationId (Canada / non-home state): no rep can see them, so they cannot be worked or converted.",
+  "Contacted   an Activity logged on the lead of type CALL/EMAIL/TEXT/WHATSAPP/QUOTE/ORDER/PAYMENT/VISIT/COMPLAINT (NO_ANSWER, VOICEMAIL, notes do not count),",
+  "            or Lead.stage moved on from NEW_LEAD (not LOST), or the lead is quoted/converted.",
+  "Quoted      a QUOTE activity on the lead, or stage QUOTED/NEGOTIATING, or a non-draft Quote on its converted customer made after conversion.",
+  "Converted   Lead.convertedCustomerId is set (a stage of FIRST_ORDER/ACTIVE_CUSTOMER alone does not count).",
+  "Unverified  subset of Converted whose customer the conversion did not itself create (created more than 10 minutes before or after convertedAt, or time unknown).",
+  "Converted $ Order.total for the converted customer, orders dated on/after Lead.convertedAt, only for customers created by the conversion (TireGuru-synced, so it lags). No Task source: Task links to Customer, not Lead.",
+  "The stages are not nested. Each is counted on its own evidence, so Converted can exceed Quoted: a lead converted with no QUOTE activity, no QUOTED/NEGOTIATING stage and no",
+  "non-draft Quote after conversion has no evidence of a quote, and is not counted as one. (Contacted is the one exception: a quoted or converted lead is also contacted.)",
+];

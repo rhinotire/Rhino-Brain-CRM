@@ -45,7 +45,8 @@ import {
   shouldImport,
   resolveGeo,
   locationForRecord,
-  homeCompanyOf,
+  territoryKeyOf,
+  type TerritoryKey,
   milesToHomeHub,
   pickCoordinate,
   tierForRecord,
@@ -105,13 +106,12 @@ const db = DRY
 
 type Territory = "Rhino" | "Everflow" | "Other US" | "Canada" | "Unresolved";
 const TERRITORIES: Territory[] = ["Rhino", "Everflow", "Other US", "Canada", "Unresolved"];
-function territoryOf(d: DealerRecord): Territory {
-  const home = homeCompanyOf(d);
-  if (home === "RHINO") return "Rhino";
-  if (home === "EVERFLOW") return "Everflow";
-  const g = resolveGeo(d);
-  return g.country === "US" ? "Other US" : g.country === "CA" ? "Canada" : "Unresolved";
-}
+// Classified through territoryKeyOf, shared with reconcile-dealers.ts so the report the owner approves
+// and what gets built cannot disagree.
+const TERRITORY_LABEL: Record<TerritoryKey, Territory> = {
+  RHINO: "Rhino", EVERFLOW: "Everflow", OTHER_US: "Other US", CANADA: "Canada", UNRESOLVED: "Unresolved",
+};
+const territoryOf = (d: DealerRecord): Territory => TERRITORY_LABEL[territoryKeyOf(d)];
 
 const pad = (s: string | number, n: number) => String(s).padEnd(n);
 const num = (s: string | number, n: number) => String(s).padStart(n);

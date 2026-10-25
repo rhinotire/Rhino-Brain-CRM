@@ -24,12 +24,14 @@ import {
   pickCrossSellCustomer,
   importBatchFigures,
   needsImportBatch,
+  territoryKeyOf,
   GOLF_CART_BRAND,
   HIGH_DENSITY_MIN,
   IMPORT_SOURCE,
   type LeadPlan,
 } from "./dealer-import-rules";
 import { countryFromState } from "./geo-state";
+import { tierFor } from "./dealer-tier";
 import { matchesExclusion, type ExclusionRow } from "./exclusion-service";
 import { DEALER_SHEETS, type DealerRecord } from "./dealer-list-parse";
 import { dedupeKeyFor } from "./prospect-dedupe";
@@ -452,6 +454,33 @@ describe("mergeIntoExisting: a lead whose dealer has since become a customer (M-
 
   it("does not touch the pool when there is no plan (the claim-only call)", () => {
     expect("pool" in mergeIntoExisting({ assignedRepId: null, pool: "A_BUYER" }, d)).toBe(false);
+  });
+});
+
+describe("territoryKeyOf (the one definition the importer and the reconcile report share, M-4)", () => {
+  it("files a ZIP-repaired record under its repaired state, not 'Unresolved': LAA + 70737 is Louisiana, an Everflow dealer", () => {
+    expect(territoryKeyOf(rec({ state: "LAA", city: "gonzales", zip: "70737" }))).toBe("EVERFLOW");
+  });
+
+  it("routes by the repaired state for the tier too, so the approved report and the built lead agree", () => {
+    const d = rec({ state: "LAA", city: "gonzales", zip: "70737", brands: ["A", "B"] });
+    // Raw state would be tier 8 (parked). The repaired one is a home-state multi-brand dealer: tier 2.
+    expect(tierForRecord(d, resolveGeo(d))).toBe(2);
+    expect(tierFor(d)).toBe(8);
+  });
+
+  it("covers every territory", () => {
+    expect(territoryKeyOf(rec({ state: "FL" }))).toBe("RHINO");
+    expect(territoryKeyOf(rec({ state: "tx" }))).toBe("EVERFLOW");
+    expect(territoryKeyOf(rec({ state: "NY" }))).toBe("OTHER_US");
+    expect(territoryKeyOf(rec({ state: "ON" }))).toBe("CANADA");
+    expect(territoryKeyOf(rec({ state: "BC CANADA" }))).toBe("CANADA");
+    expect(territoryKeyOf(rec({ state: "LAA", zip: "" }))).toBe("UNRESOLVED");
+    expect(territoryKeyOf(rec({ state: "", zip: "" }))).toBe("UNRESOLVED");
+  });
+
+  it("never lets a ZIP override a recognised state", () => {
+    expect(territoryKeyOf(rec({ state: "NY", zip: "70737" }))).toBe("OTHER_US");
   });
 });
 

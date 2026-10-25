@@ -248,6 +248,34 @@ describe("rollupBatch: a customer that predates the conversion", () => {
     expect(edge(PREEXISTING_CUSTOMER_TOLERANCE_MS + 1)).toBe(1);
   });
 
+  // The tests above lean on the constant. These spell the window out in literal minutes, so changing
+  // the constant (or its meaning) turns something red instead of silently moving the goalposts.
+  const MIN = 60_000;
+  const createdAt = (offsetMs: number) =>
+    run([old({ customerCreatedAt: new Date(D(at).getTime() + offsetMs) })], { orders }).total.convertedUnverified;
+
+  it("is ten minutes: a customer created 9m59s before the conversion is its own, 10m01s before is not", () => {
+    expect(createdAt(-(10 * MIN - 1_000))).toBe(0);
+    expect(createdAt(-(10 * MIN + 1_000))).toBe(1);
+  });
+
+  it("is ten minutes in the other direction too: created 9m59s after is clock skew, 10m01s after is not the conversion's", () => {
+    expect(createdAt(10 * MIN - 1_000)).toBe(0);
+    expect(createdAt(10 * MIN + 1_000)).toBe(1);
+  });
+
+  it("holds back a keeper customer created AFTER the conversion (a long-standing customer imported later, the duplicate merged into it)", () => {
+    // The merge re-points convertedCustomerId at the keeper and leaves convertedAt alone, so a keeper
+    // created months later is repeat business, not a win of the dealer list.
+    const r = run([old({ customerCreatedAt: D("2027-03-01T00:00:00Z") })], { orders });
+    expect(r.total).toMatchObject({ converted: 1, convertedValue: 0, convertedUnverified: 1, convertedValueUnverified: 800 });
+  });
+
+  it("does not credit a later-created keeper's quotes to the dealer list either", () => {
+    const quotes: BatchQuote[] = [{ customerId: "c1", createdAt: D("2027-03-02"), status: "SENT" }];
+    expect(run([old({ customerCreatedAt: D("2027-03-01T00:00:00Z") })], { quotes }).total.quoted).toBe(0);
+  });
+
   it("cannot verify a customer whose creation time is unknown, so it does not claim the dollars", () => {
     const r = run([old({ customerCreatedAt: null })], { orders });
     expect(r.total).toMatchObject({ convertedValue: 0, convertedUnverified: 1, convertedValueUnverified: 800 });
