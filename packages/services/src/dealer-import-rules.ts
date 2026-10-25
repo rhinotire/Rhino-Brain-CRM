@@ -32,6 +32,37 @@ export const HIGH_DENSITY_MIN = 5;
 /** Fewer digits than this is not a dialable number. */
 const MIN_PHONE_DIGITS = 10;
 
+// ---- the ImportBatch row -----------------------------------------------------------------
+
+/** What one real run did, as the importer counted it. */
+export type ImportOutcome = { created: number; createFailed: number; updated: number; updateFailed: number };
+
+/**
+ * The numbers the importer writes on its ImportBatch row. `successful` means CREATES
+ * only, and that is what makes reconcile-dealers.ts's check a real one: a lead is stamped
+ * with the batch id only when it is created (mergeIntoExisting never sets importBatchId, so
+ * an updated lead keeps the batch it was first imported under), hence the batch's lead
+ * count equals `successful` exactly, on a first import and on any re-run. Counting updates
+ * in `successful` made a healthy mixed re-run (10 creates + 5 updates) read as 15 against
+ * 10 leads and print MISMATCH with nothing wrong.
+ *
+ * The row has no column for updates (adding one is a schema migration), so the importer
+ * prints the update count when it runs but cannot persist it. `failed` still covers
+ * both kinds of failure.
+ */
+export function importBatchFigures(o: ImportOutcome): { successful: number; failed: number } {
+  return { successful: o.created, failed: o.createFailed + o.updateFailed };
+}
+
+/**
+ * Only a run that creates leads gets an ImportBatch. An update-only re-run would otherwise
+ * leave a batch row holding zero leads, and `reconcile --batch <id>` reports NO DATA (exit 1)
+ * for a batch that did real work.
+ */
+export function needsImportBatch(leadsToCreate: number): boolean {
+  return leadsToCreate > 0;
+}
+
 // ---- shouldImport -------------------------------------------------------------
 
 export type ImportFlags = {

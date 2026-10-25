@@ -22,6 +22,8 @@ import {
   crossSellBlockReason,
   crossSellBlacklisted,
   pickCrossSellCustomer,
+  importBatchFigures,
+  needsImportBatch,
   GOLF_CART_BRAND,
   HIGH_DENSITY_MIN,
   IMPORT_SOURCE,
@@ -571,5 +573,32 @@ describe("crossSellBlacklisted", () => {
     const cust = { id: "c", companyName: "BEST TIRE DEPOT", assignedRepId: "rep-1", locationId: "l" };
     const blacklisted = crossSellBlacklisted(dealer, bestTire, matcher);
     expect(crossSellTaskFor(cust, dealer, { blacklisted })).toBeNull();
+  });
+});
+
+// ---- the ImportBatch row's arithmetic (final review F3) ----------------------------------
+
+describe("importBatchFigures", () => {
+  it("counts CREATES only as successful: an update keeps the batch id its lead was first imported under", () => {
+    // A mixed re-run: 10 new leads carry this batch's id, the 5 updated ones keep the old batch's.
+    expect(importBatchFigures({ created: 10, createFailed: 0, updated: 5, updateFailed: 0 })).toEqual({ successful: 10, failed: 0 });
+  });
+
+  it("an update-only run has nothing to record as successful", () => {
+    expect(importBatchFigures({ created: 0, createFailed: 0, updated: 7, updateFailed: 0 }).successful).toBe(0);
+  });
+
+  it("reports every failure, create or update, in failed", () => {
+    expect(importBatchFigures({ created: 8, createFailed: 2, updated: 3, updateFailed: 1 })).toEqual({ successful: 8, failed: 3 });
+  });
+});
+
+describe("needsImportBatch", () => {
+  it("is false when no lead will be created: a batch row with zero leads makes reconcile report NO DATA for real work", () => {
+    expect(needsImportBatch(0)).toBe(false);
+  });
+  it("is true when at least one lead will be created", () => {
+    expect(needsImportBatch(1)).toBe(true);
+    expect(needsImportBatch(5001)).toBe(true);
   });
 });

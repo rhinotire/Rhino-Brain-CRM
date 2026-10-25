@@ -244,3 +244,17 @@ export function rollupBatch(input: {
 
   return { tiers, total: finish(total, totalCents, totalUnverifiedCents), stageWonNotConverted, convertedWithoutDate };
 }
+
+/**
+ * The batch-level reconciliation line: the importer's own record of how many leads it
+ * CREATED under this batch (ImportBatch.successful, see importBatchFigures) against the leads
+ * that carry the batch id right now. Two independent sources, compared exactly: a shortfall
+ * means leads were lost or moved after the importer counted them. Updated leads are not in
+ * either number (they keep the batch they were first imported under).
+ */
+export function importBatchLeadCountCheck(batch: { id: string; successful: number }, leadsInBatch: number): { ok: boolean; label: string } {
+  return {
+    ok: batch.successful === leadsInBatch,
+    label: `ImportBatch ${batch.id} created (${batch.successful}) = leads now in that batch (${leadsInBatch})`,
+  };
+}

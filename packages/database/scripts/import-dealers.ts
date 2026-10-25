@@ -63,6 +63,8 @@ import {
   crossSellBlockReason,
   crossSellBlacklisted,
   pickCrossSellCustomer,
+  importBatchFigures,
+  needsImportBatch,
   CROSS_SELL_MARKER_PREFIX,
   type TaskInput,
   type CrossSellBlock,
@@ -557,20 +559,25 @@ async function main() {
     return;
   }
 
-  const batch = await db.importBatch.create({
-    data: { entity: "leads", fileName: batchFile, rowCount: examined.length, successful: 0, failed: 0, userId: admin.id },
-  });
+  // Only a run that creates leads gets an ImportBatch: an update-only re-run would leave a batch
+  // holding zero leads, which reconcile --batch reports as NO DATA. Updates run either way.
+  const batch = needsImportBatch(gated.length)
+    ? await db.importBatch.create({
+        data: { entity: "leads", fileName: batchFile, rowCount: examined.length, successful: 0, failed: 0, userId: admin.id },
+      })
+    : null;
   let createdN = 0;
   let createFailedN = 0; // creates that did not land (error OR silently dropped by skipDuplicates)
   let updateFailedN = 0;
   const failures: string[] = [];
 
   const toData = (c: (typeof gated)[number]): Prisma.LeadCreateManyInput => {
+    if (!batch) throw new Error("toData called with no ImportBatch (nothing was gated for creation)");
     const n = buildNewLead(c.p.d, c.p.plan);
     if (!n.dedupeKey) throw new Error(`refusing empty dedupeKey for ${c.p.d.name}`);
     return { ...n, meta: n.meta as Prisma.InputJsonValue, importBatchId: batch.id };
   };
-  for (let i = 0; i < gated.length; i += 200) {
+  for (let i = 0; batch && i < gated.length; i += 200) { // gated is empty when batch is null
     const chunk = gated.slice(i, i + 200);
     try {
       const r = await db.lead.createMany({ data: chunk.map(toData), skipDuplicates: true });
@@ -620,12 +627,16 @@ async function main() {
     }
   }
 
-  const failedN = createFailedN + updateFailedN;
-  await db.importBatch.update({
-    where: { id: batch.id },
-    data: { successful: createdN + updatedN, failed: failedN },
-  });
-  console.log(`\nImportBatch ${batch.id}: created ${createdN}, updated ${updatedN}, failed ${failedN}, blocked by live gate ${gateBlocked}`);
+  // successful = CREATES only (see importBatchFigures): updates keep the batch their lead was first
+  // imported under, so counting them here would make reconcile-dealers.ts cry MISMATCH on a healthy re-run.
+  const figures = importBatchFigures({ created: createdN, createFailed: createFailedN, updated: updatedN, updateFailed: updateFailedN });
+  if (batch) {
+    await db.importBatch.update({ where: { id: batch.id }, data: { successful: figures.successful, failed: figures.failed } });
+    console.log(`\nImportBatch ${batch.id}: created ${createdN}, failed ${figures.failed}, blocked by live gate ${gateBlocked}`);
+  } else {
+    console.log(`\nNo ImportBatch written (no new leads this run); failed ${figures.failed}, blocked by live gate ${gateBlocked}`);
+  }
+  console.log(`Updated in place: ${updatedN} (not recorded on the ImportBatch row, which has no column for it)`);
   for (const f of failures) console.log(`  FAILED ${f}`);
 
   // A shortfall must be impossible to miss: every gated row either landed or is named above.

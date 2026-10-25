@@ -44,7 +44,7 @@ import { join, resolve } from "node:path";
 import { parseDealerWorkbook, type DealerRecord } from "../../services/src/dealer-list-parse";
 import { tierFor } from "../../services/src/dealer-tier";
 import { matchesExclusion, isExcluded, findBlacklistMatch } from "../../services/src/exclusion-service";
-import { CONTACT_ACTIVITY_TYPES, rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
+import { CONTACT_ACTIVITY_TYPES, importBatchLeadCountCheck, rollupBatch, type Counts } from "../../services/src/dealer-batch-report";
 import { assignStateLocation } from "../../services/src/prospect-score";
 import { countryFromState } from "../../services/src/geo-state";
 import { domainKey, nameKey, phoneKey } from "../../services/src/referral-matching";
@@ -163,7 +163,7 @@ async function batchReport(): Promise<void> {
   P("=== DEALER-LIST BATCH REPORT (read-only) ===");
   for (const b of batches) {
     P(`batch ${b.id}  ${b.fileName}  imported ${b.createdAt.toISOString().slice(0, 10)}  ` +
-      `${num(countedPerBatch.get(b.id) ?? 0, 6)} leads (ImportBatch row: rowCount ${b.rowCount}, successful ${b.successful})`);
+      `${num(countedPerBatch.get(b.id) ?? 0, 6)} leads (ImportBatch row: rowCount ${b.rowCount}, created ${b.successful}; leads updated in place keep their original batch and are not counted)`);
   }
   P(`*** LEADS IN SCOPE: ${T.leads.toLocaleString("en-US")} across ${batches.length} batch${batches.length === 1 ? "" : "es"}. This is the denominator for every number below. ***`);
   P("");
@@ -216,8 +216,8 @@ async function batchReport(): Promise<void> {
     [`rollup converted (${T.converted}) = independent count of convertedCustomerId not null (${convertedCount})`, T.converted === convertedCount],
     // The importer's own record of how many leads it created, a source independent of every query above.
     ...batches.map((b): [string, boolean] => {
-      const n = countedPerBatch.get(b.id) ?? 0;
-      return [`ImportBatch ${b.id} successful (${b.successful}) = leads now in that batch (${n})`, b.successful === n];
+      const { label, ok } = importBatchLeadCountCheck(b, countedPerBatch.get(b.id) ?? 0);
+      return [label, ok];
     }),
     // Contacted/quoted may exceed these (stage evidence also counts) but must never fall short of them.
     [`contacted (${T.contacted}) >= leads with a contact-type activity per separate database count (${rawContactLeads})`, T.contacted >= rawContactLeads],

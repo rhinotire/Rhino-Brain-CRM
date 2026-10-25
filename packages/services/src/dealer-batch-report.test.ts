@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  CONTACT_ACTIVITY_TYPES, PREEXISTING_CUSTOMER_TOLERANCE_MS, rollupBatch, tierLabel,
+  CONTACT_ACTIVITY_TYPES, PREEXISTING_CUSTOMER_TOLERANCE_MS, importBatchLeadCountCheck, rollupBatch, tierLabel,
   type BatchActivity, type BatchLead, type BatchOrder, type BatchQuote,
 } from "./dealer-batch-report";
 import { tierFor } from "./dealer-tier";
+import { importBatchFigures } from "./dealer-import-rules";
 import { countryFromState } from "./geo-state";
 import type { DealerRecord } from "./dealer-list-parse";
 
@@ -284,5 +285,34 @@ describe("rollupBatch: claimed and parked", () => {
     ]);
     expect(r.total).toMatchObject({ leads: 4, claimed: 2, parked: 2 });
     expect(tierRow(r, 8)).toMatchObject({ claimed: 1, parked: 2 });
+  });
+});
+
+describe("importBatchLeadCountCheck: the importer's own count against the leads that carry the batch id", () => {
+  it("passes when successful equals the leads in the batch", () => {
+    expect(importBatchLeadCountCheck({ id: "b1", successful: 5001 }, 5001).ok).toBe(true);
+  });
+
+  it("fails, and says so, when they differ in either direction", () => {
+    expect(importBatchLeadCountCheck({ id: "b1", successful: 5001 }, 5000).ok).toBe(false);
+    expect(importBatchLeadCountCheck({ id: "b1", successful: 5000 }, 5001).ok).toBe(false);
+  });
+
+  it("a healthy mixed re-run (10 creates + 5 updates) is NOT a mismatch", () => {
+    const figures = importBatchFigures({ created: 10, createFailed: 0, updated: 5, updateFailed: 0 });
+    // Only the 10 created leads carry the new batch id; the 5 updated ones kept their old batch.
+    expect(importBatchLeadCountCheck({ id: "b2", successful: figures.successful }, 10).ok).toBe(true);
+  });
+
+  it("still catches a real loss on a mixed re-run: 10 planned creates, 9 landed under the batch", () => {
+    const figures = importBatchFigures({ created: 10, createFailed: 0, updated: 5, updateFailed: 0 });
+    expect(importBatchLeadCountCheck({ id: "b2", successful: figures.successful }, 9).ok).toBe(false);
+  });
+
+  it("names the batch and both numbers in its label", () => {
+    const { label } = importBatchLeadCountCheck({ id: "b9", successful: 4 }, 3);
+    expect(label).toContain("b9");
+    expect(label).toContain("4");
+    expect(label).toContain("3");
   });
 });
