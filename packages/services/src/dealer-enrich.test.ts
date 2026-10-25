@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  MAX_CONSECUTIVE_FAILURES, applyAttempt, enrichCandidates, hasAttemptMarker, selectCandidates,
+  DEALER_IMPORT_SOURCE, ENRICH_TOKENS_PER_LEAD, MAX_CONSECUTIVE_FAILURES, applyAttempt, enrichCandidates, estimateEnrichCost,
+  hasAttemptMarker, selectCandidates,
   type AttemptMarker, type CandidateRow, type EnrichDeps,
 } from "./dealer-enrich";
+import { IMPORT_SOURCE } from "./dealer-import-rules";
 
 const row = (id: string, meta: unknown, over: Partial<CandidateRow> = {}): CandidateRow => ({
   id, companyName: `Co ${id}`, city: "Orlando", state: "FL", locationId: "loc-fl", meta, ...over,
@@ -373,5 +375,40 @@ describe("enrichCandidates: circuit breaker", () => {
   it("a run that finishes normally reports aborted null", async () => {
     const stats = await enrichCandidates(many(3), { dry: false, deps: goodDeps() });
     expect(stats.aborted).toBeNull();
+  });
+});
+
+describe("DEALER_IMPORT_SOURCE", () => {
+  // dealer-enrich.ts must stay import-free, so it redeclares the marker the importer writes. If the
+  // two ever drift, selectCandidates matches zero leads and the script prints "Nothing to enrich":
+  // a successful-looking no-op. This is the only thing that ties them together.
+  it("is the exact marker the importer stamps on every lead it creates", () => {
+    expect(DEALER_IMPORT_SOURCE).toBe(IMPORT_SOURCE);
+  });
+});
+
+describe("estimateEnrichCost", () => {
+  const cand = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c${i}` }));
+
+  it("prices the worst case at one Places call per selected lead", () => {
+    const e = estimateEnrichCost(cand(2083), 0.032);
+    expect(e.leads).toBe(2083);
+    expect(e.placesUsd).toBeCloseTo(66.656, 3);
+  });
+
+  it("scales the measured per-lead token usage by the number of leads", () => {
+    const e = estimateEnrichCost(cand(20), 0.032);
+    expect(e.inputTokens).toBe(20 * ENRICH_TOKENS_PER_LEAD.input);
+    expect(e.outputTokens).toBe(20 * ENRICH_TOKENS_PER_LEAD.output);
+  });
+
+  it("is zero for nothing selected", () => {
+    expect(estimateEnrichCost([], 0.032)).toEqual({ leads: 0, placesUsd: 0, inputTokens: 0, outputTokens: 0 });
+  });
+
+  it("makes a mistyped --max-tier 9 --limit all unmistakable next to the intended 20-lead run", () => {
+    const intended = estimateEnrichCost(cand(20), 0.032);
+    const mistyped = estimateEnrichCost(cand(2083), 0.032);
+    expect(mistyped.placesUsd / intended.placesUsd).toBeGreaterThan(100);
   });
 });

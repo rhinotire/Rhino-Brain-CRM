@@ -132,6 +132,33 @@ export function selectCandidates(
   return opts.limit === null ? out : out.slice(0, opts.limit);
 }
 
+// ---- what a run will cost (printed before any spend) ----
+
+/**
+ * Model tokens per attempted lead, measured on the 20-lead smoke run (Task 12: 24,795 in / 8,660 out
+ * over 20 leads). An estimate to size a run by, not a quote: a lead with a rich site costs more.
+ */
+export const ENRICH_TOKENS_PER_LEAD = { input: 1240, output: 433 } as const;
+
+/**
+ * The cost ceiling of a run over `candidates`, so the operator sees what a flag mistake would
+ * spend before it spends it. Places is priced at one call per lead (the ceiling: a lead with a
+ * cached website skips the lookup). The cost per call is a parameter because this file imports
+ * nothing; the script passes PLACES_COST_PER_CALL_USD.
+ */
+export function estimateEnrichCost(
+  candidates: readonly unknown[],
+  placesCostPerCallUsd: number,
+): { leads: number; placesUsd: number; inputTokens: number; outputTokens: number } {
+  const n = candidates.length;
+  return {
+    leads: n,
+    placesUsd: n * placesCostPerCallUsd,
+    inputTokens: n * ENRICH_TOKENS_PER_LEAD.input,
+    outputTokens: n * ENRICH_TOKENS_PER_LEAD.output,
+  };
+}
+
 // ---- injected side effects (the real implementations are in the script) ----
 
 export type Verdict = {

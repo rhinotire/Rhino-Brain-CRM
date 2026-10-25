@@ -5,7 +5,10 @@
  * this NEVER runs wholesale: --max-tier and --limit are both required.
  *
  *   cd packages/database
- *   npx tsx scripts/enrich-dealers.ts --batch <importBatchId> --max-tier 2 --limit 20 [--dry] [--retry-skipped]
+ *   npx tsx scripts/enrich-dealers.ts --batch <importBatchId> --max-tier 2 --limit 20 [--dry | --yes] [--retry-skipped]
+ *
+ *   --yes            REQUIRED for a real (non --dry) run, as in import-dealers.ts. The estimated
+ *                    cost of the selected leads is printed before anything is spent.
  *
  *   --batch <id>     ImportBatch the dealer leads were imported under (required;
  *                    comma-separate several, e.g. a smoke-test batch plus the main one)
@@ -47,9 +50,10 @@ import { join } from "node:path";
 import { Prisma } from "@prisma/client";
 import { db } from "../src";
 import {
-  applyAttempt, emptyStats, enrichCandidates, hasAttemptMarker, selectCandidates,
+  applyAttempt, emptyStats, enrichCandidates, estimateEnrichCost, hasAttemptMarker, selectCandidates,
   type AttemptMarker, type EnrichDeps,
 } from "../../services/src/dealer-enrich";
+import { PLACES_COST_PER_CALL_USD } from "../../services/src/places-collector"; // a constant module: no network, no key read
 import type { Enrichment } from "../../services/src/prospect-enrich";
 import type { ProspectVerdict } from "../../services/src/prospect-score";
 
@@ -94,6 +98,11 @@ async function main() {
   if (!limitRaw) fail("--limit <N|all> is required (this script never runs unbounded by accident)");
   const limit = limitRaw === "all" ? null : Number(limitRaw);
   if (limit !== null && (!Number.isInteger(limit) || limit < 1)) fail("--limit must be a positive integer or 'all'");
+  // Same rule as import-dealers.ts: money is only ever spent on an explicit --yes. Checked before any
+  // work so a mistyped flag set stops here; --dry shows the selection and the estimate for free.
+  if (!DRY && !process.argv.includes("--yes")) {
+    fail("Refusing a REAL enrichment run without --yes (it pays for a Places call and model calls per lead and writes to the database DATABASE_URL points at). Use --dry to preview the selection and the estimated cost.");
+  }
 
   // Narrow read: six columns, scoped to one batch, already-enriched rows excluded
   // in SQL. Prisma cannot filter or order on JSON, so the tier cut, the attempt
@@ -114,6 +123,11 @@ async function main() {
     console.log(`  ${alreadyAttempted} already attempted in an earlier run (enrichAttempt marker) were left out; --retry-skipped includes them`);
   }
   console.log(`  ${withSite} carry a cached meta.website, ${candidates.length - withSite} would need a Places lookup`);
+  const est = estimateEnrichCost(candidates, PLACES_COST_PER_CALL_USD);
+  console.log(
+    `ESTIMATED COST for ${est.leads} lead(s): Places up to $${est.placesUsd.toFixed(2)} (${PLACES_COST_PER_CALL_USD}/call, one per lead at most) ` +
+      `+ about ${est.inputTokens.toLocaleString("en-US")} input / ${est.outputTokens.toLocaleString("en-US")} output model tokens (measured per-lead average; an estimate, not a quote)`,
+  );
   if (DRY) {
     console.log("DRY RUN: no Places, website or model call was made; nothing was written.");
     return;
@@ -131,7 +145,6 @@ async function main() {
   const { resolveWebsite } = await import("../../services/src/website-resolve");
   const { fetchSiteText, extractEnrichment } = await import("../../services/src/prospect-enrich");
   const { scoreProspect } = await import("../../services/src/prospect-score");
-  const { PLACES_COST_PER_CALL_USD } = await import("../../services/src/places-collector");
 
   const run = await db.sourceRun.create({
     data: { source: "WEB_SCRAPE", params: { task: "enrich-dealers", batchId, maxTier, limit: limit ?? "all", retrySkipped } },
