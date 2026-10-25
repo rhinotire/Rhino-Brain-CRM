@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   visibleImportsWhere,
   unclaimedImportsWhere,
+  hiddenImportsCountWhere,
   showImportedFrom,
   IMPORTED_BATCH_MARKER_FILTER,
 } from "./lead-import-visibility";
@@ -121,5 +122,41 @@ describe("IMPORTED_BATCH_MARKER_FILTER", () => {
       importBatchId: { not: null },
       meta: { path: ["importSource"], string_contains: "" },
     });
+  });
+});
+
+describe("hiddenImportsCountWhere (the '(N hidden)' count, scoped to what the caller can see)", () => {
+  const scopedCount = (rows: Row[], scope: Cond) => {
+    const w = hiddenImportsCountWhere(scope, IDS)!;
+    return rows.filter((r) => matches(r, w)).length;
+  };
+  const rows: Row[] = [cronLead, csvLead, untouchedImport, claimedImport, workedImport, { ...untouchedImport }];
+
+  it("counts every hidden row for an unscoped viewer", () => {
+    expect(scopedCount(rows, {})).toBe(2);
+  });
+
+  it("keeps the caller's own assignedRepId: a rep's scope (their own leads) leaves nothing hidden, since hidden rows are unclaimed", () => {
+    // A plain spread would let the hidden predicate's `assignedRepId: null` overwrite this and count location-wide.
+    expect(scopedCount(rows, { assignedRepId: "rep_1" })).toBe(0);
+  });
+
+  it("keeps a ?stage= filter: filtering to CONTACTED cannot report NEW_LEAD rows as hidden", () => {
+    expect(scopedCount(rows, { stage: "CONTACTED" })).toBe(0);
+    expect(scopedCount(rows, { stage: "NEW_LEAD" })).toBe(2);
+  });
+
+  it("keeps a ?rep= filter for a manager", () => {
+    expect(scopedCount(rows, { assignedRepId: "rep_2" })).toBe(0);
+  });
+
+  it("does not mutate or reuse the caller's scope object", () => {
+    const scope = { assignedRepId: "rep_1" };
+    hiddenImportsCountWhere(scope, IDS);
+    expect(scope).toEqual({ assignedRepId: "rep_1" });
+  });
+
+  it("is null when there are no marked batches", () => {
+    expect(hiddenImportsCountWhere({ assignedRepId: "rep_1" }, [])).toBeNull();
   });
 });

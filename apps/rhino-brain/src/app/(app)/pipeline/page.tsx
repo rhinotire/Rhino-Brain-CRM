@@ -5,7 +5,7 @@ import { NewLeadButton, LeadCardActions } from "@/components/lead-components";
 import { QuickLogButton } from "@/components/quick-log";
 import { ShowImportedToggle } from "@/components/show-imported-toggle";
 import { listImportedBatchIds } from "@/lib/imported-batches";
-import { showImportedFrom, visibleImportsWhere, unclaimedImportsWhere } from "@rhino/services";
+import { showImportedFrom, visibleImportsWhere, hiddenImportsCountWhere } from "@rhino/services";
 import {
   stageLabels, stageOrder, customerTypeLabels, customerSourceLabels, productLabels,
   lostReasonLabels, leadNeedsFirstContact, fmtDate, daysSince,
@@ -28,8 +28,8 @@ export default async function PipelinePage({ searchParams }: { searchParams: { r
   // off it. Imported-and-unclaimed rows are hidden unless the manager opts in (final review F1).
   const showImported = showImportedFrom(searchParams.imports);
   const importedBatchIds = await listImportedBatchIds();
-  const hiddenWhere = unclaimedImportsWhere(importedBatchIds);
-  const hiddenCount = !showImported && hiddenWhere ? await db.lead.count({ where: { ...where, ...hiddenWhere } as never }) : 0;
+  const hiddenCountWhere = hiddenImportsCountWhere(where, importedBatchIds); // nested under AND: the caller's own filters still apply
+  const hiddenCount = !showImported && hiddenCountWhere ? await db.lead.count({ where: hiddenCountWhere as never }) : 0;
   Object.assign(where, visibleImportsWhere({ importedBatchIds, showImported }));
 
   const [leads, reps] = await Promise.all([

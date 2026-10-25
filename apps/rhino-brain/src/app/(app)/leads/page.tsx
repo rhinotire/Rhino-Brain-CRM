@@ -4,7 +4,7 @@ import { Table, THead, EmptyRow, Badge, Select, Input, Button } from "@/componen
 import { NewLeadButton } from "@/components/lead-components";
 import { ShowImportedToggle } from "@/components/show-imported-toggle";
 import { listImportedBatchIds } from "@/lib/imported-batches";
-import { showImportedFrom, visibleImportsWhere, unclaimedImportsWhere } from "@rhino/services";
+import { showImportedFrom, visibleImportsWhere, hiddenImportsCountWhere } from "@rhino/services";
 import {
   stageLabels, customerTypeLabels, customerSourceLabels, productLabels,
   leadNeedsFirstContact, fmtDate,
@@ -42,8 +42,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   // The source dropdown cannot do this: dealer rows share PROSPECTING with the daily cron.
   const showImported = showImportedFrom(searchParams.imports);
   const importedBatchIds = await listImportedBatchIds();
-  const hiddenWhere = unclaimedImportsWhere(importedBatchIds);
-  const hiddenCount = !showImported && hiddenWhere ? await db.lead.count({ where: { ...where, ...hiddenWhere } }) : 0;
+  const hiddenCountWhere = hiddenImportsCountWhere(where, importedBatchIds); // nested under AND: the caller's own filters still apply
+  const hiddenCount = !showImported && hiddenCountWhere ? await db.lead.count({ where: hiddenCountWhere }) : 0;
   Object.assign(where, visibleImportsWhere({ importedBatchIds, showImported }));
 
   const [leads, reps] = await Promise.all([

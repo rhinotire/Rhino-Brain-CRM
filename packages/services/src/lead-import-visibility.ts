@@ -94,3 +94,14 @@ export function unclaimedImportsWhere(importedBatchIds: readonly string[]): Unto
   if (importedBatchIds.length === 0) return null;
   return { importBatchId: { in: [...importedBatchIds] }, assignedRepId: null, stage: "NEW_LEAD" };
 }
+
+/**
+ * `where` for the "N hidden" count: the hidden rows WITHIN the caller's own scope. The scope is nested under
+ * AND, never spread: `{ ...scope, ...hidden }` would let the hidden predicate's `assignedRepId` / `stage`
+ * overwrite the caller's own (a rep's scope, a ?rep= or ?stage= filter), and the count would drift to a
+ * location-wide figure. Null when there are no marked batches.
+ */
+export function hiddenImportsCountWhere<S extends object>(scope: S, importedBatchIds: readonly string[]): { AND: [S, Untouched] } | null {
+  const hidden = unclaimedImportsWhere(importedBatchIds);
+  return hidden ? { AND: [scope, hidden] } : null;
+}

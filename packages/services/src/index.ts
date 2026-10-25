@@ -59,6 +59,6 @@ export { isFreightMailConfigured, sendFreightEmail } from "./freight-mailer";
 export { pollFreightInbox } from "./freight-inbox";
 export { docExpiryStatus, worstExpiryStatus, canDownloadEmployeeDoc, canDeleteEmployeeDoc, coreDocsOnFile, type DocExpiryStatus } from "./hr";
 export {
-  visibleImportsWhere, unclaimedImportsWhere, showImportedFrom, IMPORTED_BATCH_MARKER_FILTER, SHOW_IMPORTED_PARAM,
+  visibleImportsWhere, unclaimedImportsWhere, hiddenImportsCountWhere, showImportedFrom, IMPORTED_BATCH_MARKER_FILTER, SHOW_IMPORTED_PARAM,
 } from "./lead-import-visibility";
 export { CALIBRATION_QUEUE_GATE, repAssignBlockReason } from "./prospect-calibration";
