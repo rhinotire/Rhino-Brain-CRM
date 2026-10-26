@@ -25,6 +25,8 @@ type Search = {
 // The Type dropdown is derived from the enum (not customerTypeLabels, which can lag
 // behind it), so a new CustomerType is filterable the moment it exists.
 const CUSTOMER_TYPES = Object.values(CustomerType);
+/** Rows fetched per view. The header reports the true matching total alongside it. */
+const PAGE_SIZE = 200;
 const typeLabel = (t: CustomerType): string =>
   (customerTypeLabels as Partial<Record<CustomerType, string>>)[t] ??
   t.split("_").map(w => (w === "ATV" ? w : w.charAt(0) + w.slice(1).toLowerCase())).join(" ");
@@ -82,20 +84,30 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
     where.nextFollowUpAt = { gte: start, lt: end };
   }
 
-  const [customers, reps] = await Promise.all([
+  // matchingTotal is counted with the SAME `where`, because the list is capped at 200 rows and the
+  // header used to show that cap — so it read "(200)" whatever the real number was, and there was
+  // nowhere in the app that showed how many customers exist.
+  const [customers, reps, matchingTotal] = await Promise.all([
     db.customer.findMany({
       where,
       orderBy: { updatedAt: "desc" },
-      take: 200,
+      take: PAGE_SIZE,
       include: { assignedRep: { select: { name: true } }, tags: { include: { tag: true } }, location: { select: { shortTag: true, name: true, color: true } } },
     }),
     seesAll ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    db.customer.count({ where }),
   ]);
+  const truncated = matchingTotal > customers.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{seesAll ? "Customers" : "My Customers"} <span className="text-sm font-normal text-slate-400">({customers.length})</span></h1>
+        <h1 className="text-xl font-bold">
+          {seesAll ? "Customers" : "My Customers"}{" "}
+          <span className="text-sm font-normal text-slate-400">
+            ({truncated ? `showing ${customers.length} of ${matchingTotal.toLocaleString()}` : matchingTotal.toLocaleString()})
+          </span>
+        </h1>
         <div className="flex gap-2">
           {manager && <Link href="/customers/duplicates" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">🧬 Merge Duplicates</Link>}
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
