@@ -68,10 +68,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   if (seesAll && searchParams.rep) where.assignedRepId = searchParams.rep;
   if (searchParams.lastContact) {
     const days = Number(searchParams.lastContact);
-    where.OR = [
-      ...(where.OR ?? []),
-    ];
-    where.AND = [{ OR: [{ lastContactAt: { lt: subDays(now, days) } }, { lastContactAt: null }] }];
+    // The lastContact clause goes in AND, never in OR: an EMPTY `OR: []` matches NOTHING in
+    // Prisma, so copying a missing `where.OR` into one (as this did) made every lastContact
+    // search return zero customers unless a search term was also typed. Append, so the search
+    // box's own OR and any future AND clause both survive.
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { OR: [{ lastContactAt: { lt: subDays(now, days) } }, { lastContactAt: null }] }];
   }
   if (searchParams.followUp === "overdue") where.nextFollowUpAt = { lt: now };
   if (searchParams.followUp === "today") {
