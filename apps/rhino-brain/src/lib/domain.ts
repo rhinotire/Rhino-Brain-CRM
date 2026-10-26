@@ -306,3 +306,11 @@ export const EXPIRING_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = ["DRIVER_LICENSE",
 export const CORE_EMPLOYEE_DOC_TYPES: EmployeeDocType[] = [
   "APPLICATION", "DRIVER_LICENSE", "SOCIAL_SECURITY_CARD", "DIRECT_DEPOSIT_AUTH", "W4_FORM", "I9_FORM", "EMERGENCY_CONTACT",
 ];
+
+/**
+ * Rep-filter sentinel for "nobody owns this" — the 公海 pool. Lives here because the filter is a
+ * client component and must never import @rhino/services. Safe against collision: real rep ids are
+ * 25-character cuids. The customers page turns this into `assignedRepId: null`; passing it straight
+ * through would look for a rep literally named "none" and quietly return nothing.
+ */
+export const UNASSIGNED_REP_FILTER = "none";

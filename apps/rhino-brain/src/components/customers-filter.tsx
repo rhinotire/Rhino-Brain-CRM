@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Select, Button } from "@/components/ui/primitives";
+import { UNASSIGNED_REP_FILTER } from "@/lib/domain";
 
 type Opt = [string, string];
 
@@ -47,6 +48,7 @@ export function CustomersFilter({ statuses, types, states, interests, reps }: {
       {reps.length > 0 && (
         <Select value={sp.get("rep") ?? ""} onChange={e => apply({ rep: e.target.value })}>
           <option value="">All reps</option>
+          <option value={UNASSIGNED_REP_FILTER}>— Unassigned (公海) —</option>
           {reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </Select>
       )}

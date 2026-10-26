@@ -9,7 +9,7 @@ import { CustomersFilter } from "@/components/customers-filter";
 import { isStorageConfigured } from "@/lib/storage";
 import {
   customerTypeLabels, customerStatusLabels, productLabels, temperatureClasses, temperatureLabels,
-  customerTemperature, fmtDate,
+  customerTemperature, fmtDate, UNASSIGNED_REP_FILTER,
 } from "@/lib/domain";
 import { CustomerType } from "@prisma/client";
 import type { Prisma, CustomerStatus, ProductCategory } from "@prisma/client";
@@ -67,7 +67,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   }
   if (searchParams.status) where.status = searchParams.status as CustomerStatus;
   if (searchParams.interest) where.mainInterest = searchParams.interest as ProductCategory;
-  if (seesAll && searchParams.rep) where.assignedRepId = searchParams.rep;
+  // The sentinel means "nobody owns this" (the 公海 pool); a bare pass-through would look for a rep
+  // whose id is literally "none" and silently return nothing.
+  if (seesAll && searchParams.rep) {
+    where.assignedRepId = searchParams.rep === UNASSIGNED_REP_FILTER ? null : searchParams.rep;
+  }
   if (searchParams.lastContact) {
     const days = Number(searchParams.lastContact);
     // The lastContact clause goes in AND, never in OR: an EMPTY `OR: []` matches NOTHING in
