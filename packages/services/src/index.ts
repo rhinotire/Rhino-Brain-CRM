@@ -40,7 +40,7 @@ export type {
 export { runProspectingPipeline, PROSPECT_QUERIES, PROSPECT_STATE_NAMES, PROSPECT_COUNTRIES, PROSPECT_AREAS, type ProspectCategory, type ProspectArea, type PipelineResult } from "./prospect-pipeline";
 export { generateOutreachDraft, type OutreachDraft } from "./prospect-draft";
 export { buildProspectReleaseQuery, PROSPECT_RELEASE_LIMIT, type ProspectReleaseInput, type ProspectReleaseRow } from "./prospect-release";
-export { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES, type CustomerFilterInput, type CustomerFilterWhere, type CustomerLocationScope } from "./customer-filter";
+export { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES, CUSTOMER_TYPE_EQUIVALENT_TAGS, type CustomerFilterInput, type CustomerFilterWhere, type CustomerLocationScope } from "./customer-filter";
 export { decidePool, isClaimable, claimCapError, hasProtectingQuote, CLAIM_CAP_PER_7_DAYS, RECYCLE_AFTER_DAYS, WARN_AFTER_DAYS, MIN_WARNING_DAYS, FOLLOW_UP_PROTECTION_MAX_DAYS, type PoolCustomer, type PoolState, type PoolDecision, type ProtectingQuote } from "./customer-pool";
 export { findDecisionMakers, DECISION_TITLES, type ProspectContact } from "./contact-enrich";
 export { searchShipmentsPage, aggregateConsignees, type CustomsSearchField, type CustomsShipmentRow, type ConsigneeAggregate } from "./customs-collector";

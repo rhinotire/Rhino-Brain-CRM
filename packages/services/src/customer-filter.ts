@@ -27,10 +27,32 @@ export type CustomerFilterInput<T extends string> = {
   state?: unknown;
 };
 
+export type CustomerTypeOrTagClause<T extends string> = {
+  OR: [{ type: T }, { tags: { some: { tag: { name: string } } } }];
+};
+
 export type CustomerFilterWhere<T extends string> = CustomerLocationScope & {
   type?: T;
   city?: { equals: string; mode: "insensitive" };
   state?: { equals: string; mode: "insensitive" };
+  /**
+   * Nested, never a bare top-level `OR`: the customers page assigns `where.OR` for its search
+   * box, so a type clause sitting in `OR` would be silently overwritten by a search term.
+   */
+  AND?: [CustomerTypeOrTagClause<T>];
+};
+
+/**
+ * Types that are ALSO expressed as a tag, because `Customer.type` holds one value and a shop can
+ * be two things at once. The dealer-locator import tags proven wheel dealers `WHEEL DEALER` rather
+ * than retyping them — PATTON TIRE INC is a tire shop that also carries wheels, and retyping it
+ * would be wrong — so picking Wheel Shop in the dropdown has to match the tag too, or the tag is
+ * invisible to anyone who does not know to search for it.
+ *
+ * `packages/database/scripts/tag-wheel-dealers.ts` writes the tag; it must use these same names.
+ */
+export const CUSTOMER_TYPE_EQUIVALENT_TAGS: Readonly<Record<string, string>> = {
+  WHEEL_SHOP: "WHEEL DEALER",
 };
 
 /** Backslash, which is Postgres' default LIKE escape character. */
@@ -65,7 +87,11 @@ export function buildCustomerFilterWhere<T extends string>(input: CustomerFilter
 
   const type = textOrNull(input.type);
   const allowed = type === null ? undefined : input.allowedTypes.find(t => t === type);
-  if (allowed !== undefined) filters.type = allowed;
+  if (allowed !== undefined) {
+    const tag = CUSTOMER_TYPE_EQUIVALENT_TAGS[allowed];
+    if (tag === undefined) filters.type = allowed;
+    else filters.AND = [{ OR: [{ type: allowed }, { tags: { some: { tag: { name: tag } } } }] }];
+  }
 
   const city = textOrNull(input.city);
   if (city !== null) filters.city = { equals: likeLiteral(city), mode: "insensitive" };

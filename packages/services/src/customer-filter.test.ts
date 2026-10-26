@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES } from "./customer-filter";
+import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES, CUSTOMER_TYPE_EQUIVALENT_TAGS } from "./customer-filter";
 import { countryFromState } from "./geo-state";
 
 const TYPES = ["TIRE_SHOP", "WHEEL_SHOP", "TRUCK_TIRE_SHOP", "ATV_GOLF", "CAR_DEALER", "OTHER"] as const;
@@ -26,7 +26,34 @@ describe("buildCustomerFilterWhere", () => {
   });
 
   it("filters by type exactly", () => {
-    expect(build({ type: "WHEEL_SHOP" })).toEqual({ locationId: "loc_fl", type: "WHEEL_SHOP" });
+    expect(build({ type: "TRUCK_TIRE_SHOP" })).toEqual({ locationId: "loc_fl", type: "TRUCK_TIRE_SHOP" });
+  });
+
+  // A shop can sell wheels AND tires, and Customer.type holds one value, so the wheel dealers
+  // proven by the dealer-locator import are TAGGED rather than retyped (PATTON TIRE INC is a tire
+  // shop that also carries wheels; retyping it would be wrong). Picking Wheel Shop must still find
+  // them, or the tag is invisible to everyone who uses the dropdown.
+  it("matches the equivalent tag as well as the type, for a type that has one", () => {
+    expect(build({ type: "WHEEL_SHOP" })).toEqual({
+      locationId: "loc_fl",
+      AND: [{ OR: [{ type: "WHEEL_SHOP" }, { tags: { some: { tag: { name: "WHEEL DEALER" } } } }] }],
+    });
+  });
+
+  it("does not put the type clause in a bare OR, which the page's search box would overwrite", () => {
+    expect(build({ type: "WHEEL_SHOP" })).not.toHaveProperty("OR");
+  });
+
+  it("still combines a tag-backed type with the other filters", () => {
+    expect(build({ type: "WHEEL_SHOP", state: "FL" })).toEqual({
+      locationId: "loc_fl",
+      state: { equals: "FL", mode: "insensitive" },
+      AND: [{ OR: [{ type: "WHEEL_SHOP" }, { tags: { some: { tag: { name: "WHEEL DEALER" } } } }] }],
+    });
+  });
+
+  it("exposes the type-to-tag map so the import that writes the tag cannot drift from the filter", () => {
+    expect(CUSTOMER_TYPE_EQUIVALENT_TAGS.WHEEL_SHOP).toBe("WHEEL DEALER");
   });
 
   it("offers every type it is given, including ones added later", () => {
