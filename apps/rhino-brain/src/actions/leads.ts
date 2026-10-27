@@ -94,12 +94,30 @@ export async function convertLead(leadId: string): Promise<ActionResult> {
     const { lead } = await assertLeadAccess(leadId);
     if (lead.convertedCustomerId) return { ok: false, error: "Lead already converted." };
 
+    // Carry the prospecting decision-makers (Lead.meta.contacts) into the new
+    // customer record so they survive conversion: the first one seeds the
+    // primary contact/email when none is set, and the full list is appended to
+    // Notes (Customer has no multi-contact field). Without this the extra
+    // decision-maker emails collected during prospecting were lost at convert.
+    type LeadContact = { name: string; title?: string | null; email?: string | null; phone?: string | null };
+    const metaContacts = (lead.meta as { contacts?: unknown } | null)?.contacts;
+    const contacts: LeadContact[] = Array.isArray(metaContacts)
+      ? (metaContacts as LeadContact[]).filter(c => c && typeof c.name === "string")
+      : [];
+    const primary = contacts[0];
+    const contactBlock = contacts.length
+      ? "Decision-makers (from prospecting):\n" + contacts.map(c =>
+          `• ${c.name}${c.title ? ` (${c.title})` : ""}${c.email ? ` — ${c.email}` : ""}${c.phone ? ` — ${c.phone}` : ""}`
+        ).join("\n")
+      : "";
+    const notes = [lead.notes, contactBlock].filter(Boolean).join("\n\n") || null;
+
     const customer = await db.customer.create({
       data: {
         companyName: lead.companyName,
-        contactPerson: lead.contactPerson,
+        contactPerson: lead.contactPerson ?? (primary ? `${primary.name}${primary.title ? ` (${primary.title})` : ""}` : null),
         phone: lead.phone,
-        email: lead.email,
+        email: lead.email ?? primary?.email ?? null,
         city: lead.city,
         state: lead.state,
         type: lead.type,
@@ -110,7 +128,7 @@ export async function convertLead(leadId: string): Promise<ActionResult> {
         assignedRepId: lead.assignedRepId,
         locationId: lead.locationId,
         lastContactAt: lead.lastActivityAt,
-        notes: lead.notes,
+        notes,
       },
     });
     await db.$transaction([

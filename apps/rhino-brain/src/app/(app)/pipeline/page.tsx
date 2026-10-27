@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/primitives";
 import { NewLeadButton, LeadCardActions } from "@/components/lead-components";
 import { QuickLogButton } from "@/components/quick-log";
 import { ShowImportedToggle } from "@/components/show-imported-toggle";
+import { ContactChips, contactsFromMeta } from "@/components/contact-chips";
 import { listImportedBatchIds } from "@/lib/imported-batches";
 import { showImportedFrom, visibleImportsWhere, hiddenImportsCountWhere } from "@rhino/services";
 import {
@@ -91,6 +92,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: { r
                       <Badge className="bg-sky-50 text-sky-700">{productLabels[lead.interest]}</Badge>
                       <Badge className="bg-slate-50 text-slate-500">{customerSourceLabels[lead.source]}</Badge>
                     </div>
+                    <ContactChips contacts={contactsFromMeta(lead.meta)} />
                     <div className="mt-1.5 text-[11px] text-slate-400">
                       {lead.assignedRep ? lead.assignedRep.name : "Unassigned"} · added {fmtDate(lead.createdAt)}
                       {days !== null && ` · ${days}d since activity`}

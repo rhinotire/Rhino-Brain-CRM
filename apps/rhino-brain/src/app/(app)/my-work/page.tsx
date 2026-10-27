@@ -4,6 +4,7 @@ import { isTwilioConfigured } from "@/lib/twilio";
 import { buildProspectReleaseQuery, type ProspectReleaseRow } from "@rhino/services";
 import { Card, StatCard, Badge, EmptyState } from "@/components/ui/primitives";
 import { ProspectWorkList, type ProspectRow } from "@/components/prospect-work-list";
+import { ContactChips, contactsFromMeta } from "@/components/contact-chips";
 import { QuickLogButton } from "@/components/quick-log";
 import { NewTaskButton, TaskActions } from "@/components/task-form";
 import { NewQuoteButton } from "@/components/quote-form";
@@ -149,13 +150,16 @@ export default async function MyWorkPage() {
           {newLeads.length === 0 ? <EmptyState message="No new leads assigned to you." /> : (
             <ul className="divide-y divide-slate-50">
               {newLeads.map(l => (
-                <li key={l.id} className="flex items-center justify-between gap-2 py-2">
-                  <div>
-                    <span className="font-medium text-slate-800">{l.companyName}</span>
-                    <span className="ml-2 text-xs text-slate-400">{stageLabels[l.stage]} · added {fmtDate(l.createdAt)}</span>
-                    {l.phone && <div className="text-xs text-slate-500">{l.phone}</div>}
+                <li key={l.id} className="py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-medium text-slate-800">{l.companyName}</span>
+                      <span className="ml-2 text-xs text-slate-400">{stageLabels[l.stage]} · added {fmtDate(l.createdAt)}</span>
+                      {l.phone && <div className="text-xs text-slate-500">{l.phone}</div>}
+                    </div>
+                    <QuickLogButton leadId={l.id} label="Log Call" variant="secondary" size="sm" />
                   </div>
-                  <QuickLogButton leadId={l.id} label="Log Call" variant="secondary" size="sm" />
+                  <ContactChips contacts={contactsFromMeta(l.meta)} />
                 </li>
               ))}
             </ul>
