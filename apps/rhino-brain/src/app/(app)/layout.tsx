@@ -45,6 +45,7 @@ const managerGroups: NavGroup[] = [
   ]},
   { title: "Finance & Reports", items: [
     { href: "/ar", label: "A/R Aging", icon: "💰" },
+    { href: "/reports/sales", label: "Sales Performance", icon: "💵" },
     { href: "/reports/sales-reps", label: "Rep Performance", icon: "▲" },
     { href: "/reports/customers", label: "Customer Reports", icon: "◔" },
   ]},
