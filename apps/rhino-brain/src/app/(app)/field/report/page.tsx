@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Badge, StatCard } from "@/components/ui/primitives";
 import { FieldReportFilters } from "@/components/field-report-filters";
+import { PhotoThumb } from "@/components/photo-thumb";
+import { createSignedUrl, isStorageConfigured } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,31 @@ export default async function FieldReportPage({ searchParams }: { searchParams: 
     }),
   ]);
 
+  // Visit photos (Log Visit) + scanned business cards live in the customer
+  // document vault (VISIT_PHOTO / BUSINESS_CARD storage folders), written in the
+  // same action as the visit with no FK back to it. Match them to each visit by
+  // customer + near-identical createdAt (they're written ms apart) so the owner
+  // sees them inline here — works for already-uploaded photos too, no migration.
+  const customerIds = [...new Set(visits.map(v => v.customerId).filter((x): x is string => !!x))];
+  const photoDocs = customerIds.length && isStorageConfigured()
+    ? await db.customerDocument.findMany({
+        where: {
+          customerId: { in: customerIds },
+          OR: [{ storagePath: { contains: "/VISIT_PHOTO/" } }, { storagePath: { contains: "/BUSINESS_CARD/" } }],
+        },
+        select: { id: true, customerId: true, createdAt: true, fileName: true, storagePath: true },
+      })
+    : [];
+  const PHOTO_WINDOW_MS = 5 * 60 * 1000;
+  // pre-sign server-side (report is manager/accounting-only, photos non-sensitive)
+  // so thumbnails render without a client round-trip per image
+  const signed = new Map<string, string>();
+  await Promise.all(photoDocs.map(async d => {
+    try { signed.set(d.id, await createSignedUrl(d.storagePath, 3600)); } catch { /* skip unreadable */ }
+  }));
+  const photosForVisit = (v: (typeof visits)[number]) =>
+    photoDocs.filter(d => d.customerId === v.customerId && Math.abs(d.createdAt.getTime() - v.createdAt.getTime()) <= PHOTO_WINDOW_MS);
+
   const byRep = new Map<string, typeof visits>();
   for (const v of visits) {
     const k = v.rep?.id ?? "unknown";
@@ -103,6 +130,7 @@ export default async function FieldReportPage({ searchParams }: { searchParams: 
             <ul className="divide-y divide-slate-100">
               {repVisits.map(v => {
                 const map = v.notes?.match(MAP_RE)?.[1];
+                const photos = photosForVisit(v);
                 return (
                   <li key={v.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                     <span className="w-16 shrink-0 tabular-nums text-slate-400">{fmtTime(v.occurredAt)}</span>
@@ -121,6 +149,14 @@ export default async function FieldReportPage({ searchParams }: { searchParams: 
                         <span className="text-xs text-slate-300">no check-in</span>
                       )}
                     </span>
+                    {photos.length > 0 && (
+                      <div className="flex w-full flex-wrap gap-1.5 pl-16">
+                        {photos.map(d => {
+                          const url = signed.get(d.id);
+                          return url ? <PhotoThumb key={d.id} url={url} fileName={d.fileName} className="h-14 w-14" /> : null;
+                        })}
+                      </div>
+                    )}
                   </li>
                 );
               })}
