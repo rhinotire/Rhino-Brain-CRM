@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import { uploadCustomerDocument, getDocumentDownloadUrl, deleteCustomerDocument } from "@/actions/documents";
 import { Badge, Button, Input, Select, Field } from "@/components/ui/primitives";
+import { Modal } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useToast } from "@/components/ui/toast";
 
@@ -11,6 +12,29 @@ export type DocRow = {
   id: string; type: string; fileName: string; expiresAt: string | null;
   sensitive: boolean; createdAt: string; uploadedBy: string;
 };
+
+const isImage = (fileName: string) => /\.(jpe?g|png|webp|gif|heic)$/i.test(fileName);
+
+/** Lazy image thumbnail: fetches a short-lived signed URL for a photo document
+ *  (visit photos, business cards…) so the owner can see it inline instead of
+ *  downloading. Permissions are enforced server-side by getDocumentDownloadUrl. */
+function DocThumb({ docId, alt, onOpen }: { docId: string; alt: string; onOpen: (url: string) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    getDocumentDownloadUrl(docId).then(r => { if (active) r.url ? setUrl(r.url) : setFailed(true); }).catch(() => active && setFailed(true));
+    return () => { active = false; };
+  }, [docId]);
+  if (failed) return null;
+  if (!url) return <span className="h-11 w-11 shrink-0 animate-pulse rounded border border-slate-200 bg-slate-100" />;
+  return (
+    <button type="button" onClick={() => onOpen(url)} title="Click to enlarge" className="shrink-0">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={alt} className="h-11 w-11 rounded border border-slate-200 object-cover transition hover:ring-2 hover:ring-brand-400" />
+    </button>
+  );
+}
 
 const DOC_TYPES: [string, string][] = [
   ["ACCOUNT_APPLICATION", "Account Application"],
@@ -29,6 +53,7 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady, i
   const canDownload = (d: DocRow) => !d.sensitive || isManager || (isAccounting && d.type === "CREDIT_CARD_AUTH");
   const [state, action] = useFormState(uploadCustomerDocument, null);
   const [docType, setDocType] = useState("ACCOUNT_APPLICATION");
+  const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -74,7 +99,12 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady, i
               </div>
               {ofType.map(d => (
                 <div key={d.id} className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
-                  <span className="truncate">{d.fileName}{d.expiresAt && ` · expires ${new Date(d.expiresAt).toLocaleDateString("en-US")}`}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    {isImage(d.fileName) && canDownload(d) && (
+                      <DocThumb docId={d.id} alt={d.fileName} onOpen={url => setLightbox({ url, name: d.fileName })} />
+                    )}
+                    <span className="truncate">{d.fileName}{d.expiresAt && ` · expires ${new Date(d.expiresAt).toLocaleDateString("en-US")}`}</span>
+                  </span>
                   <span className="flex shrink-0 gap-2">
                     {canDownload(d)
                       ? <button type="button" onClick={() => download(d.id)} className="text-brand-600 hover:underline">Download</button>
@@ -115,6 +145,18 @@ export function CustomerDocuments({ customerId, docs, isManager, storageReady, i
           Document storage is not configured yet. Admin: add <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> to the environment to enable uploads.
         </div>
       ) : null}
+
+      <Modal open={!!lightbox} onClose={() => setLightbox(null)} title={lightbox?.name ?? "Photo"}>
+        {lightbox && (
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-md object-contain" />
+            <div className="flex justify-end">
+              <a href={lightbox.url} target="_blank" rel="noopener" className="text-sm text-brand-600 hover:underline">Open full size ↗</a>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
