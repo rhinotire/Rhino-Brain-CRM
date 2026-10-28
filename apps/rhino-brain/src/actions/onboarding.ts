@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, isManager, inLocation } from "@/lib/auth";
+import { requireSession, hasPerm, inLocation } from "@/lib/auth";
 import { uploadEmployeeObject, isStorageConfigured } from "@/lib/storage";
 import { isValidRoutingNumber, type OnboardingData } from "@/lib/onboarding";
 import type { ActionResult } from "./auth";
@@ -23,7 +23,10 @@ const BASE = process.env.TWILIO_WEBHOOK_BASE ?? "https://rhino-brain-crm.vercel.
 /** Manager generates a 7-day tokenized link for the employee to fill on their phone. */
 export async function createOnboardingInvite(employeeId: string): Promise<{ ok?: boolean; url?: string; error?: string }> {
   const session = await requireSession();
-  if (!isManager(session)) return { error: "Managers only." };
+  // Sending an onboarding link is an HR task, gated on the HR permission (not
+  // the MANAGER role) so HR staff like Jacqueline can do it — owner request
+  // 2026-10-28. inLocation still scopes it to the sender's own company.
+  if (!hasPerm(session, "hr")) return { error: "No HR permission." };
   const emp = await db.employee.findUnique({ where: { id: employeeId }, select: { id: true, locationId: true } });
   if (!emp) return { error: "Employee not found." };
   if (!inLocation(session, emp.locationId)) return { error: "Not your company's employee." };
