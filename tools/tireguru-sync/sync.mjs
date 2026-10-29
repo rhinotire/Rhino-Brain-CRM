@@ -373,8 +373,11 @@ async function main() {
       for (const tag of ["FL", "TX"]) {
         const txn = files[`customer_txn_${tag}`];
         if (txn) {
+          // one transaction file feeds both: per-customer cadence + per-SKU velocity
           runImporter(`reorder ${tag}`,
             `npx tsx ../../import-tireguru-reorder.ts --file "${txn}" --location ${tag} --apply`);
+          runImporter(`velocity ${tag}`,
+            `npx tsx ../../import-tireguru-velocity.ts --file "${txn}" --location ${tag} --apply`);
         }
       }
     }

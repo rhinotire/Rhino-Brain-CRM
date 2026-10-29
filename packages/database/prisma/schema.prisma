@@ -1190,6 +1190,26 @@ model CustomerReorder {
   @@index([customerId])
 }
 
+// Per-SKU sell-through, mirrored from the same TireGuru "Customer Transaction
+// File" (reportID 83) as CustomerReorder. Joined to Product.sku + the company's
+// InventorySnapshot to drive restock suggestions: fast movers about to stock
+// out, and dead stock sitting unsold. One row per sku per company;
+// snapshot-replaced by import-tireguru-velocity.ts. sku = TireGuru item number.
+model ProductVelocity {
+  id          String   @id @default(cuid())
+  company     String // RHINO | EVERFLOW
+  sku         String // = Product.sku (TireGuru item number)
+  size        String?
+  description String?
+  unitsSold   Int // net units over the pull window (~180d)
+  firstSoldAt DateTime
+  lastSoldAt  DateTime
+  updatedAt   DateTime @default(now())
+
+  @@unique([company, sku])
+  @@index([company])
+}
+
 // Short-term SMS conversation log so the owner's follow-up texts ("其他便宜的")
 // carry context — the webhook feeds the last ~2h of turns back to the AI.
 model OwnerSmsLog {
