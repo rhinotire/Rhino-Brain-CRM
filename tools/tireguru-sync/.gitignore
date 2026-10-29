@@ -1,3 +1,6 @@
-node_modules/
-sync.log
+*.log
+*.lock
 *.png
+probe-*.mjs
+probe-*.json
+sample-*.xlsx

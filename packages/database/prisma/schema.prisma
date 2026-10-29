@@ -271,6 +271,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   customers            Customer[]         @relation("AssignedCustomers")
+  poolEvents           PoolEvent[]        @relation("PoolEvents")
   leads                Lead[]             @relation("AssignedLeads")
   reviewedLeads        Lead[]             @relation("ReviewedLeads")
   fieldRoute           FieldRoute?
@@ -357,6 +358,18 @@ model Customer {
   assignedRepId String?
   assignedRep   User?   @relation("AssignedCustomers", fields: [assignedRepId], references: [id])
 
+  // 公海 (customer pool): the pool is the ABSENCE of assignedRepId, never a stored flag.
+  // assignedAt starts the 90-day no-contact clock, so a freshly claimed account whose last
+  // contact was a year ago does not recycle on day one. poolWarnedAt records that the rep was
+  // actually warned — a clock alone would let the first sweep remove an account never shown as
+  // at-risk. lastSaleAt is sale evidence (newest Invoice.dueDate), because most sales go through
+  // TireGuru and never reach the CRM as a logged activity.
+  assignedAt   DateTime?
+  poolWarnedAt DateTime?
+  lastSaleAt   DateTime?
+  poolExempt   Boolean   @default(false)
+  poolEvents   PoolEvent[]
+
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id])
 
@@ -389,6 +402,32 @@ model Customer {
   @@index([status])
   @@index([lastContactAt])
   @@index([nextFollowUpAt])
+  @@index([poolWarnedAt])
+}
+
+/// Audit of every move in and out of the 公海 pool. A table rather than parsed activity
+/// text because the 10-per-7-days claim cap and the per-rep metrics need countable rows,
+/// and a RECYCLE note is attributed to the outgoing rep so notes alone cannot be told apart.
+model PoolEvent {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  repId      String?
+  rep        User?         @relation("PoolEvents", fields: [repId], references: [id])
+  kind       PoolEventKind
+  at         DateTime      @default(now())
+  reason     String?
+
+  @@index([customerId, at])
+  @@index([repId, at])
+}
+
+enum PoolEventKind {
+  CLAIM
+  RECYCLE
+  MANUAL_UNASSIGN
+  EXEMPT
+  UNEXEMPT
 }
 
 model Lead {
@@ -1126,6 +1165,29 @@ model PosSale {
 
   @@index([locationId, date])
   @@index([date])
+}
+
+// Per-customer purchase cadence, mirrored from the TireGuru "Customer
+// Transaction File" (reportID 83). Feeds the reorder / churn-risk alerts: a
+// customer whose days-since-last-purchase far exceeds their normal interval is
+// going quiet and the rep should call. One row per customer per company;
+// refreshed (snapshot-replaced) by import-tireguru-reorder.ts. customerId is a
+// best-effort name match to the CRM Customer (no FK — snapshot self-heals).
+model CustomerReorder {
+  id              String   @id @default(cuid())
+  company         String // RHINO | EVERFLOW
+  customerName    String // raw name from TireGuru
+  customerId      String? // matched CRM customer (name match, nullable)
+  lastPurchaseAt  DateTime
+  firstPurchaseAt DateTime
+  purchaseCount   Int
+  totalSales      Decimal  @db.Decimal(12, 2)
+  avgIntervalDays Int? // mean days between purchases in the window (null if <2)
+  updatedAt       DateTime @default(now())
+
+  @@unique([company, customerName])
+  @@index([company, lastPurchaseAt])
+  @@index([customerId])
 }
 
 // Short-term SMS conversation log so the owner's follow-up texts ("其他便宜的")
