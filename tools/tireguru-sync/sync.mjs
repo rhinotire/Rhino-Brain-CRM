@@ -42,11 +42,16 @@ const REPO_APP_DIR = resolve(HERE, "..", "..", "apps", "rhino-brain"); // import
 const CRED_FILE = join(homedir(), ".tireguru-sync.json");
 const LOGIN_MODE = process.argv.includes("--login");
 const NO_IMPORT = process.argv.includes("--no-import");
+// --only=customer_txn[,stock_status…] restricts the run to those report names
+// (handy for testing one report without a full ~5-min both-company sweep).
+const ONLY = (process.argv.find(a => a.startsWith("--only=")) || "").slice(7).split(",").map(s => s.trim()).filter(Boolean);
+const wantReport = (name) => ONLY.length === 0 || ONLY.includes(name);
 
 const now = new Date();
 const mdy = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
 const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+const d180ago = new Date(now.getTime() - 180 * 86400000); // reorder-cadence window
 
 const log = (line) => {
   const msg = `[${new Date().toISOString()}] ${line}`;
@@ -123,11 +128,30 @@ const salesReport = {
   },
 };
 
+// Customer Transaction File (reportID 83): one invoice line per row with the
+// customer, date, item/size and qty/sales — rolled up per customer into the
+// reorder-cadence mirror. The form carries many filters, so instead of a
+// pre-mapped field set we serialize the live form (serializeForm) and override
+// only the window (range=1 Custom + 180d), grouping and chk_xls; locationIDs is
+// scoped to the running company's location so the pull is per-company.
+const reorderReport = {
+  name: "customer_txn",
+  act: "rep_inv_transaction_file",
+  serializeForm: {
+    url: "/reports/inventory/transaction_file.php?customer=1",
+    overrides: {
+      range: "1", date_1: mdy(d180ago), date_2: mdy(now),
+      groupby: "item", trans_type: "all", output: "combined",
+      amount_inv: "sell", chk_xls: "1",
+    },
+  },
+};
+
 /** Both companies share one TireGuru account; "Switch Location" moves the
  * session. 603 = Rhino Tire USA [1], 904 = Everflow Tires & Wheels [05]. */
 const PHASES = [
-  { tag: "FL", locID: "603", expect: "Rhino Tire",     reports: [stockReport, priceReport, agedReport, salesReport] },
-  { tag: "TX", locID: "904", expect: "Everflow",       reports: [stockReport, priceReport, salesReport] },
+  { tag: "FL", locID: "603", expect: "Rhino Tire",     reports: [stockReport, priceReport, agedReport, salesReport, reorderReport] },
+  { tag: "TX", locID: "904", expect: "Everflow",       reports: [stockReport, priceReport, salesReport, reorderReport] },
 ];
 const HOME_LOC_ID = "603"; // always switch back to Rhino FL at the end
 
@@ -140,7 +164,42 @@ async function switchLocation(page, locID, expect) {
   if (!body.includes(expect)) throw new Error(`location switch to ${expect} not confirmed`);
 }
 
+/** Reports with a big filter form: serialize the live form exactly as the UI
+ * would submit it (default-checked radios, selected options) and override only
+ * the given fields + scope locationIDs to this company's location. Avoids the
+ * empty-report trap of a hand-mapped partial field set. */
+async function pullSerializedReport(page, rep, tag, locID) {
+  const { url, overrides } = rep.serializeForm;
+  await page.goto(`${BASE}${url}`, { waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForTimeout(1500);
+  const html = await page.evaluate(async ({ overrides, locID }) => {
+    const f = document.querySelector("form");
+    const body = new URLSearchParams();
+    for (const [k, v] of new FormData(f).entries()) if (typeof v === "string") body.append(k, v);
+    for (const [k, v] of Object.entries(overrides)) body.set(k, v);
+    body.set("locationIDs", locID); // per-company scope
+    const r = await fetch("/reports/reportManager.php", { method: "POST", body });
+    return await r.text();
+  }, { overrides, locID });
+  const memkey = (html.match(/mem[a-f0-9]{10,}/i) || [])[0];
+  if (!memkey) throw new Error("no memkey in reportManager response (report may have errored)");
+  const dl = await page.evaluate(async ({ act, memkey, locID }) => {
+    const r = await fetch(`/reports/show_reports.php?locID=${locID}&act=${act}&memkey=${memkey}&data=`);
+    if (!r.ok) throw new Error(`show_reports ${r.status}`);
+    const blob = await r.blob();
+    const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+    return { ct: r.headers.get("content-type") || "", b64 };
+  }, { act: rep.act, memkey, locID });
+  const buf = Buffer.from(dl.b64, "base64");
+  if (buf.subarray(0, 2).toString("latin1") !== "PK") throw new Error(`not an xlsx (content-type ${dl.ct}, ${buf.length} bytes)`);
+  const file = join(OUT_DIR, `${stamp}_${rep.name}_${tag}.xlsx`);
+  writeFileSync(file, buf);
+  log(`✓ [${tag}] ${rep.name}: ${buf.length} bytes → ${file}`);
+  return file;
+}
+
 async function pullReport(page, rep, tag, locID) {
+  if (rep.serializeForm) return pullSerializedReport(page, rep, tag, locID);
   const fields = { ...rep.fields };
   if (rep.collectOptions) {
     const { pageUrl, selectName, fieldName } = rep.collectOptions;
@@ -273,6 +332,7 @@ async function main() {
         continue;
       }
       for (const rep of phase.reports) {
+        if (!wantReport(rep.name)) continue;
         try {
           files[`${rep.name}_${phase.tag}`] = await pullReport(page, rep, phase.tag, phase.locID);
         } catch (e) {
@@ -308,6 +368,13 @@ async function main() {
         if (sales) {
           runImporter(`sales ${tag}`,
             `npx tsx ../../import-tireguru-sales.ts --file "${sales}" --location ${tag} --apply`);
+        }
+      }
+      for (const tag of ["FL", "TX"]) {
+        const txn = files[`customer_txn_${tag}`];
+        if (txn) {
+          runImporter(`reorder ${tag}`,
+            `npx tsx ../../import-tireguru-reorder.ts --file "${txn}" --location ${tag} --apply`);
         }
       }
     }
