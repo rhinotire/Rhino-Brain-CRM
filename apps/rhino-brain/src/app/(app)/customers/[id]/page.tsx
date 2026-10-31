@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { findBlacklistMatch } from "@rhino/services";
+import { findBlacklistMatch, decidePool, hasProtectingQuote } from "@rhino/services";
 import { db } from "@/lib/db";
 import { requireSession, isManager, isAccounting, locationScope } from "@/lib/auth";
 import { Card, Badge, Button } from "@/components/ui/primitives";
@@ -35,7 +35,9 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
   const customer = await db.customer.findUnique({
     where: { id: params.id },
     include: {
-      assignedRep: { select: { id: true, name: true } },
+      // role + active feed the 公海 countdown: a manager-held account never recycles, and a
+      // deactivated rep's account pools immediately.
+      assignedRep: { select: { id: true, name: true, role: true, active: true } },
       tags: { include: { tag: true } },
       activities: { orderBy: { occurredAt: "desc" }, take: 50, include: { rep: { select: { name: true } }, quote: { select: { quoteNumber: true } } } },
       quotes: { orderBy: { quoteDate: "desc" }, take: 50, include: { rep: { select: { name: true } } } },
@@ -92,8 +94,40 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     website: customer.website,
   });
 
+  // 公海: the rep who holds this account is the one who can stop it leaving, so the countdown and
+  // the remedy belong here rather than only on a manager's report.
+  const poolNow = new Date();
+  const pool = decidePool(
+    {
+      id: customer.id, assignedRepId: customer.assignedRepId, locationId: customer.locationId,
+      status: customer.status, poolExempt: customer.poolExempt, assignedAt: customer.assignedAt,
+      lastContactAt: customer.lastContactAt, lastSaleAt: customer.lastSaleAt,
+      poolWarnedAt: customer.poolWarnedAt, nextFollowUpAt: customer.nextFollowUpAt,
+      repRole: customer.assignedRep?.role ?? null, repActive: customer.assignedRep?.active ?? null,
+      protectingQuote: hasProtectingQuote(customer.quotes, poolNow),
+    },
+    poolNow,
+  );
+
   return (
     <div className="space-y-5">
+      {pool.state === "HELD_WARNING" && (
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
+          <p className="text-base font-bold text-amber-900">
+            ⏳ Returns to the 公海 pool{pool.daysLeft !== null && pool.daysLeft > 0 ? ` in ${pool.daysLeft} days` : " shortly"}
+          </p>
+          <p className="mt-1 text-sm text-amber-900">
+            {pool.reason}. Log a call, email, text, visit or quote — or let a new sale come through — and the 90 days
+            start again. Once it returns to the pool any rep in this company can claim it.
+          </p>
+        </div>
+      )}
+      {pool.state === "HELD_RECYCLE" && (
+        <div className="rounded-xl border-2 border-red-500 bg-red-50 p-4">
+          <p className="text-base font-bold text-red-700">⏳ Due to return to the 公海 pool</p>
+          <p className="mt-1 text-sm text-red-700">{pool.reason}. Log a contact now to keep it.</p>
+        </div>
+      )}
       {blacklisted && (
         <div className="rounded-xl border-2 border-red-600 bg-red-50 p-4">
           <p className="text-base font-bold text-red-700">⛔ BLACKLISTED — DO NOT ENGAGE</p>

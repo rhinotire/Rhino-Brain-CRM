@@ -13,7 +13,7 @@ import {
 } from "@/lib/domain";
 import { CustomerType } from "@prisma/client";
 import type { Prisma, CustomerStatus, ProductCategory } from "@prisma/client";
-import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES } from "@rhino/services";
+import { buildCustomerFilterWhere, CUSTOMER_FILTER_STATES, decidePool, hasProtectingQuote } from "@rhino/services";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,19 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       where,
       orderBy: { updatedAt: "desc" },
       take: PAGE_SIZE,
-      include: { assignedRep: { select: { name: true } }, tags: { include: { tag: true } }, location: { select: { shortTag: true, name: true, color: true } } },
+      include: {
+        // role + active feed decidePool: a manager-held account never recycles, and a deactivated
+        // rep's account pools immediately, so a badge drawn without them would be wrong.
+        assignedRep: { select: { name: true, role: true, active: true } },
+        tags: { include: { tag: true } },
+        location: { select: { shortTag: true, name: true, color: true } },
+        // Only the statuses that can protect an account, so this stays a narrow join.
+        quotes: {
+          where: { status: { in: ["SENT", "FOLLOW_UP_NEEDED", "ACCEPTED"] } },
+          select: { status: true, expirationDate: true, quoteDate: true, decidedAt: true },
+          take: 20,
+        },
+      },
     }),
     seesAll ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     db.customer.count({ where }),
@@ -151,6 +163,17 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         <tbody>
           {customers.map(c => {
             const t = customerTemperature(c.lastContactAt, now);
+            // 公海: warn the rep BEFORE the account leaves them. The remedy is one logged call.
+            const pool = decidePool(
+              {
+                id: c.id, assignedRepId: c.assignedRepId, locationId: c.locationId, status: c.status,
+                poolExempt: c.poolExempt, assignedAt: c.assignedAt, lastContactAt: c.lastContactAt,
+                lastSaleAt: c.lastSaleAt, poolWarnedAt: c.poolWarnedAt, nextFollowUpAt: c.nextFollowUpAt,
+                repRole: c.assignedRep?.role ?? null, repActive: c.assignedRep?.active ?? null,
+                protectingQuote: hasProtectingQuote(c.quotes, now),
+              },
+              now,
+            );
             return (
               <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
                 <td className="px-3 py-2">
@@ -159,6 +182,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
                     <span className="ml-1.5 align-middle text-red-500" title={`Missing ${[!c.contactCell && "cell", !c.email && "email"].filter(Boolean).join(" & ")}`}>⚠</span>
                   )}
                   <div className="text-xs text-slate-400">{c.city}{c.city && c.state ? ", " : ""}{c.state}</div>
+                  {pool.state === "HELD_WARNING" && (
+                    <div
+                      className="mt-0.5 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800"
+                      title={`${pool.reason}. Log a call, email, visit or quote — or a new sale — to reset it.`}
+                    >
+                      ⏳ returns to pool {pool.daysLeft !== null && pool.daysLeft > 0 ? `in ${pool.daysLeft} days` : "soon"}
+                    </div>
+                  )}
                 </td>
                 {showLocCol && (
                   <td className="px-3 py-2">
