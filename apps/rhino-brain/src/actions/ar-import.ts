@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { refreshLastSale } from "@rhino/services";
 import { db } from "@/lib/db";
 import { requireManager, defaultLocationId } from "@/lib/auth";
 
@@ -81,6 +82,18 @@ export async function importArInvoices(fileName: string, rows: ArRow[]): Promise
   await db.importBatch.create({
     data: { entity: "AR_INVOICES", fileName, rowCount: rows.length, successful: rows.length, failed: 0, userId: session.userId },
   });
+
+  // Refresh the 公海 pool's sale evidence from the invoices just imported. A recent sale protects
+  // an account from returning to the pool, and most sales never reach the CRM as a logged activity,
+  // so this is the only signal that covers a customer who buys at the TireGuru counter.
+  // Recomputed wholesale (not just for this company) because the import is a snapshot replace: a
+  // customer can stop having invoices, and a stale date would protect a dead account.
+  // Deliberately non-fatal — a failure here must not lose an A/R import the user just made.
+  try {
+    await refreshLastSale(db);
+  } catch (e) {
+    console.error("[ar-import] lastSaleAt refresh failed; A/R import itself succeeded:", e);
+  }
 
   revalidatePath("/ar");
   revalidatePath("/settings/import");
