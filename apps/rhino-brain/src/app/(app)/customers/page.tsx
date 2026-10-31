@@ -91,7 +91,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   // matchingTotal is counted with the SAME `where`, because the list is capped at 200 rows and the
   // header used to show that cap — so it read "(200)" whatever the real number was, and there was
   // nowhere in the app that showed how many customers exist.
-  const [customers, reps, matchingTotal] = await Promise.all([
+  const [customers, reps, matchingTotal, poolCount] = await Promise.all([
     db.customer.findMany({
       where,
       orderBy: { updatedAt: "desc" },
@@ -100,6 +100,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
     }),
     seesAll ? db.user.findMany({ where: { active: true, ...locationScope(session) }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
     db.customer.count({ where }),
+    // Pool size for THIS user's company — same definition as /customers/pool, not the filtered list.
+    db.customer.count({
+      where: {
+        assignedRepId: null,
+        locationId: { not: null },
+        status: { notIn: ["LOST", "DO_NOT_CONTACT"] },
+        poolExempt: false,
+        ...locationScope(session),
+      },
+    }),
   ]);
   const truncated = matchingTotal > customers.length;
 
@@ -113,6 +123,13 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           </span>
         </h1>
         <div className="flex gap-2">
+          {/* 公海: discoverable without being told, and the count is the point — an empty pool needs no visit. */}
+          <Link href="/customers/pool" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            公海 Pool
+            {poolCount > 0 && (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">{poolCount}</span>
+            )}
+          </Link>
           {manager && <Link href="/customers/duplicates" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">🧬 Merge Duplicates</Link>}
           {manager && <a href="/api/export/customers" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Export CSV</a>}
           {canWrite && <BlankAccountInviteButton />}
