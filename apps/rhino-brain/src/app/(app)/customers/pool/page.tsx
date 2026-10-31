@@ -103,7 +103,7 @@ export default async function CustomerPoolPage({ searchParams }: { searchParams:
           <strong>{buyingCount}</strong> {buyingCount === 1 ? "customer in this pool has" : "customers in this pool have"} bought
           from us in the last {BUYING_DAYS} days with no rep on the account. They are at the top of the list.
           <span className="mt-1 block text-xs text-amber-800">
-            "Last invoice" is the invoice due date — the sale plus payment terms — so for a recent purchase it can be a
+            “Last invoice” is the invoice due date — the sale plus payment terms — so for a recent purchase it can be a
             future date. Counter sales reach the CRM through the A/R import, not as a logged call.
           </span>
         </div>
