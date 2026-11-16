@@ -147,11 +147,25 @@ const reorderReport = {
   },
 };
 
+// Customer Master List (act=rep_cust_mast): the roster of active customers, so
+// customers added in TireGuru appear in BRAIN. split_names=1 gives clean
+// First/Last/Business columns. onceDaily — the roster changes slowly, so it is
+// pulled only on the first (midnight-ish) run of the day, not every 2h.
+const customerMasterReport = {
+  name: "customer_master",
+  act: "rep_cust_mast",
+  onceDaily: true,
+  serializeForm: {
+    url: "/reports/customers/customer_master_list.php",
+    overrides: { split_names: "1", chk_xls: "1" },
+  },
+};
+
 /** Both companies share one TireGuru account; "Switch Location" moves the
  * session. 603 = Rhino Tire USA [1], 904 = Everflow Tires & Wheels [05]. */
 const PHASES = [
-  { tag: "FL", locID: "603", expect: "Rhino Tire",     reports: [stockReport, priceReport, agedReport, salesReport, reorderReport] },
-  { tag: "TX", locID: "904", expect: "Everflow",       reports: [stockReport, priceReport, salesReport, reorderReport] },
+  { tag: "FL", locID: "603", expect: "Rhino Tire",     reports: [stockReport, priceReport, agedReport, salesReport, reorderReport, customerMasterReport] },
+  { tag: "TX", locID: "904", expect: "Everflow",       reports: [stockReport, priceReport, salesReport, reorderReport, customerMasterReport] },
 ];
 const HOME_LOC_ID = "603"; // always switch back to Rhino FL at the end
 
@@ -333,6 +347,8 @@ async function main() {
       }
       for (const rep of phase.reports) {
         if (!wantReport(rep.name)) continue;
+        // onceDaily reports run only on the midnight-ish run (or when --only forces them)
+        if (rep.onceDaily && ONLY.length === 0 && now.getHours() >= 2) continue;
         try {
           files[`${rep.name}_${phase.tag}`] = await pullReport(page, rep, phase.tag, phase.locID);
         } catch (e) {
@@ -378,6 +394,13 @@ async function main() {
             `npx tsx ../../import-tireguru-reorder.ts --file "${txn}" --location ${tag} --apply`);
           runImporter(`velocity ${tag}`,
             `npx tsx ../../import-tireguru-velocity.ts --file "${txn}" --location ${tag} --apply`);
+        }
+      }
+      for (const tag of ["FL", "TX"]) {
+        const master = files[`customer_master_${tag}`];
+        if (master) {
+          runImporter(`customers ${tag}`,
+            `npx tsx ../../import-tireguru-customers.ts --file "${master}" --location ${tag} --apply`);
         }
       }
     }
