@@ -1210,6 +1210,50 @@ model ProductVelocity {
   @@index([company])
 }
 
+// Per-(customer, tire size) purchase history from the TireGuru Customer
+// Transaction File (reportID 83) — powers "new arrival / price drop" broadcasts:
+// find the customers who actually buy a given size. One row per customer per
+// size per company; snapshot-replaced by import-tireguru-sizes.ts.
+model CustomerSizeHistory {
+  id           String   @id @default(cuid())
+  company      String // RHINO | EVERFLOW
+  customerName String
+  customerId   String? // best-effort CRM match
+  sizeKey      String // digits-only size key, e.g. "2358016"
+  sizeDisplay  String // "235/80R16"
+  brand        String? // most-recent brand seen for this size
+  units        Int
+  lastBoughtAt DateTime
+  updatedAt    DateTime @default(now())
+
+  @@unique([company, customerName, sizeKey])
+  @@index([company, sizeKey])
+  @@index([customerId])
+}
+
+// Audit log of a size/brand broadcast the owner sent (who, what, to how many).
+model Broadcast {
+  id          String   @id @default(cuid())
+  company     String
+  sizeKey     String?
+  label       String // human summary, e.g. "New stock: 235/80R16"
+  message     String
+  sentCount   Int
+  skippedCount Int     @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([company, createdAt])
+}
+
+// SMS opt-out suppression, keyed by phone (last 10 digits) so a STOP is honored
+// even when the texter doesn't match a customer. Set by the Twilio SMS webhook.
+model SmsOptOut {
+  id        String   @id @default(cuid())
+  phone     String   @unique // last 10 digits
+  createdAt DateTime @default(now())
+}
+
 // Short-term SMS conversation log so the owner's follow-up texts ("其他便宜的")
 // carry context — the webhook feeds the last ~2h of turns back to the AI.
 model OwnerSmsLog {
