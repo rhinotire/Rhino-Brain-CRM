@@ -157,7 +157,10 @@ const customerMasterReport = {
   onceDaily: true,
   serializeForm: {
     url: "/reports/customers/customer_master_list.php",
-    overrides: { split_names: "1", chk_xls: "1" },
+    // split_names → First/Last/Business columns; used[] adds Address + Phone
+    // columns so new customers come in with contact details (and existing
+    // phone-less customers get enriched).
+    overrides: { split_names: "1", chk_xls: "1", "used[]": ["PHONE", "ADDR", "SALES"] },
   },
 };
 
@@ -188,9 +191,14 @@ async function pullSerializedReport(page, rep, tag, locID) {
   await page.waitForTimeout(1500);
   const html = await page.evaluate(async ({ overrides, locID }) => {
     const f = document.querySelector("form");
+    const arrayKeys = new Set(Object.keys(overrides).filter(k => Array.isArray(overrides[k])));
     const body = new URLSearchParams();
-    for (const [k, v] of new FormData(f).entries()) if (typeof v === "string") body.append(k, v);
-    for (const [k, v] of Object.entries(overrides)) body.set(k, v);
+    // copy the live form defaults, dropping any key we override as an array (we re-append those)
+    for (const [k, v] of new FormData(f).entries()) if (typeof v === "string" && !arrayKeys.has(k)) body.append(k, v);
+    for (const [k, v] of Object.entries(overrides)) {
+      if (Array.isArray(v)) v.forEach(x => body.append(k, x));
+      else body.set(k, v);
+    }
     body.set("locationIDs", locID); // per-company scope
     const r = await fetch("/reports/reportManager.php", { method: "POST", body });
     return await r.text();
